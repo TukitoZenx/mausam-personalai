@@ -1,33 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'router/app_router.dart';
+import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MausamApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MausamApp extends StatelessWidget {
+  const MausamApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp.router(
       title: 'Mausam PersonalAI',
-      home: HomeScreen(),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mausam PersonalAI'),
-      ),
-      body: const Center(
-        child: Text('Mausam PersonalAI'),
-      ),
+      theme: AppTheme.lightTheme,
+      routerConfig: appRouter,
+      debugShowCheckedModeBanner: false,
     );
   }
 }
