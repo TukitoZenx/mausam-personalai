@@ -77,8 +77,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             idToken: user.idToken,
           );
 
+      final userState = ref.read(userProvider);
       if (!mounted) return;
-      context.go('/home');
+      if (userState.onboardingCompleted || userState.selectedPersona != null) {
+        context.go('/home');
+      } else {
+        context.go('/onboarding');
+      }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501') return;
       _showErrorSnackBar(e.message ?? e.code);
@@ -150,8 +155,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             idToken: user.idToken,
           );
 
+      final userState = ref.read(userProvider);
       if (!mounted) return;
-      context.go('/home');
+      if (userState.onboardingCompleted || userState.selectedPersona != null) {
+        context.go('/home');
+      } else {
+        context.go('/onboarding');
+      }
     } on FirebaseAuthException catch (e) {
       _showErrorSnackBar(e.message ?? e.code);
     } catch (e) {

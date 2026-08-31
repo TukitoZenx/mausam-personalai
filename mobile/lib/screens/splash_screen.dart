@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/user_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -62,9 +63,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     final authService = ref.read(authServiceProvider);
     final user = authService.currentUser ?? FirebaseAuth.instance.currentUser;
+    final userState = ref.read(userProvider);
 
     if (user != null) {
-      context.go('/home');
+      if (userState.onboardingCompleted || userState.selectedPersona != null) {
+        context.go('/home');
+      } else {
+        context.go('/onboarding');
+      }
     } else {
       context.go('/login');
     }

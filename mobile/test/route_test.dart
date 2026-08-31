@@ -60,7 +60,7 @@ void main() {
     // Onboarding
     router.go('/onboarding');
     await tester.pumpAndSettle();
-    expect(find.text('Onboarding Screen'), findsOneWidget);
+    expect(find.text('Choose Your Persona'), findsOneWidget);
 
     // Forecast
     router.go('/forecast');
