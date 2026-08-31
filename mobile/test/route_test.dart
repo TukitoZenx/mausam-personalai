@@ -1,7 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/router/app_router.dart';
+import 'package:mobile/screens/home_screen.dart';
+
+class FakeUser extends Fake implements User {
+  @override
+  String get uid => 'fake_uid';
+  @override
+  String get email => 'test@mausam.ai';
+}
 
 void main() {
   testWidgets('App renders SplashScreen at root', (WidgetTester tester) async {
@@ -49,13 +59,16 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          authStateProvider.overrideWith((ref) => Stream.value(FakeUser())),
+        ],
         child: MaterialApp.router(
           routerConfig: router,
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Home Screen'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
 
     // Onboarding
     router.go('/onboarding');
