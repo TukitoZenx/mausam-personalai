@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/debug_navigation_drawer.dart';
 
 class SavedLocationsScreen extends StatelessWidget {
   const SavedLocationsScreen({super.key});
@@ -10,7 +9,6 @@ class SavedLocationsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Saved Locations'),
       ),
-      drawer: const DebugNavigationDrawer(),
       body: const Center(
         child: Text(
           'Saved Locations Screen',

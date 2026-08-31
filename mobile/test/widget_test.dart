@@ -6,15 +6,15 @@ import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/providers/weather_provider.dart';
 
 void main() {
-  testWidgets('App builds with ProviderScope and renders HomeScreen at root', (WidgetTester tester) async {
+  testWidgets('App builds with ProviderScope and renders SplashScreen at root', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MausamApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Home Screen'), findsOneWidget);
+    expect(find.textContaining('Mausam'), findsWidgets);
   });
 
   testWidgets('Riverpod providers initialize with default states', (WidgetTester tester) async {

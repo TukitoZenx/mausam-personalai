@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/debug_navigation_drawer.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,7 +9,6 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Home'),
       ),
-      drawer: const DebugNavigationDrawer(),
       body: const Center(
         child: Text(
           'Home Screen',

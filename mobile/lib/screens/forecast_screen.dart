@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/debug_navigation_drawer.dart';
 
 class ForecastScreen extends StatelessWidget {
   const ForecastScreen({super.key});
@@ -10,7 +9,6 @@ class ForecastScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Forecast'),
       ),
-      drawer: const DebugNavigationDrawer(),
       body: const Center(
         child: Text(
           'Forecast Screen',

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "YOUR_PROJECT_NUMBER_PLACEHOLDER",
+    "project_id": "mausam-personalai-3cabb",
+    "storage_bucket": "mausam-personalai-3cabb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID_PLACEHOLDER",
+        "android_client_info": {
+          "package_name": "com.mausam.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "YOUR_GOOGLE_CLIENT_ID_PLACEHOLDER.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mausam.mobile",
+            "certificate_hash": "5c0cfb6cdc3d07c21d87e0d37f07f9edfaba308c"
+          }
+        },
+        {
+          "client_id": "YOUR_GOOGLE_WEB_CLIENT_ID_PLACEHOLDER.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "YOUR_FIREBASE_API_KEY_PLACEHOLDER"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "YOUR_GOOGLE_WEB_CLIENT_ID_PLACEHOLDER.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
