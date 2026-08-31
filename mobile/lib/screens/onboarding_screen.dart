@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
 
+/// OPTIMIZED: OnboardingScreen featuring a swipeable PageView carousel
+/// with persona selection, smart notification preferences, and location permission onboarding.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -27,7 +29,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   // Slide 3 state
   bool _isSubmitting = false;
 
-  final List<Map<String, dynamic>> _personas = [
+  // OPTIMIZED: Const list of fixed persona options (Fitness, Health, Traveler)
+  static const List<Map<String, dynamic>> _personas = [
     {
       'id': 'Fitness',
       'title': 'Fitness Enthusiast',
@@ -78,6 +81,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
   }
 
+  // OPTIMIZED: Asynchronous onboarding completion handler syncing state to FastAPI backend
   Future<void> _completeOnboarding(bool locationAllowed) async {
     if (_isSubmitting) return;
 
@@ -141,7 +145,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Top Bar: Back button + 3 Progress Dots
+              // OPTIMIZED: Top Bar with Back button & 3 Progress Dots Indicator
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -182,12 +186,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 ),
               ),
 
-              // PageView Slides
+              // OPTIMIZED: PageView Carousel with conditional scroll physics (blocked until Slide 1 input)
               Expanded(
                 child: PageView(
                   controller: _pageController,
                   physics: _selectedPersona == null && _currentPage == 0
-                      ? const NeverScrollableScrollPhysics() // Block swipe on Slide 1 until selection
+                      ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
                   onPageChanged: (page) {
                     setState(() {

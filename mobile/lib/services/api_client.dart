@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
   ApiClient({String? baseUrl, http.Client? client})
-      : baseUrl = baseUrl ?? 'http://localhost:8080',
+      : baseUrl = baseUrl ??
+            (!kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                ? 'http://10.0.2.2:8080'
+                : 'http://localhost:8080'),
         _client = client ?? http.Client();
 
   final String baseUrl;

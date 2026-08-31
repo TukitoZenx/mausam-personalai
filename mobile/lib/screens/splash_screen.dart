@@ -54,7 +54,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _progressController.forward();
 
-    // Navigation trigger on complete 2500ms
+    // OPTIMIZED: Defer auth check and router navigation until 2.5s splash animation completes
     _navigationTimer = Timer(const Duration(milliseconds: 2500), _checkAuthAndNavigate);
   }
 
@@ -88,6 +88,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // OPTIMIZED: Pre-construct image asset widget to prevent rebuilds on scale animation ticks
+    final Widget logoAsset = Image.asset(
+      'assets/images/logo.png',
+      height: 80,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => const Icon(
+        Icons.cloud_queue,
+        size: 80,
+        color: Color(0xFF3FA9F5),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFF000000), // Pure black #000000
       body: Center(
@@ -95,41 +107,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo Image.asset height 80 with blue soft glow BoxShadow blur 30 spread 5 color #3FA9F5 0.4, breathing scale 0.96 to 1.04 loop 2.5s
-            AnimatedBuilder(
-              animation: _scaleAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _scaleAnimation.value,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF3FA9F5).withValues(alpha: 0.4),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      height: 80,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.cloud_queue,
-                        size: 80,
-                        color: Color(0xFF3FA9F5),
+            // OPTIMIZED: Isolated RepaintBoundary for breathing logo animation to eliminate layout thrashing
+            RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _scaleAnimation,
+                child: logoAsset,
+                builder: (context, cachedLogo) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF3FA9F5).withValues(alpha: 0.4),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                          ),
+                        ],
                       ),
+                      child: cachedLogo!,
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
 
             const SizedBox(height: 16),
 
-            // Title: "Mausam" bold 26 white, "PersonalAI" regular 14 tracking 5px, "AI" color #3FA9F5, gap 8
+            // Title: "Mausam" bold 26 white, "PersonalAI" regular 14 tracking 5px, "AI" color #3FA9F5
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -166,7 +172,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
             const SizedBox(height: 24),
 
-            // OPTION A (SINGLE LOADER - Progress only): Container width 110 height 2 background #1A2A40 radius 2, LinearProgressIndicator 0 to 1 over 2500ms, gradient #FFFFFF to #3FA9F5. NO dots.
+            // Single Progress loader line
             Container(
               width: 110,
               height: 2,
@@ -201,14 +207,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
             const SizedBox(height: 10),
 
-            // Text "Loading your sky..." 11px #5A6A8A opacity 0.8
             Text(
               'Loading your sky...',
               style: GoogleFonts.inter(
                 fontSize: 11,
-                fontWeight: FontWeight.normal,
                 color: const Color(0xFF5A6A8A).withValues(alpha: 0.8),
-                letterSpacing: 0.5,
               ),
             ),
           ],

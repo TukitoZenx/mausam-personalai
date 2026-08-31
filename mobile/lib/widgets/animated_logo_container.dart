@@ -62,15 +62,29 @@ class _AnimatedLogoContainerState extends State<AnimatedLogoContainer>
   Widget build(BuildContext context) {
     final double logoHeight = widget.height;
 
-    return SizedBox(
-      height: logoHeight + 12,
-      child: AnimatedBuilder(
-        animation: Listenable.merge([
-          _floatAnimation,
-          _sunPulseAnimation,
-          _rainController,
-        ]),
-        builder: (context, child) {
+    // OPTIMIZED: Cache child Image widget so asset isn't re-instantiated on every animation tick
+    final Widget logoImage = Image.asset(
+      'assets/images/logo.png',
+      height: logoHeight,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => Icon(
+        Icons.cloud_queue,
+        size: logoHeight,
+        color: const Color(0xFF3FA9F5),
+      ),
+    );
+
+    return RepaintBoundary(
+      child: SizedBox(
+        height: logoHeight + 12,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            _floatAnimation,
+            _sunPulseAnimation,
+            _rainController,
+          ]),
+          child: logoImage,
+        builder: (context, cachedLogo) {
           return Transform.translate(
             offset: Offset(0, _floatAnimation.value),
             child: Stack(
@@ -101,17 +115,8 @@ class _AnimatedLogoContainerState extends State<AnimatedLogoContainer>
                   ),
                 ),
 
-                // Transparent logo PNG
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: logoHeight,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.cloud_queue,
-                    size: logoHeight,
-                    color: const Color(0xFF3FA9F5),
-                  ),
-                ),
+                // Cached Transparent logo PNG
+                cachedLogo!,
 
                 // 3 small blue pill raindrops falling from cloud bottom with stagger
                 Positioned(
@@ -148,6 +153,7 @@ class _AnimatedLogoContainerState extends State<AnimatedLogoContainer>
           );
         },
       ),
-    );
+    ),
+  );
   }
 }
