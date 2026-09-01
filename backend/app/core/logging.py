@@ -1,8 +1,9 @@
 import logging
 import sys
 import time
-from starlette.middleware.base import BaseHTTPMiddleware
+
 from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logging.basicConfig(
     level=logging.INFO,

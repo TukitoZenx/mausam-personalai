@@ -1,5 +1,6 @@
-from typing import Optional
+
 from pydantic import BaseModel
+
 
 class AlertResponse(BaseModel):
     id: str
@@ -11,5 +12,5 @@ class AlertResponse(BaseModel):
 
 class AlertSubscription(BaseModel):
     enabled: bool
-    push_token: Optional[str] = None
-    alert_types: Optional[list[str]] = None
+    push_token: str | None = None
+    alert_types: list[str] | None = None

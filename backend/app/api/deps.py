@@ -1,10 +1,13 @@
-from typing import Optional, Dict, Any
+from typing import Any
+
 from fastapi import Header
+
 from app.core.exceptions import UnauthorizedException
 
+
 async def get_current_user(
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
+    authorization: str | None = Header(None)
+) -> dict[str, Any]:
     if not authorization or not authorization.startswith("Bearer "):
         raise UnauthorizedException("Missing or invalid Authorization header. Expected Bearer token.")
 

@@ -1,9 +1,15 @@
-from typing import Dict, Any
-from app.schemas.personalization import PersonalizedHomeResponse, HomeCard, InteractionEvent
+from typing import Any
+
+from app.schemas.personalization import (
+    HomeCard,
+    InteractionEvent,
+    PersonalizedHomeResponse,
+)
+
 
 class PersonalizationService:
     @staticmethod
-    async def get_home_feed(user: Dict[str, Any]) -> PersonalizedHomeResponse:
+    async def get_home_feed(user: dict[str, Any]) -> PersonalizedHomeResponse:
         return PersonalizedHomeResponse(
             persona="Fitness",
             greeting="Good morning! Perfect day for outdoor running.",
@@ -28,7 +34,7 @@ class PersonalizationService:
         )
 
     @staticmethod
-    async def record_interaction(user: Dict[str, Any], payload: InteractionEvent) -> Dict[str, Any]:
+    async def record_interaction(user: dict[str, Any], payload: InteractionEvent) -> dict[str, Any]:
         return {
             "card_id": payload.card_id,
             "action_type": payload.action_type,

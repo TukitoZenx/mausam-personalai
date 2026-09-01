@@ -1,11 +1,12 @@
-from typing import Dict, Any
+from typing import Any
+
 from app.schemas.user import UserProfileUpdate
 
-_user_db: Dict[str, Dict[str, Any]] = {}
+_user_db: dict[str, dict[str, Any]] = {}
 
 class UserService:
     @staticmethod
-    async def get_user_profile(user: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_user_profile(user: dict[str, Any]) -> dict[str, Any]:
         uid = user.get("uid", "default_user")
         if uid in _user_db:
             return _user_db[uid]
@@ -21,7 +22,7 @@ class UserService:
         }
 
     @staticmethod
-    async def update_user_profile(user: Dict[str, Any], payload: UserProfileUpdate) -> Dict[str, Any]:
+    async def update_user_profile(user: dict[str, Any], payload: UserProfileUpdate) -> dict[str, Any]:
         uid = user.get("uid", "default_user")
         existing = _user_db.get(uid, {})
         persona_val = payload.persona_type or payload.persona or existing.get("persona_type") or "Fitness"

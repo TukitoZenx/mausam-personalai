@@ -1,5 +1,6 @@
-from typing import Optional
+
 from pydantic import BaseModel
+
 
 class UserProfile(BaseModel):
     email: str
@@ -9,9 +10,9 @@ class UserProfile(BaseModel):
     location_access: bool = True
 
 class UserProfileUpdate(BaseModel):
-    email: Optional[str] = None
-    persona: Optional[str] = None
-    persona_type: Optional[str] = None
-    notifications_enabled: Optional[bool] = None
-    location_access: Optional[bool] = None
-    interests: Optional[str] = None
+    email: str | None = None
+    persona: str | None = None
+    persona_type: str | None = None
+    notifications_enabled: bool | None = None
+    location_access: bool | None = None
+    interests: str | None = None

@@ -1,4 +1,8 @@
+import logging
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
@@ -11,3 +15,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()
+
+# Startup validation — log key presence (never log the value itself)
+if settings.WEATHER_API_KEY and settings.WEATHER_API_KEY != "placeholder_weather_key":
+    logger.info("✅ WEATHER_API_KEY loaded: non-empty (%d chars)", len(settings.WEATHER_API_KEY))
+else:
+    logger.warning("⚠️  WEATHER_API_KEY is missing or still a placeholder — external weather calls will fail")

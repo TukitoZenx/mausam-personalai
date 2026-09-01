@@ -1,5 +1,5 @@
-from typing import List, Optional
 from pydantic import BaseModel
+
 
 class CurrentWeather(BaseModel):
     location: str
@@ -8,7 +8,9 @@ class CurrentWeather(BaseModel):
     humidity_percent: int
     wind_speed_kmh: float
     uv_index: float
-    status: str = "stub"
+    cached: bool = False
+    stale: bool = False
+
 
 class DailyForecastItem(BaseModel):
     day: str
@@ -17,8 +19,10 @@ class DailyForecastItem(BaseModel):
     condition: str
     rain_probability_percent: int
 
+
 class ForecastResponse(BaseModel):
     location: str
     current: CurrentWeather
-    forecast: List[DailyForecastItem]
-    status: str = "stub"
+    forecast: list[DailyForecastItem]
+    cached: bool = False
+    stale: bool = False

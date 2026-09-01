@@ -1,14 +1,13 @@
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.health import router as health_router
-from app.api.users import router as users_router
-from app.api.weather import router as weather_router
+from app.api.alerts import router as alerts_router
 from app.api.aqi import router as aqi_router
+from app.api.health import router as health_router
 from app.api.locations import router as locations_router
 from app.api.personalization import router as personalization_router
-from app.api.alerts import router as alerts_router
-
+from app.api.users import router as users_router
+from app.api.weather import router as weather_router
 from app.core.exceptions import (
     AppException,
     app_exception_handler,
@@ -27,6 +26,20 @@ app = FastAPI(
 
 # Logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Warmup Firebase public key cert cache at startup so 1st login doesn't pay lazy HTTP fetch cost
+@app.on_event("startup")
+async def warmup_firebase_certs():
+    try:
+        import firebase_admin
+        from firebase_admin import auth
+        if firebase_admin._apps:
+            try:
+                auth.verify_id_token("dummy_warmup_token")
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 # Centralized Exception Handlers
 app.add_exception_handler(AppException, app_exception_handler)

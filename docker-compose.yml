@@ -6,12 +6,8 @@ services:
     container_name: mausam_api
     ports:
       - "8000:8000"
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/mausam_db
-      - REDIS_URL=redis://redis:6379/0
-      - WEATHER_API_KEY=placeholder_weather_key
-      - AQI_API_KEY=placeholder_aqi_key
+    env_file:
+      - ./backend/.env
     depends_on:
       db:
         condition: service_healthy

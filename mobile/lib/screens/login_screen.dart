@@ -26,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   LoginStep _currentStep = LoginStep.initial;
   bool _isSubmitting = false;
+  String? _inlineError;
 
   @override
   void dispose() {
@@ -54,18 +55,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleGoogleAuth() async {
     setState(() {
       _isSubmitting = true;
+      _inlineError = null;
     });
 
     try {
       final authService = ref.read(authServiceProvider);
       final user = await authService.signInWithGoogle();
+      final idToken = user.idToken ?? await authService.getIdToken();
 
-      // Save user to FastAPI backend
       final apiClient = ref.read(apiClientProvider);
-      if (user.idToken != null) {
+      if (idToken != null) {
         try {
+          await apiClient.getMe(idToken: idToken);
           await apiClient.postUser(
-            idToken: user.idToken!,
+            idToken: idToken,
             email: user.email,
           );
         } catch (_) {}
@@ -74,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(userProvider.notifier).setAuthenticated(
             userId: user.uid,
             email: user.email,
-            idToken: user.idToken,
+            idToken: idToken,
           );
 
       final userState = ref.read(userProvider);
@@ -86,8 +89,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501') return;
+      setState(() {
+        _inlineError = e.message ?? e.code;
+      });
       _showErrorSnackBar(e.message ?? e.code);
     } catch (e) {
+      final errStr = e.toString();
+      setState(() {
+        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
+            ? 'Connection timed out. Please try again.'
+            : errStr;
+      });
       _showErrorSnackBar(e.toString());
     } finally {
       if (mounted) {
@@ -121,6 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() {
       _isSubmitting = true;
+      _inlineError = null;
     });
 
     try {
@@ -138,12 +151,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
 
-      // Save user to FastAPI backend
+      final idToken = user.idToken ?? await authService.getIdToken();
+
       final apiClient = ref.read(apiClientProvider);
-      if (user.idToken != null) {
+      if (idToken != null) {
         try {
+          await apiClient.getMe(idToken: idToken);
           await apiClient.postUser(
-            idToken: user.idToken!,
+            idToken: idToken,
             email: user.email,
           );
         } catch (_) {}
@@ -152,7 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(userProvider.notifier).setAuthenticated(
             userId: user.uid,
             email: user.email,
-            idToken: user.idToken,
+            idToken: idToken,
           );
 
       final userState = ref.read(userProvider);
@@ -163,8 +178,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/onboarding');
       }
     } on FirebaseAuthException catch (e) {
+      setState(() {
+        _inlineError = e.message ?? e.code;
+      });
       _showErrorSnackBar(e.message ?? e.code);
     } catch (e) {
+      final errStr = e.toString();
+      setState(() {
+        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
+            ? 'Connection timed out. Please try again.'
+            : errStr;
+      });
       _showErrorSnackBar(e.toString());
     } finally {
       if (mounted) {
@@ -343,6 +367,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  if (_inlineError != null) ...[
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(10),
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF3B1D24),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: const Color(0xFFEF4444), width: 1),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _inlineError!,
+                                              style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                _inlineError = null;
+                                              });
+                                              if (_currentStep == LoginStep.password) {
+                                                _handlePasswordSubmit();
+                                              } else {
+                                                _handleGoogleAuth();
+                                              }
+                                            },
+                                            child: Text(
+                                              'Retry',
+                                              style: GoogleFonts.inter(
+                                                color: const Color(0xFF3FA9F5),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   if (_currentStep == LoginStep.initial) ...[
                                     // Google Button: height 44, radius 22, white bg, black text 14 medium, Google icon 18px, full width
                                     SizedBox(
@@ -360,24 +428,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             borderRadius: BorderRadius.circular(22),
                                           ),
                                         ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            const GoogleIconWidget(size: 18),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                'Continue with Google',
-                                                overflow: TextOverflow.ellipsis,
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.black,
+                                        child: _isSubmitting
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                                                 ),
+                                              )
+                                            : Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const GoogleIconWidget(size: 18),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'Continue with Google',
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w500,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
-                                          ],
-                                        ),
                                       ),
                                     ),
 
@@ -534,14 +611,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             borderRadius: BorderRadius.circular(22),
                                           ),
                                         ),
-                                        child: Text(
-                                          'Continue',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white,
-                                          ),
-                                        ),
+                                        child: _isSubmitting
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                ),
+                                              )
+                                            : Text(
+                                                'Continue',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
                                       ),
                                     ),
                                   ],

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 import '../providers/auth_provider.dart';
+import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 
 /// OPTIMIZED: OnboardingScreen featuring a swipeable PageView carousel
@@ -81,13 +84,50 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
   }
 
-  // OPTIMIZED: Asynchronous onboarding completion handler syncing state to FastAPI backend
+  // OPTIMIZED: Asynchronous onboarding completion handler using getLastKnownPosition + background update
   Future<void> _completeOnboarding(bool locationAllowed) async {
     if (_isSubmitting) return;
 
     setState(() {
       _isSubmitting = true;
     });
+
+    if (locationAllowed) {
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+
+          if (permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always) {
+            // 1. Try last known position first (near-instant)
+            final lastPosition = await Geolocator.getLastKnownPosition();
+            if (lastPosition != null) {
+              ref.read(locationProvider.notifier).setLocation(
+                    lastPosition.latitude,
+                    lastPosition.longitude,
+                    'Current Location',
+                  );
+            }
+
+            // 2. In background, fetch fresh position with medium accuracy & 6s timeout
+            Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.medium,
+              timeLimit: const Duration(seconds: 6),
+            ).then((position) {
+              ref.read(locationProvider.notifier).setLocation(
+                    position.latitude,
+                    position.longitude,
+                    'Current Location',
+                  );
+            }).catchError((_) {});
+          }
+        }
+      } catch (_) {}
+    }
 
     final persona = _selectedPersona ?? 'Fitness';
     final userState = ref.read(userProvider);
@@ -104,7 +144,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           persona: persona,
         );
       } else {
-        // Fallback for demo mode
         await apiClient.postUser(
           idToken: 'demo_token',
           email: userState.email ?? 'user@mausam.ai',

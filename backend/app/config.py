@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/mausam_db"

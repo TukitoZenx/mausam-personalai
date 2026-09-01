@@ -6,12 +6,29 @@ class ApiClient {
   ApiClient({String? baseUrl, http.Client? client})
       : baseUrl = baseUrl ??
             (!kIsWeb && defaultTargetPlatform == TargetPlatform.android
-                ? 'http://10.0.2.2:8080'
-                : 'http://localhost:8080'),
+                ? 'http://10.0.2.2:8000'
+                : 'http://localhost:8000'),
         _client = client ?? http.Client();
 
   final String baseUrl;
   final http.Client _client;
+
+  Future<Map<String, dynamic>> getMe({required String idToken}) async {
+    final url = Uri.parse('$baseUrl/users/me');
+    final response = await _client.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to fetch user profile: ${response.statusCode} ${response.body}');
+    }
+  }
 
   Future<Map<String, dynamic>> postUser({
     required String idToken,
@@ -37,7 +54,7 @@ class ApiClient {
         if (persona != null) 'persona': persona,
         if (interests != null) 'interests': interests,
       }),
-    );
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;

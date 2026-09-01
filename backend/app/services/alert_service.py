@@ -1,9 +1,11 @@
-from typing import Dict, Any, List
+from typing import Any
+
 from app.schemas.alert import AlertResponse, AlertSubscription
+
 
 class AlertService:
     @staticmethod
-    async def get_alerts(user: Dict[str, Any]) -> List[AlertResponse]:
+    async def get_alerts(user: dict[str, Any]) -> list[AlertResponse]:
         return [
             AlertResponse(
                 id="alt_01",
@@ -16,7 +18,7 @@ class AlertService:
         ]
 
     @staticmethod
-    async def subscribe_alerts(user: Dict[str, Any], payload: AlertSubscription) -> Dict[str, Any]:
+    async def subscribe_alerts(user: dict[str, Any], payload: AlertSubscription) -> dict[str, Any]:
         return {
             "enabled": payload.enabled,
             "subscribed": True,
