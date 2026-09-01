@@ -1,27 +1,190 @@
+"""
+Location service — reverse geocoding via Nominatim with Redis caching + PostGIS saved_locations CRUD.
+"""
+
+import json
+import logging
 from typing import Any
 
-from app.schemas.location import SavedLocation, SavedLocationCreate
+from sqlalchemy import delete, select, text
+
+from app.core.exceptions import (
+    ExternalServiceException,
+    NotFoundException,
+    UnauthorizedException,
+)
+from app.database.connection import AsyncSessionLocal
+from app.models.saved_location import SavedLocationModel
+from app.redis_client import redis_client
+from app.schemas.location import (
+    LocationInfo,
+    SavedLocationCreate,
+    SavedLocationResponse,
+)
+from app.services.adapters import nominatim_adapter as nominatim
+
+logger = logging.getLogger(__name__)
+
+_TTL_REVERSE_GEO = 86400  # 24 hours in seconds
+
+
+def _key_reverse(lat: float, lon: float) -> str:
+    return f"location:reverse:{lat:.4f}:{lon:.4f}"
 
 
 class LocationService:
-    @staticmethod
-    async def get_current_location(user: dict[str, Any]) -> SavedLocation:
-        return SavedLocation(
-            id="loc_curr_01",
-            name="Current Location (San Francisco)",
-            latitude=37.7749,
-            longitude=-122.4194,
-            is_favorite=True,
-            status="stub",
-        )
 
     @staticmethod
-    async def save_location(user: dict[str, Any], payload: SavedLocationCreate) -> SavedLocation:
-        return SavedLocation(
-            id="loc_saved_02",
-            name=payload.name,
-            latitude=payload.latitude,
-            longitude=payload.longitude,
-            is_favorite=payload.is_favorite if payload.is_favorite is not None else True,
-            status="stub",
-        )
+    async def get_current_location(lat: float, lon: float) -> LocationInfo:
+        """
+        Reverse geocode lat/lon to place name.
+        Uses Redis cache (24h TTL) + stale fallback on upstream failure.
+        """
+        cache_key = _key_reverse(lat, lon)
+
+        # 1. Check Redis cache
+        cached_raw = await redis_client.get(cache_key)
+        if cached_raw:
+            data = json.loads(cached_raw)
+            data["cached"] = True
+            data["stale"] = False
+            logger.info("Cache HIT: %s", cache_key)
+            return LocationInfo(**data)
+
+        # 2. Fetch from Nominatim
+        logger.info("Cache MISS: %s — calling Nominatim reverse geocode", cache_key)
+        try:
+            result = await nominatim.reverse_geocode(lat, lon)
+            result.cached = False
+            result.stale = False
+
+            payload = result.model_dump()
+            payload.pop("cached", None)
+            payload.pop("stale", None)
+            serialized = json.dumps(payload)
+
+            await redis_client.setex(cache_key, _TTL_REVERSE_GEO, serialized)
+            await redis_client.set(f"stale:{cache_key}", serialized)
+
+            return result
+
+        except ExternalServiceException as exc:
+            stale_raw = await redis_client.get(f"stale:{cache_key}")
+            if stale_raw:
+                data = json.loads(stale_raw)
+                data["cached"] = False
+                data["stale"] = True
+                logger.warning("Returning STALE cache for %s due to upstream failure: %s", cache_key, exc)
+                return LocationInfo(**data)
+            raise
+
+    @staticmethod
+    async def save_location(user: dict[str, Any], payload: SavedLocationCreate) -> SavedLocationResponse:
+        """
+        Create a saved location for current user in PostGIS database.
+        """
+        user_id = user.get("uid")
+        if not user_id:
+            raise UnauthorizedException("User ID missing from authentication context.")
+
+        # Try reverse geocoding to get detailed place name
+        place_name = payload.name
+        try:
+            loc_info = await LocationService.get_current_location(payload.latitude, payload.longitude)
+            if loc_info.place_name:
+                place_name = f"{payload.name} ({loc_info.place_name})"
+        except Exception:
+            pass
+
+        async with AsyncSessionLocal() as session:
+            # Ensure user exists in users table to satisfy FK constraint
+            await session.execute(
+                text(
+                    "INSERT INTO users (id, firebase_uid, email) VALUES (:id, :id, :email) ON CONFLICT (id) DO NOTHING"
+                ),
+                {"id": user_id, "email": user.get("email", "user@mausam.ai")},
+            )
+            await session.commit()
+
+            db_item = SavedLocationModel(
+                user_id=user_id,
+                name=payload.name,
+                latitude=payload.latitude,
+                longitude=payload.longitude,
+            )
+            session.add(db_item)
+            await session.commit()
+            await session.refresh(db_item)
+
+            # Update geo_point with PostGIS ST_SetSRID
+            await session.execute(
+                text(
+                    "UPDATE saved_locations "
+                    "SET geo_point = ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography "
+                    "WHERE id = :id"
+                ),
+                {"lat": payload.latitude, "lon": payload.longitude, "id": db_item.id},
+            )
+            await session.commit()
+
+            return SavedLocationResponse(
+                id=db_item.id,
+                name=db_item.name,
+                latitude=db_item.latitude,
+                longitude=db_item.longitude,
+                place_name=place_name,
+                created_at=db_item.created_at.isoformat() if db_item.created_at else "",
+            )
+
+    @staticmethod
+    async def get_saved_locations(user: dict[str, Any]) -> list[SavedLocationResponse]:
+        """
+        List all saved locations for current user.
+        """
+        user_id = user.get("uid")
+        if not user_id:
+            raise UnauthorizedException("User ID missing from authentication context.")
+
+        async with AsyncSessionLocal() as session:
+            stmt = select(SavedLocationModel).where(SavedLocationModel.user_id == user_id).order_by(SavedLocationModel.created_at.desc())
+            res = await session.execute(stmt)
+            records = res.scalars().all()
+
+            results: list[SavedLocationResponse] = []
+            for item in records:
+                results.append(
+                    SavedLocationResponse(
+                        id=item.id,
+                        name=item.name,
+                        latitude=item.latitude,
+                        longitude=item.longitude,
+                        place_name=item.name,
+                        created_at=item.created_at.isoformat() if item.created_at else "",
+                    )
+                )
+            return results
+
+    @staticmethod
+    async def delete_saved_location(user: dict[str, Any], location_id: str) -> None:
+        """
+        Delete a saved location, scoped to owning user only.
+        Raises 404/403 if not found or unauthorized.
+        """
+        user_id = user.get("uid")
+        if not user_id:
+            raise UnauthorizedException("User ID missing from authentication context.")
+
+        async with AsyncSessionLocal() as session:
+            stmt = select(SavedLocationModel).where(SavedLocationModel.id == location_id)
+            res = await session.execute(stmt)
+            record = res.scalar_one_or_none()
+
+            if not record:
+                raise NotFoundException("Saved location not found")
+
+            if record.user_id != user_id:
+                raise UnauthorizedException("Forbidden: You do not own this saved location")
+
+            del_stmt = delete(SavedLocationModel).where(SavedLocationModel.id == location_id)
+            await session.execute(del_stmt)
+            await session.commit()

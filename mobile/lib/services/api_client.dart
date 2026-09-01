@@ -62,4 +62,89 @@ class ApiClient {
       throw Exception('Failed to save user to backend: ${response.statusCode} ${response.body}');
     }
   }
+
+  // --- Location Endpoints ---
+
+  Future<Map<String, dynamic>> fetchCurrentLocation({
+    required double lat,
+    required double lon,
+    required String idToken,
+  }) async {
+    final url = Uri.parse('$baseUrl/locations/current?lat=$lat&lon=$lon');
+    final response = await _client.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to reverse geocode location: ${response.statusCode}');
+    }
+  }
+
+  Future<List<dynamic>> fetchSavedLocations({required String idToken}) async {
+    final url = Uri.parse('$baseUrl/locations/saved');
+    final response = await _client.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to fetch saved locations: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> saveLocation({
+    required String name,
+    required double latitude,
+    required double longitude,
+    required String idToken,
+  }) async {
+    final url = Uri.parse('$baseUrl/locations/saved');
+    final response = await _client.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({
+        'name': name,
+        'latitude': latitude,
+        'longitude': longitude,
+      }),
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to save destination: ${response.statusCode}');
+    }
+  }
+
+  Future<void> deleteSavedLocation({
+    required String id,
+    required String idToken,
+  }) async {
+    final url = Uri.parse('$baseUrl/locations/saved/$id');
+    final response = await _client.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Failed to delete saved location: ${response.statusCode}');
+    }
+  }
 }
