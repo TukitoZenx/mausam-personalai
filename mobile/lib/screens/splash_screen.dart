@@ -63,13 +63,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     final authService = ref.read(authServiceProvider);
     final user = authService.currentUser ?? FirebaseAuth.instance.currentUser;
-    final userState = ref.read(userProvider);
 
     if (user != null) {
-      if (userState.onboardingCompleted || userState.selectedPersona != null) {
+      String? idToken;
+      try {
+        idToken = await user.getIdToken();
+      } catch (_) {}
+
+      final userNotifier = ref.read(userProvider.notifier);
+      userNotifier.setAuthenticated(
+        userId: user.uid,
+        email: user.email ?? 'user@mausam.ai',
+        idToken: idToken ?? 'test_token',
+      );
+
+      final userState = ref.read(userProvider);
+      if (userState.selectedPersona == null) {
+        try {
+          final me = await ref.read(apiClientProvider).getMe(idToken: idToken ?? 'test_token');
+          final persona = me['persona'] as String? ?? me['persona_type'] as String? ?? 'Fitness';
+          userNotifier.setPersona(persona);
+        } catch (_) {
+          userNotifier.setPersona('Fitness');
+        }
+      }
+
+      userNotifier.completeOnboarding();
+      if (mounted) {
         context.go('/home');
-      } else {
-        context.go('/onboarding');
       }
     } else {
       context.go('/login');

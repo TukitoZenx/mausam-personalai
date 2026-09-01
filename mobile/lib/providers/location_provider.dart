@@ -1,4 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../services/api_client.dart';
 
 class LocationItem {
   final String id;
@@ -76,12 +80,58 @@ class LocationNotifier extends Notifier<LocationState> {
     return const LocationState();
   }
 
+  Future<void> detectDeviceLocation(ApiClient apiClient, String idToken) async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('Location services disabled.');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('Location permission denied.');
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Location permission permanently denied.');
+        return;
+      }
+
+      Position? position = await Geolocator.getLastKnownPosition();
+      position ??= await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 5),
+      );
+
+      String city = '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
+      try {
+        final locData = await apiClient.fetchCurrentLocation(
+          lat: position.latitude,
+          lon: position.longitude,
+          idToken: idToken,
+        );
+        if (locData['place_name'] != null && (locData['place_name'] as String).isNotEmpty) {
+          city = locData['place_name'] as String;
+        }
+      } catch (e) {
+        debugPrint('Reverse geocode error: $e');
+      }
+
+      setDeviceLocation(position.latitude, position.longitude, city);
+    } catch (e) {
+      debugPrint('Device location detection fallback: $e');
+    }
+  }
+
   void setDeviceLocation(double lat, double lon, String city) {
     state = state.copyWith(
       deviceLatitude: lat,
       deviceLongitude: lon,
       deviceCityName: city,
-      // If user hasn't explicitly selected a saved location, set active location to device GPS
       activeLatitude: state.isCustomSelected ? state.activeLatitude : lat,
       activeLongitude: state.isCustomSelected ? state.activeLongitude : lon,
       activeCityName: state.isCustomSelected ? state.activeCityName : city,
@@ -135,3 +185,4 @@ class LocationNotifier extends Notifier<LocationState> {
 }
 
 final locationProvider = NotifierProvider<LocationNotifier, LocationState>(LocationNotifier.new);
+

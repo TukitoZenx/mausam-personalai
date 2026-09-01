@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/home_card.dart';
 import '../providers/auth_provider.dart';
+import '../providers/homepage_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
+import '../widgets/cards/card_registry.dart';
+import '../widgets/cards/recommended_section_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -14,9 +19,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  Map<String, dynamic>? _weatherData;
-  Map<String, dynamic>? _aqiData;
-
   @override
   void initState() {
     super.initState();
@@ -26,32 +28,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _initLocationAndFetchData() async {
-    final locationState = ref.read(locationProvider);
     final userState = ref.read(userProvider);
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
 
-    // 1. Fetch current location reverse-geocode from backend
-    try {
-      final lat = locationState.latitude;
-      final lon = locationState.longitude;
-      final locData = await apiClient.fetchCurrentLocation(
-        lat: lat,
-        lon: lon,
-        idToken: idToken,
-      );
-      if (locData['place_name'] != null && !locationState.isCustomSelected) {
-        ref.read(locationProvider.notifier).setDeviceLocation(
-              lat,
-              lon,
-              locData['place_name'] as String,
-            );
-      }
-    } catch (_) {}
+    // 1. Detect live device GPS location using geolocator
+    await ref.read(locationProvider.notifier).detectDeviceLocation(apiClient, idToken);
+    if (!mounted) return;
 
     // 2. Fetch saved locations list from backend
     try {
       final savedRaw = await apiClient.fetchSavedLocations(idToken: idToken);
+      if (!mounted) return;
       final items = savedRaw.map((e) {
         final itemMap = e as Map<String, dynamic>;
         return LocationItem(
@@ -65,26 +53,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(locationProvider.notifier).setSavedLocations(items);
     } catch (_) {}
 
-    // 3. Fetch weather & AQI for active location
-    _fetchWeatherData();
-  }
-
-  Future<void> _fetchWeatherData() async {
-    final locState = ref.read(locationProvider);
-
-    setState(() {
-      _weatherData = {
-        'location': locState.cityName,
-        'temperature_celsius': 24.5,
-        'condition': 'Partly Cloudy',
-        'humidity_percent': 72,
-        'wind_speed_kmh': 14.2,
-      };
-      _aqiData = {
-        'aqi_value': 35,
-        'category': 'Good',
-      };
-    });
+    if (!mounted) return;
+    // 3. Fetch initial homepage feed
+    ref.read(homepageProvider.notifier).fetchHomeFeed();
   }
 
   void _showLocationSwitcher() {
@@ -124,7 +95,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Option 1: Device / Current Location
+                  // Option 1: Current GPS Location
                   ListTile(
                     leading: const Icon(Icons.my_location, color: Color(0xFF3FA9F5)),
                     title: Text(
@@ -135,14 +106,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     subtitle: Text(
-                      locState.deviceCityName ?? '${locState.deviceLatitude ?? 12.9716}, ${locState.deviceLongitude ?? 77.5946}',
+                      locState.deviceCityName ??
+                          '${locState.deviceLatitude ?? 12.9716}, ${locState.deviceLongitude ?? 77.5946}',
                       style: GoogleFonts.inter(color: Colors.grey, fontSize: 12),
                     ),
-                    trailing: !locState.isCustomSelected ? const Icon(Icons.check, color: Color(0xFF3FA9F5)) : null,
-                    onTap: () {
+                    trailing: !locState.isCustomSelected
+                        ? const Icon(Icons.check, color: Color(0xFF3FA9F5))
+                        : null,
+                    onTap: () async {
                       ref.read(locationProvider.notifier).useCurrentLocation();
                       Navigator.pop(context);
-                      _fetchWeatherData();
+                      final idToken = ref.read(userProvider).idToken ?? 'test_token';
+                      await ref.read(locationProvider.notifier).detectDeviceLocation(
+                            ref.read(apiClientProvider),
+                            idToken,
+                          );
+                      ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
                     },
                   ),
 
@@ -215,7 +194,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   onPressed: () async {
                                     final idToken = ref.read(userProvider).idToken ?? 'test_token';
                                     try {
-                                      await ref.read(apiClientProvider).deleteSavedLocation(id: item.id, idToken: idToken);
+                                      await ref
+                                          .read(apiClientProvider)
+                                          .deleteSavedLocation(id: item.id, idToken: idToken);
                                       ref.read(locationProvider.notifier).removeSavedLocation(item.id);
                                     } catch (_) {}
                                   },
@@ -230,7 +211,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     isCustom: true,
                                   );
                               Navigator.pop(context);
-                              _fetchWeatherData();
                             },
                           );
                         },
@@ -338,6 +318,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
+    final homeState = ref.watch(homepageProvider);
+
+    final allCards = homeState.data?.cards ?? [];
+
+    // Select recommended card: highest ranked non-weather card, or fallback to first
+    RankedHomeCard? recommendedCard;
+    if (allCards.isNotEmpty) {
+      final nonWeather = allCards.where((c) => c.cardType.toLowerCase() != 'weather').toList();
+      recommendedCard = nonWeather.isNotEmpty ? nonWeather.first : allCards.first;
+    }
+
+    // Remaining list excludes recommended card to avoid duplicate rendering
+    final feedCards = allCards.where((c) => c.id != recommendedCard?.id).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A1220),
@@ -351,12 +344,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               const Icon(Icons.location_on, color: Color(0xFF3FA9F5), size: 20),
               const SizedBox(width: 6),
-              Text(
-                locState.cityName,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              Flexible(
+                child: Text(
+                  locState.cityName,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 4),
@@ -366,7 +362,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+            tooltip: 'Profile & Persona',
+            onPressed: () => context.push('/profile'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white60),
             tooltip: 'Logout',
             onPressed: () async {
               await ref.read(authServiceProvider).signOut();
@@ -375,139 +376,201 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Location status banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF152238),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF233554)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    locState.isCustomSelected ? Icons.star_rounded : Icons.my_location,
-                    color: const Color(0xFF3FA9F5),
-                    size: 16,
+      body: RefreshIndicator(
+        color: const Color(0xFF3FA9F5),
+        backgroundColor: const Color(0xFF111E35),
+        onRefresh: () => ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Degraded context banner
+              if ((homeState.data?.degradedContext ?? false) ||
+                  (homeState.isStale && homeState.errorMessage != null && homeState.data != null)) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    locState.isCustomSelected ? 'Viewing Saved Destination' : 'Viewing Current Location',
-                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history_rounded, color: Color(0xFFF59E0B), size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Showing last known conditions (stale or partial context)',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFFFDE68A),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Weather Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1C2C4E), Color(0xFF111E35)],
                 ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF2A3F6A)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              ],
+
+              // Greeting & Insight Header
+              if (homeState.data != null) ...[
+                Text(
+                  homeState.effectiveGreeting,
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  homeState.effectiveSummaryInsight,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Loading skeleton if fetching for first time
+              if (homeState.isLoading && homeState.data == null) ...[
+                _buildLoadingSkeleton(),
+              ] else if (homeState.errorMessage != null && homeState.data == null) ...[
+                // Error view when no cached data exists
+                _buildErrorView(homeState.errorMessage!),
+              ] else ...[
+                // 1. Recommended For You Top Highlight Section
+                if (recommendedCard != null)
+                  RecommendedSectionWidget(
+                    card: recommendedCard,
+                    onTap: () {
+                      ref.read(homepageProvider.notifier).logCardClick(recommendedCard!);
+                    },
+                  ),
+
+                // Section divider / title for dynamic feed
+                if (feedCards.isNotEmpty) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _weatherData?['location'] as String? ?? locState.cityName,
+                        'Live Insights Feed',
                         style: GoogleFonts.inter(
-                          fontSize: 18,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: const Color(0xFF94A3B8),
                         ),
                       ),
-                      const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 32),
+                      Text(
+                        'Persona: ${homeState.data?.persona ?? "Fitness"}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF3FA9F5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    '${_weatherData?['temperature_celsius'] ?? 24.5}°C',
-                    style: GoogleFonts.inter(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    _weatherData?['condition'] as String? ?? 'Partly Cloudy',
-                    style: GoogleFonts.inter(color: Colors.grey, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Humidity: ${_weatherData?['humidity_percent'] ?? 72}%',
-                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                      Text('Wind: ${_weatherData?['wind_speed_kmh'] ?? 14.2} km/h',
-                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                    ],
+
+                  // 2. Dynamic Ranked Cards List
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: feedCards.length,
+                    itemBuilder: (context, index) {
+                      final card = feedCards[index];
+                      return CardRegistry.buildCardWidget(
+                        card: card,
+                        onTap: () {
+                          ref.read(homepageProvider.notifier).logCardClick(card);
+                        },
+                      );
+                    },
                   ),
                 ],
-              ),
-            ),
 
-            const SizedBox(height: 16),
-
-            // AQI Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF152238),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF233554)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${_aqiData?['aqi_value'] ?? 35}',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                if (feedCards.isEmpty && recommendedCard == null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'No personalized insights available right now.',
+                        style: GoogleFonts.inter(color: Colors.grey, fontSize: 14),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Air Quality Index',
-                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      Text(
-                        'Category: ${_aqiData?['category'] ?? "Good"}',
-                        style: GoogleFonts.inter(color: const Color(0xFF10B981), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+              ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    return Column(
+      children: List.generate(
+        3,
+        (index) => Container(
+          width: double.infinity,
+          height: 120,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF152238),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF233554)),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF3FA9F5),
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView(String error) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF152238),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF233554)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: Colors.redAccent, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            'Failed to Load Insights',
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3FA9F5)),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: Text('Retry', style: GoogleFonts.inter(color: Colors.white)),
+            onPressed: () {
+              ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
+            },
+          ),
+        ],
       ),
     );
   }

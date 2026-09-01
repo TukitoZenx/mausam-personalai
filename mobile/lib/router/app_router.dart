@@ -2,11 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
-import '../screens/home_screen.dart';
+import '../screens/main_navigation_screen.dart';
 import '../screens/onboarding_screen.dart';
-import '../screens/forecast_screen.dart';
-import '../screens/saved_locations_screen.dart';
-import '../screens/profile_screen.dart';
 
 GoRouter createRouter({String initialLocation = '/splash'}) {
   return GoRouter(
@@ -25,7 +22,7 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
       GoRoute(
         path: '/home',
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const MainNavigationScreen(initialIndex: 0),
       ),
       GoRoute(
         path: '/',
@@ -40,17 +37,17 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
       GoRoute(
         path: '/forecast',
         name: 'forecast',
-        builder: (context, state) => const ForecastScreen(),
+        builder: (context, state) => const MainNavigationScreen(initialIndex: 1),
       ),
       GoRoute(
         path: '/saved-locations',
         name: 'saved_locations',
-        builder: (context, state) => const SavedLocationsScreen(),
+        builder: (context, state) => const MainNavigationScreen(initialIndex: 2),
       ),
       GoRoute(
         path: '/profile',
         name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+        builder: (context, state) => const MainNavigationScreen(initialIndex: 3),
       ),
     ],
   );

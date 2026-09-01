@@ -88,6 +88,6 @@ void main() {
     // Profile
     router.go('/profile');
     await tester.pumpAndSettle();
-    expect(find.text('Profile Screen'), findsOneWidget);
+    expect(find.textContaining('Profile'), findsWidgets);
   });
 }

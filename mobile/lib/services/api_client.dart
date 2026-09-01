@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../models/personalized_home_response.dart';
 
 class ApiClient {
   ApiClient({String? baseUrl, http.Client? client})
@@ -13,7 +14,74 @@ class ApiClient {
   final String baseUrl;
   final http.Client _client;
 
+  // --- Personalization Endpoints ---
+
+  Future<PersonalizedHomeResponse> fetchPersonalizedHome({
+    required double lat,
+    required double lon,
+    String? savedLocationId,
+    int? hour,
+    String? tz,
+    required String idToken,
+  }) async {
+    final queryParams = <String, String>{
+      'lat': lat.toString(),
+      'lon': lon.toString(),
+      'hour': (hour ?? DateTime.now().hour).toString(),
+      'tz': tz ?? DateTime.now().timeZoneName,
+    };
+    if (savedLocationId != null && savedLocationId.isNotEmpty) {
+      queryParams['saved_location_id'] = savedLocationId;
+    }
+
+    final uri = Uri.parse('$baseUrl/personalization/home').replace(queryParameters: queryParams);
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 6));
+
+    if (response.statusCode == 200) {
+      final bodyMap = jsonDecode(response.body) as Map<String, dynamic>;
+      return PersonalizedHomeResponse.fromJson(bodyMap);
+    } else {
+      throw Exception('Failed to fetch personalized home feed: ${response.statusCode}');
+    }
+  }
+
+  Future<void> recordInteraction({
+    required String cardType,
+    required String action,
+    String? cardId,
+    String? timestamp,
+    required String idToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/personalization/interactions');
+      await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'card_type': cardType,
+          'action': action,
+          'card_id': cardId ?? cardType,
+          'action_type': action,
+          'timestamp': timestamp ?? DateTime.now().toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      // Interaction logging failures are non-blocking
+      debugPrint('Interaction POST failed silently: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> getMe({required String idToken}) async {
+
     final url = Uri.parse('$baseUrl/users/me');
     final response = await _client.get(
       url,
