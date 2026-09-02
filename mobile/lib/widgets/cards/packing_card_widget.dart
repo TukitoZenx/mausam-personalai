@@ -15,7 +15,7 @@ class PackingCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFEC4899).withOpacity(0.2),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(

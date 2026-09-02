@@ -17,7 +17,7 @@ class UvCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF8B5CF6).withOpacity(0.2),
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(

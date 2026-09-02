@@ -1,0 +1,9 @@
+{
+  "dataset_size": 73,
+  "validation_accuracy": 1.0,
+  "pairwise_order_agreement": 0.6074,
+  "top1_match_rate": 0.0,
+  "top3_overlap_rate": 0.2222,
+  "model_type": "GradientBoostingClassifier",
+  "features_count": 20
+}

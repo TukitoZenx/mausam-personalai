@@ -15,7 +15,7 @@ class DestinationCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF0E7C86).withOpacity(0.2),
+            color: const Color(0xFF3FA9F5).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(

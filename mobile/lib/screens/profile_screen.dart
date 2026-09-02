@@ -156,7 +156,7 @@ class ProfileScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF3FA9F5).withOpacity(0.2)
+                              ? const Color(0xFF3FA9F5).withValues(alpha: 0.2)
                               : const Color(0xFF1A2A44),
                           shape: BoxShape.circle,
                         ),

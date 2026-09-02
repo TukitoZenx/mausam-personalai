@@ -25,6 +25,22 @@ docker-compose up -d --build
 curl http://localhost:8000/health
 ```
 
+## Configuring API Base URL for Mobile App
+
+The mobile application API base URL is configurable via compile-time `--dart-define` flag:
+
+- **Android Emulator (Default - no flag required)**:
+  ```bash
+  cd mobile && flutter run
+  ```
+  *(Defaults to `http://10.0.2.2:8000`)*
+
+- **Physical Android Device**:
+  Pass host machine's LAN IP address (e.g. `10.10.212.76`):
+  ```bash
+  cd mobile && flutter run --dart-define=API_BASE_URL=http://10.10.212.76:8000
+  ```
+
 ## How to Demo Persona & Context Switching at One Location (Phase 10)
 
 To demo dynamic homepage re-ranking and context switching:

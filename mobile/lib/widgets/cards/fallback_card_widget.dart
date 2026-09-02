@@ -15,7 +15,7 @@ class FallbackCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF64748B).withOpacity(0.2),
+            color: const Color(0xFF6B7280).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(

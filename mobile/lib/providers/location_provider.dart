@@ -37,9 +37,9 @@ class LocationState {
     this.deviceLatitude,
     this.deviceLongitude,
     this.deviceCityName,
-    this.activeLatitude = 12.9716, // Default: Bengaluru
-    this.activeLongitude = 77.5946,
-    this.activeCityName = 'Bengaluru',
+    this.activeLatitude = 0.0,
+    this.activeLongitude = 0.0,
+    this.activeCityName = 'Current Location',
     this.isCustomSelected = false,
     this.savedLocations = const [],
     this.isLoading = false,
@@ -84,7 +84,8 @@ class LocationNotifier extends Notifier<LocationState> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        debugPrint('Location services disabled.');
+        debugPrint('Location services disabled on device.');
+        state = state.copyWith(activeCityName: 'Current Location');
         return;
       }
 
@@ -93,37 +94,64 @@ class LocationNotifier extends Notifier<LocationState> {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           debugPrint('Location permission denied.');
+          state = state.copyWith(activeCityName: 'Current Location');
           return;
         }
       }
       if (permission == LocationPermission.deniedForever) {
         debugPrint('Location permission permanently denied.');
+        state = state.copyWith(activeCityName: 'Current Location');
         return;
       }
 
+      // First check last known position for fast initial fix
       Position? position = await Geolocator.getLastKnownPosition();
-      position ??= await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 5),
-      );
-
-      String city = '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
-      try {
-        final locData = await apiClient.fetchCurrentLocation(
-          lat: position.latitude,
-          lon: position.longitude,
-          idToken: idToken,
-        );
-        if (locData['place_name'] != null && (locData['place_name'] as String).isNotEmpty) {
-          city = locData['place_name'] as String;
-        }
-      } catch (e) {
-        debugPrint('Reverse geocode error: $e');
+      if (position != null) {
+        setDeviceLocation(position.latitude, position.longitude, state.deviceCityName ?? 'Locating...');
+        await _fetchReverseGeocode(apiClient, position.latitude, position.longitude, idToken);
       }
 
-      setDeviceLocation(position.latitude, position.longitude, city);
+      // Fetch fresh high accuracy current GPS position
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 8),
+        );
+        setDeviceLocation(
+          position.latitude,
+          position.longitude,
+          state.deviceCityName ?? 'Locating...',
+        );
+        await _fetchReverseGeocode(apiClient, position.latitude, position.longitude, idToken);
+      } catch (e) {
+        debugPrint('getCurrentPosition error: $e');
+      }
     } catch (e) {
-      debugPrint('Device location detection fallback: $e');
+      debugPrint('Device location detection error: $e');
+    }
+  }
+
+  Future<void> _fetchReverseGeocode(
+    ApiClient apiClient,
+    double lat,
+    double lon,
+    String idToken,
+  ) async {
+    try {
+      final locData = await apiClient.fetchCurrentLocation(
+        lat: lat,
+        lon: lon,
+        idToken: idToken,
+      );
+      final placeName = (locData['place_name'] as String?) ??
+          (locData['city'] as String?) ??
+          (locData['state_region'] as String?);
+
+      if (placeName != null && placeName.isNotEmpty) {
+        setDeviceLocation(lat, lon, placeName);
+      }
+    } catch (e) {
+      debugPrint('Reverse geocode error: $e');
     }
   }
 
@@ -152,21 +180,12 @@ class LocationNotifier extends Notifier<LocationState> {
   }
 
   void useCurrentLocation() {
-    if (state.deviceLatitude != null && state.deviceLongitude != null) {
-      state = state.copyWith(
-        activeLatitude: state.deviceLatitude,
-        activeLongitude: state.deviceLongitude,
-        activeCityName: state.deviceCityName ?? 'Current Location',
-        isCustomSelected: false,
-      );
-    } else {
-      state = state.copyWith(
-        activeLatitude: 12.9716,
-        activeLongitude: 77.5946,
-        activeCityName: 'Bengaluru',
-        isCustomSelected: false,
-      );
-    }
+    state = state.copyWith(
+      activeLatitude: state.deviceLatitude ?? 0.0,
+      activeLongitude: state.deviceLongitude ?? 0.0,
+      activeCityName: state.deviceCityName ?? 'Current Location',
+      isCustomSelected: false,
+    );
   }
 
   void setSavedLocations(List<LocationItem> items) {
@@ -185,4 +204,3 @@ class LocationNotifier extends Notifier<LocationState> {
 }
 
 final locationProvider = NotifierProvider<LocationNotifier, LocationState>(LocationNotifier.new);
-

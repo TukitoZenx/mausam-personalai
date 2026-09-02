@@ -7,6 +7,8 @@ class PersonalizedHomeResponse {
   final String? generatedAt;
   final String? locationName;
   final bool degradedContext;
+  final String ranker;
+  final Map<String, dynamic>? baselineDelta;
   final List<RankedHomeCard> cards;
 
   const PersonalizedHomeResponse({
@@ -16,6 +18,8 @@ class PersonalizedHomeResponse {
     this.generatedAt,
     this.locationName,
     this.degradedContext = false,
+    this.ranker = 'rules',
+    this.baselineDelta,
     this.cards = const [],
   });
 
@@ -42,6 +46,11 @@ class PersonalizedHomeResponse {
       locName = (json['location'] as Map<String, dynamic>)['name'] as String?;
     }
 
+    Map<String, dynamic>? deltaMap;
+    if (json['baseline_delta'] is Map<String, dynamic>) {
+      deltaMap = json['baseline_delta'] as Map<String, dynamic>;
+    }
+
     return PersonalizedHomeResponse(
       persona: (json['persona'] ?? 'Fitness').toString(),
       greeting: json['greeting'] as String?,
@@ -49,6 +58,8 @@ class PersonalizedHomeResponse {
       generatedAt: json['generated_at'] as String?,
       locationName: locName,
       degradedContext: (json['degraded_context'] as bool?) ?? false,
+      ranker: (json['ranker'] ?? 'rules').toString(),
+      baselineDelta: deltaMap,
       cards: cardList,
     );
   }

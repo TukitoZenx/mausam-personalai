@@ -1,5 +1,6 @@
 
 from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -24,6 +25,8 @@ class PersonalizedHomeResponse(BaseModel):
     generated_at: str | None = None
     location: str | dict[str, Any] | None = None
     degraded_context: bool | None = False
+    ranker: str | None = "rules"
+    baseline_delta: dict[str, Any] | str | None = None
     cards: list[HomeCard] = []
     status: str = "stub"
 
