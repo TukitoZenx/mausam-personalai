@@ -10,13 +10,14 @@ class AqiCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aqiValue = card.data?['aqi_value'] ?? 35;
-    final category = card.data?['category'] ?? 'Good';
+    final aqiValue = card.data?['aqi_value'];
+    final category = card.data?['category'] ?? 'Unknown';
+    final aqiNum = (aqiValue is num) ? aqiValue.toDouble() : null;
 
     Color categoryColor = const Color(0xFF10B981);
-    if (aqiValue > 100) {
+    if (aqiNum != null && aqiNum > 100) {
       categoryColor = const Color(0xFFEF4444);
-    } else if (aqiValue > 50) {
+    } else if (aqiNum != null && aqiNum > 50) {
       categoryColor = const Color(0xFFF59E0B);
     }
 
@@ -29,7 +30,7 @@ class AqiCardWidget extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Text(
-            '$aqiValue',
+            aqiNum == null ? '--' : '${aqiNum.round()}',
             style: GoogleFonts.inter(
               color: Colors.white,
               fontWeight: FontWeight.bold,

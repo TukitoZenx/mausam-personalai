@@ -54,9 +54,9 @@ class RankedHomeCard {
       subtitle: (json['subtitle'] ?? json['summary']) as String?,
       category: json['category'] as String?,
       actionLabel: (json['action_label'] ?? json['action_title']) as String?,
-      data: json['data'] is Map<String, dynamic>
-          ? json['data'] as Map<String, dynamic>
-          : json,
+      data: json['data'] is Map
+          ? Map<String, dynamic>.from(json['data'] as Map)
+          : null,
     );
   }
 

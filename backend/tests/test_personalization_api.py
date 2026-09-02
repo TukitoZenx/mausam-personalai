@@ -16,6 +16,12 @@ def test_personalization_home_rules_default():
     assert "ranker" in data
     assert data["ranker"] in ("rules", "ml")
     assert len(data["cards"]) > 0
+    body = response.text
+    assert "21°C" not in body
+    assert "24.5°C" not in body
+    assert "4.5 around 12:30" not in body
+    for card in data["cards"]:
+        assert card.get("reason") == card.get("human_readable_reason")
 
 
 def test_post_interaction_logging():

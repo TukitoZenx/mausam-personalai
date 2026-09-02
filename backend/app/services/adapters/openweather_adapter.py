@@ -84,6 +84,30 @@ async def fetch_current_weather(lat: float, lon: float) -> dict[str, Any]:
         raise ExternalServiceException("Unexpected error fetching current weather") from exc
 
 
+async def fetch_uvi(lat: float, lon: float) -> float:
+    """Fetch current UV index from OWM 2.5 UVI endpoint."""
+    url = f"{OWM_BASE}/data/2.5/uvi"
+    params = {"lat": lat, "lon": lon, "appid": settings.WEATHER_API_KEY}
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            response = await client.get(url, params=params)
+        if response.status_code != 200:
+            logger.error("OWM uvi non-200: %d — %s", response.status_code, response.text[:200])
+            raise ExternalServiceException(
+                f"OpenWeatherMap UVI returned HTTP {response.status_code}"
+            )
+        payload = response.json()
+        return round(float(payload.get("value", 0.0)), 2)
+    except httpx.TimeoutException as exc:
+        logger.error("OWM uvi timed out: %s", exc)
+        raise ExternalServiceException("OpenWeatherMap UVI request timed out") from exc
+    except ExternalServiceException:
+        raise
+    except Exception as exc:
+        logger.error("OWM uvi unexpected error: %s", exc)
+        raise ExternalServiceException("Unexpected error fetching UVI") from exc
+
+
 async def fetch_forecast_daily(lat: float, lon: float) -> dict[str, Any]:
     """Fetch raw 5-day/3-hour forecast from OWM Free 2.5 endpoint."""
     url = f"{OWM_BASE}/data/2.5/forecast"

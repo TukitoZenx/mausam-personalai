@@ -10,10 +10,13 @@ class WeatherCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final temp = card.data?['temperature_celsius'] ?? card.data?['temp'] ?? 23;
-    final condition = card.data?['condition'] ?? card.subtitle ?? 'Partly Cloudy';
-    final humidity = card.data?['humidity_percent'] ?? card.data?['humidity'] ?? 65;
-    final windSpeed = card.data?['wind_speed_kmh'] ?? card.data?['wind_speed'] ?? 14.2;
+    final temp = card.data?['temperature_celsius'] ?? card.data?['temp'];
+    final condition = card.data?['condition'] ?? card.subtitle ?? 'Current conditions';
+    final humidity = card.data?['humidity_percent'] ?? card.data?['humidity'];
+    final windSpeed = card.data?['wind_speed_kmh'] ?? card.data?['wind_speed'];
+    final tempLabel = temp == null ? '--' : '$temp';
+    final humidityLabel = humidity == null ? '--' : '$humidity';
+    final windLabel = windSpeed == null ? '--' : '$windSpeed';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,7 +37,7 @@ class WeatherCardWidget extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '$temp°C',
+          '$tempLabel°C',
           style: GoogleFonts.inter(
             fontSize: 34,
             fontWeight: FontWeight.bold,
@@ -50,11 +53,11 @@ class WeatherCardWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Humidity: $humidity%',
+              'Humidity: $humidityLabel%',
               style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
             ),
             Text(
-              'Wind: $windSpeed km/h',
+              'Wind: $windLabel km/h',
               style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
             ),
           ],

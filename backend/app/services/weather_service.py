@@ -46,8 +46,13 @@ class WeatherService:
         logger.info("Cache MISS: %s — fetching from OpenWeatherMap", cache_key)
         try:
             raw_current = await owm.fetch_current_weather(lat, lon)
+            try:
+                uvi = await owm.fetch_uvi(lat, lon)
+            except ExternalServiceException:
+                logger.warning("UVI fetch failed for %s — uv_index will be 0.0", cache_key)
+                uvi = 0.0
 
-            result = owm.normalize_current_weather(raw_current, uvi=0.0)
+            result = owm.normalize_current_weather(raw_current, uvi=uvi)
             result.cached = False
             result.stale = False
 

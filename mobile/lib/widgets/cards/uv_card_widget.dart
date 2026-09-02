@@ -10,7 +10,7 @@ class UvCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uvIndex = card.data?['uv_index'] ?? 4.2;
+    final uvIndex = card.data?['uv_index'];
 
     return Row(
       children: [
@@ -41,7 +41,7 @@ class UvCardWidget extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                card.subtitle ?? 'Peak UV Index: $uvIndex',
+                card.subtitle ?? (uvIndex == null ? 'UV unavailable' : 'UV Index: $uvIndex'),
                 style: GoogleFonts.inter(
                   color: const Color(0xFFA78BFA),
                   fontSize: 13,
