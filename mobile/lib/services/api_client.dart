@@ -269,4 +269,56 @@ class ApiClient {
     }
     throw Exception('Failed to delete saved location: $lastError');
   }
+
+  Future<Map<String, dynamic>> fetchWeatherForecast({
+    required double lat,
+    required double lon,
+    required String idToken,
+  }) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/weather/forecast?lat=$lat&lon=$lon');
+        final response = await _client.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 8));
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to fetch weather forecast: $lastError');
+  }
+
+  Future<Map<String, dynamic>> fetchCurrentAqi({
+    required double lat,
+    required double lon,
+    required String idToken,
+  }) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/aqi/current?lat=$lat&lon=$lon');
+        final response = await _client.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to fetch AQI: $lastError');
+  }
 }

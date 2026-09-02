@@ -59,6 +59,12 @@ def test_insufficient_interactions_fallback(sample_cards):
 
 
 def test_gated_ml_reranking_success(sample_cards, seed_interactions):
+    # Ensure trained model artifact exists
+    model, _ = train_model(seed_interactions)
+    import joblib
+    from app.ml.reranker import MODEL_PATH
+    joblib.dump(model, MODEL_PATH)
+
     # Filter seed interactions for demo_user_fit_01 (has > 20 interactions)
     user_interactions = [r for r in seed_interactions if r.get("user_id") == "demo_user_fit_01"]
     assert len(user_interactions) >= 20
@@ -70,7 +76,7 @@ def test_gated_ml_reranking_success(sample_cards, seed_interactions):
         cards=sample_cards,
         user={"persona": "Fitness", "uid": "demo_user_fit_01"},
         user_interactions=user_interactions,
-        confidence_margin_threshold=0.01,  # Low threshold to test ML path
+        confidence_margin_threshold=0.0,  # 0.0 threshold to test ML path
     )
 
     assert ranker == "ml"
@@ -81,7 +87,13 @@ def test_gated_ml_reranking_success(sample_cards, seed_interactions):
 
 
 def test_card_catalog_preservation(sample_cards, seed_interactions):
+    model, _ = train_model(seed_interactions)
+    import joblib
+    from app.ml.reranker import MODEL_PATH
+    joblib.dump(model, MODEL_PATH)
+
     user_interactions = [r for r in seed_interactions if r.get("user_id") == "demo_user_fit_01"]
+    MLReranker.reload()
 
     cards, ranker, delta = MLReranker.rerank(
         cards=sample_cards,

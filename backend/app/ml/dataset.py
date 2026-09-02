@@ -28,10 +28,14 @@ async def get_all_interactions(user_id: str | None = None) -> list[dict[str, Any
 
     try:
         async with AsyncSessionLocal() as session:
-            query = "SELECT * FROM user_interactions"
+            query = """
+                SELECT ui.*, u.firebase_uid 
+                FROM user_interactions ui
+                LEFT JOIN users u ON ui.user_id = u.id
+            """
             params: dict[str, Any] = {}
             if user_id:
-                query += " WHERE user_id = :user_id"
+                query += " WHERE ui.user_id = :user_id OR u.firebase_uid = :user_id"
                 params["user_id"] = user_id
 
             res = await session.execute(text(query), params)

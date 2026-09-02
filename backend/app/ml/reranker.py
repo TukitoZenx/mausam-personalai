@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 MODEL_PATH = Path(__file__).parent / "model.joblib"
 MIN_INTERACTIONS_DEFAULT = 20
-CONFIDENCE_MARGIN_DEFAULT = 0.08
+CONFIDENCE_MARGIN_DEFAULT = 0.005
 
 
 class MLReranker:
@@ -21,17 +21,17 @@ class MLReranker:
     @classmethod
     def load_model(cls) -> Any | None:
         """Load joblib model artifact if present."""
-        if not cls._model_loaded:
+        if not cls._model_loaded or cls._model is None:
             if MODEL_PATH.exists():
                 try:
                     cls._model = joblib.load(MODEL_PATH)
+                    cls._model_loaded = True
                     logger.info("Loaded ML Reranker model from %s", MODEL_PATH)
                 except Exception as e:
                     logger.warning("Failed to load ML model artifact from %s: %s", MODEL_PATH, e)
                     cls._model = None
             else:
                 logger.info("ML model artifact %s not found. Gated reranking disabled.", MODEL_PATH)
-            cls._model_loaded = True
         return cls._model
 
     @classmethod

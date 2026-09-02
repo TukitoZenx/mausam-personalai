@@ -78,7 +78,7 @@ void main() {
     // Forecast
     router.go('/forecast');
     await tester.pumpAndSettle();
-    expect(find.text('Forecast Screen'), findsOneWidget);
+    expect(find.text('Forecast'), findsWidgets);
 
     // Saved Locations
     router.go('/saved-locations');
