@@ -8,6 +8,7 @@ import '../theme/weather_palette.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/weather/location_switcher_sheet.dart';
 import '../widgets/weather/weather_sections.dart';
+import '../widgets/weather_skeleton_loader.dart';
 
 class ForecastScreen extends ConsumerWidget {
   const ForecastScreen({super.key});
@@ -79,11 +80,9 @@ class ForecastScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               if (dash.isLoading && data == null)
-                const Padding(
-                  padding: EdgeInsets.only(top: 80),
-                  child: Center(
-                    child: CircularProgressIndicator(color: MausamPalette.accentBlue),
-                  ),
+                const SizedBox(
+                  height: 400,
+                  child: WeatherSkeletonLoader(),
                 )
               else if (dash.errorMessage != null && data == null)
                 Padding(

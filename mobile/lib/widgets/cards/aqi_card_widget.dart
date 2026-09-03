@@ -36,6 +36,7 @@ class AqiCardWidget extends StatelessWidget {
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 15,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),

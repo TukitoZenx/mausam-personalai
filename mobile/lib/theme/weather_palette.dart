@@ -16,6 +16,31 @@ class MausamPalette {
   static const Color cardSurfaceLight = Color(0xFF3D2D62); // Lighter card variant
   static const Color cardBorder = Color(0xFF4A3670);    // Subtle card borders
 
+  // ─── Soft Ambient Card Shadows (Craft Polish) ───
+  static const List<BoxShadow> cardShadow = [
+    BoxShadow(
+      color: Color(0x3D0D0720),
+      blurRadius: 16,
+      spreadRadius: -2,
+      offset: Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Color(0x1A000000),
+      blurRadius: 4,
+      spreadRadius: 0,
+      offset: Offset(0, 2),
+    ),
+  ];
+
+  static const List<BoxShadow> heroShadow = [
+    BoxShadow(
+      color: Color(0x541A0E2E),
+      blurRadius: 24,
+      spreadRadius: -4,
+      offset: Offset(0, 12),
+    ),
+  ];
+
   // ─── Text ───
   static const Color textPrimary = Color(0xFFF0EBF8);   // High emphasis
   static const Color textSecondary = Color(0xFFB8A8D0);  // Medium emphasis
@@ -95,14 +120,17 @@ class WeatherPalette {
   }
 }
 
-/// Typography scale matching the design system.
+/// Typography scale matching the design system with tabular numbers support.
 class MausamTypography {
+  static const List<FontFeature> tabularFeatures = [FontFeature.tabularFigures()];
+
   static TextStyle largeTitle = GoogleFonts.inter(
     fontSize: 72,
     fontWeight: FontWeight.w700,
     color: MausamPalette.textPrimary,
     height: 1.0,
     letterSpacing: -2,
+    fontFeatures: tabularFeatures,
   );
 
   static TextStyle sectionTitle = GoogleFonts.inter(
@@ -145,6 +173,7 @@ class MausamTypography {
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: MausamPalette.textPrimary,
+    fontFeatures: tabularFeatures,
   );
 
   static TextStyle statLabel = GoogleFonts.inter(
@@ -157,11 +186,21 @@ class MausamTypography {
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: MausamPalette.textPrimary,
+    fontFeatures: tabularFeatures,
   );
 
   static TextStyle hourlyTime = GoogleFonts.inter(
     fontSize: 11,
     fontWeight: FontWeight.w400,
     color: MausamPalette.textTertiary,
+    fontFeatures: tabularFeatures,
   );
+
+  /// Helper to apply tabular figures to any custom text style
+  static TextStyle tabular(TextStyle base) {
+    return base.copyWith(fontFeatures: [
+      ...?base.fontFeatures,
+      const FontFeature.tabularFigures(),
+    ]);
+  }
 }

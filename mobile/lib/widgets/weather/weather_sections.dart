@@ -45,8 +45,9 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
       decoration: BoxDecoration(
         gradient: MausamPalette.heroGradient(hour: hour, condition: current.condition),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: MausamPalette.heroShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +75,11 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
                           ),
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70),
+                      const SizedBox(width: 2),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1), // Optical nudge
+                        child: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 20),
+                      ),
                     ],
                   ),
                 ),
@@ -101,12 +106,7 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
             children: [
               Text(
                 '$temp',
-                style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 72,
-                  height: 1.0,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: MausamTypography.largeTitle,
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -126,9 +126,23 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (high != null)
-                      Text('▲ $high°', style: GoogleFonts.inter(color: Colors.white, fontSize: 13)),
+                      Text(
+                        '▲ $high°',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
                     if (low != null)
-                      Text('▼ $low°', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                      Text(
+                        '▼ $low°',
+                        style: GoogleFonts.inter(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -159,7 +173,7 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8), // Concentric: 24 - 16 = 8
                 ),
                 child: Row(
                   children: [
@@ -191,7 +205,12 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
           const SizedBox(height: 2),
           Text(
             value,
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
@@ -229,7 +248,7 @@ class HourlyForecastStrip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(10), // Concentric: 20 outer radius - 10 padding = 10
                 border: Border.all(color: MausamPalette.cardBorder),
               ),
               child: Column(
@@ -383,6 +402,7 @@ class AqiGaugeCard extends StatelessWidget {
                   color: Colors.white,
                   fontSize: 42,
                   fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 10),
@@ -423,7 +443,11 @@ class AqiGaugeCard extends StatelessWidget {
                       Text(labels[i], style: GoogleFonts.inter(color: Colors.white60, fontSize: 11)),
                       Text(
                         (aqi.pollutants[keys[i]] ?? 0).toStringAsFixed(1),
-                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                       Container(
                         height: 3,
@@ -792,13 +816,15 @@ Widget _sectionCard({
     padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
     decoration: BoxDecoration(
       color: MausamPalette.cardSurface,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(20),
       border: Border.all(color: MausamPalette.cardBorder),
+      boxShadow: MausamPalette.cardShadow,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -825,8 +851,9 @@ Widget _miniCard({required String title, required Widget child}) {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: MausamPalette.cardSurface,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: MausamPalette.cardBorder),
+      boxShadow: MausamPalette.cardShadow,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -268,10 +268,13 @@ class _DrawerItem extends StatelessWidget {
         child: ListTile(
           onTap: onTap,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          leading: Icon(
-            icon,
-            color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
-            size: 22,
+          leading: Transform.translate(
+            offset: const Offset(0, -0.5),
+            child: Icon(
+              icon,
+              color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+              size: 22,
+            ),
           ),
           title: Text(
             label,
