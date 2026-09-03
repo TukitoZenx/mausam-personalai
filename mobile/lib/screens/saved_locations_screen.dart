@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/homepage_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/weather_dashboard_provider.dart';
 
 import '../theme/weather_palette.dart';
 import '../widgets/staggered_item_wrapper.dart';
@@ -37,10 +39,26 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     final idToken = userState.idToken ?? 'test_token';
 
     try {
+      // 1. Perform geocoding search first to resolve real lat/lon
+      final searchResults = await apiClient.searchLocations(query: text, idToken: idToken);
+      double lat = 17.3850;
+      double lon = 78.4867;
+      String locationName = text;
+      String? placeName;
+
+      if (searchResults.isNotEmpty) {
+        final first = searchResults.first as Map<String, dynamic>;
+        locationName = first['name'] as String? ?? text;
+        placeName = first['display_name'] as String?;
+        lat = (first['latitude'] as num).toDouble();
+        lon = (first['longitude'] as num).toDouble();
+      }
+
+      // 2. Save location on backend
       final created = await apiClient.saveLocation(
-        name: text,
-        latitude: 19.0760, // Fallback coordinates for new named search entry
-        longitude: 72.8777,
+        name: locationName,
+        latitude: lat,
+        longitude: lon,
         idToken: idToken,
       );
 
@@ -49,24 +67,27 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
         name: created['name'] as String,
         latitude: (created['latitude'] as num).toDouble(),
         longitude: (created['longitude'] as num).toDouble(),
-        placeName: created['place_name'] as String?,
+        placeName: created['place_name'] as String? ?? placeName,
       );
 
+      if (!mounted) return;
       ref.read(locationProvider.notifier).addSavedLocation(newItem);
+      ref.read(locationProvider.notifier).selectSavedLocation(newItem);
+      ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+      ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
+
       _searchController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added $text to saved locations'),
-            backgroundColor: MausamPalette.cardSurface,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added and selected $locationName'),
+          backgroundColor: MausamPalette.cardSurface,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add location: $e'),
+            content: Text('Could not save location: $e'),
             backgroundColor: MausamPalette.accentRed,
           ),
         );
@@ -83,15 +104,14 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
 
     try {
       await apiClient.deleteSavedLocation(id: id, idToken: idToken);
+      if (!mounted) return;
       ref.read(locationProvider.notifier).removeSavedLocation(id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Removed $name'),
-            backgroundColor: MausamPalette.cardSurface,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed $name'),
+          backgroundColor: MausamPalette.cardSurface,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -107,7 +127,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
-    final savedLocations = locState.savedLocations;
+    final saved = locState.savedLocations;
 
     return Scaffold(
       backgroundColor: MausamPalette.bgPrimary,
@@ -135,110 +155,28 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(
           children: [
-            // Current GPS Location Banner
-            StaggeredItemWrapper(
-              index: 0,
-              child: GestureDetector(
-                onTap: () {
-                  ref.read(locationProvider.notifier).useCurrentLocation();
-                  context.go('/home');
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: MausamPalette.cardSurface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: !locState.isCustomSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
-                      width: !locState.isCustomSelected ? 1.5 : 1.0,
-                    ),
-                    boxShadow: MausamPalette.cardShadow,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: MausamPalette.accentBlue.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.my_location_rounded, color: MausamPalette.accentBlue, size: 20),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  'Current Location',
-                                  style: GoogleFonts.inter(
-                                    color: MausamPalette.textPrimary,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                if (!locState.isCustomSelected) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: MausamPalette.accentBlue.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'ACTIVE',
-                                      style: GoogleFonts.inter(
-                                        color: MausamPalette.accentBlue,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              locState.deviceCityName ?? locState.cityName,
-                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded, color: MausamPalette.textTertiary),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Search / Add Location Section
-            StaggeredItemWrapper(
-              index: 1,
+            // Search / Add Location Input Bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
                   color: MausamPalette.cardSurface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: MausamPalette.cardBorder),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search_rounded, color: MausamPalette.textTertiary, size: 20),
+                    const Icon(Icons.search_rounded, color: MausamPalette.accentBlue, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
                         style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search city or location...',
+                          hintText: 'Enter city (e.g. Hyderabad, London, Tokyo)...',
                           hintStyle: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 14),
                           border: InputBorder.none,
                         ),
@@ -253,96 +191,123 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                       )
                     else
                       IconButton(
-                        icon: const Icon(Icons.add_rounded, color: MausamPalette.textPrimary),
+                        icon: const Icon(Icons.add_rounded, color: MausamPalette.accentBlue),
                         onPressed: _addLocation,
+                        tooltip: 'Add City',
                       ),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
-
-            Text(
-              'SAVED LOCATIONS',
-              style: GoogleFonts.inter(
-                color: MausamPalette.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            if (savedLocations.isEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: MausamPalette.cardSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: MausamPalette.cardBorder),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.bookmark_border_rounded, color: MausamPalette.textTertiary, size: 36),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No saved locations yet',
-                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Search above to save your favorite cities for quick weather access.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              for (int i = 0; i < savedLocations.length; i++)
-                StaggeredItemWrapper(
-                  index: i + 2,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: MausamPalette.cardSurface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: locState.isCustomSelected &&
-                                locState.activeLatitude == savedLocations[i].latitude &&
-                                locState.activeLongitude == savedLocations[i].longitude
-                            ? MausamPalette.accentBlue
-                            : MausamPalette.cardBorder,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                        onTap: () {
-                          ref.read(locationProvider.notifier).selectSavedLocation(savedLocations[i]);
-                          context.go('/home');
-                        },
-                        leading: const Icon(Icons.place_outlined, color: MausamPalette.textSecondary),
-                        title: Text(
-                          savedLocations[i].name,
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+            // Saved Locations List
+            Expanded(
+              child: saved.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.map_outlined, color: MausamPalette.textTertiary, size: 44),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No Saved Locations',
+                            style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                           ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: MausamPalette.textTertiary, size: 20),
-                          onPressed: () => _deleteLocation(savedLocations[i].id, savedLocations[i].name),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Type a city name above to add it to your list.',
+                            style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                          ),
+                        ],
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: saved.length,
+                      itemBuilder: (context, index) {
+                        final item = saved[index];
+                        final isSelected = item.name.toLowerCase() == locState.cityName.toLowerCase();
+
+                        return StaggeredItemWrapper(
+                          index: index,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              onTap: () {
+                                ref.read(locationProvider.notifier).selectSavedLocation(item);
+                                ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+                                ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
+                                context.go('/home');
+                              },
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? MausamPalette.accentBlue.withValues(alpha: 0.15)
+                                      : MausamPalette.bgDeep,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.location_on_rounded,
+                                  color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.textPrimary,
+                                        fontSize: 15,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: MausamPalette.accentBlue.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'ACTIVE',
+                                        style: GoogleFonts.inter(
+                                          color: MausamPalette.accentBlue,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                item.placeName ?? '${item.latitude.toStringAsFixed(2)}, ${item.longitude.toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, color: MausamPalette.textTertiary, size: 20),
+                                onPressed: () => _deleteLocation(item.id, item.name),
+                                tooltip: 'Delete Location',
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                ),
-            ],
+            ),
           ],
         ),
       ),

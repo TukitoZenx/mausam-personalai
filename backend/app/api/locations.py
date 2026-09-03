@@ -5,12 +5,24 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import get_current_user
 from app.schemas.location import (
     LocationInfo,
+    LocationSearchResult,
     SavedLocationCreate,
     SavedLocationResponse,
 )
 from app.services.location_service import LocationService
 
 router = APIRouter(prefix="/locations", tags=["locations"])
+
+
+@router.get("/search", response_model=list[LocationSearchResult])
+async def search_locations(
+    q: str = Query(..., description="Location search query", min_length=1),
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Search location candidates by name or query string.
+    """
+    return await LocationService.search_locations(q)
 
 
 @router.get("/current", response_model=LocationInfo)

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/staggered_item_wrapper.dart';
@@ -54,10 +55,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _logout() async {
     final authService = ref.read(authServiceProvider);
     await authService.signOut();
+    if (!mounted) return;
     ref.read(userProvider.notifier).signOut();
-    if (mounted) {
-      context.go('/login');
-    }
+    context.go('/login');
   }
 
   @override
@@ -512,6 +512,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         subtitle: Text(
                           'Receive severe rain and high AQI advisories',
                           style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.notifications_active_rounded, color: MausamPalette.accentAmber, size: 22),
+                        title: Text(
+                          'Send Test Alert Notification',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Tap to trigger a live atmospheric weather alert toast notification',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                        ),
+                        trailing: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: MausamPalette.accentAmber,
+                            side: const BorderSide(color: MausamPalette.accentAmber),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          onPressed: () => NotificationService.showTestNotification(context),
+                          child: Text('TEST', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11)),
                         ),
                       ),
                       const Divider(color: MausamPalette.cardBorderSubtle, height: 1),

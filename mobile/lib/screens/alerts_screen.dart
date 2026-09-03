@@ -219,40 +219,42 @@ class AlertsScreen extends ConsumerWidget {
     final List<_AlertItem> items = [];
     final current = data.current;
     final temp = current.temperatureCelsius;
-    final precip = current.rainMm1h ?? 0;
-    final uv = current.uvIndex;
+    final precip = current.rainMm1h ?? 0.0;
+    final cond = (current.condition ?? '').toLowerCase();
+    final uv = current.uvIndex ?? 0.0;
     final aqi = data.aqi?.aqiValue ?? 0;
+    final wind = current.windSpeedKmh;
 
-    if (temp >= 38) {
+    if (temp >= 36) {
       items.add(_AlertItem(
         title: 'Extreme Heat Warning',
-        description: 'Temperatures reaching ${temp.round()}°C. Stay hydrated and avoid outdoor exposure during peak hours.',
+        description: 'Temperatures reaching ${temp.round()}°C. Stay hydrated and avoid peak sun exposure.',
         icon: Icons.thermostat_rounded,
         severityLabel: 'EXTREME',
         isSevere: true,
       ));
-    } else if (temp >= 33) {
+    } else if (temp >= 30) {
       items.add(_AlertItem(
-        title: 'Moderate Heat Advisory',
-        description: 'High temperature of ${temp.round()}°C. Keep hydrated during outdoor activities.',
+        title: 'Elevated Heat Caution',
+        description: 'High temperature of ${temp.round()}°C. Drink extra fluids during outdoor activities.',
         icon: Icons.wb_sunny_rounded,
         severityLabel: 'MODERATE',
         isSevere: false,
       ));
     }
 
-    if (precip > 5.0) {
+    if (precip >= 5.0 || cond.contains('thunder') || cond.contains('heavy rain')) {
       items.add(_AlertItem(
         title: 'Heavy Rainfall Warning',
-        description: 'Active rainfall detected (${precip.toStringAsFixed(1)} mm/h). Plan indoor activity and exercise caution during travel.',
+        description: 'Active rainfall detected (${precip > 0 ? precip.toStringAsFixed(1) : "5.0"} mm/h). Exercise caution during travel.',
         icon: Icons.thunderstorm_rounded,
         severityLabel: 'HIGH',
         isSevere: true,
       ));
-    } else if (precip > 0.0) {
+    } else if (precip > 0.0 || cond.contains('rain') || cond.contains('drizzle') || cond.contains('shower')) {
       items.add(_AlertItem(
         title: 'Precipitation Advisory',
-        description: 'Light rain in your area. Carry an umbrella if heading outside.',
+        description: '${current.condition ?? "Rain"} reported in your area. Carry an umbrella if heading outside.',
         icon: Icons.water_drop_rounded,
         severityLabel: 'MODERATE',
         isSevere: false,
@@ -261,8 +263,8 @@ class AlertsScreen extends ConsumerWidget {
 
     if (aqi >= 200) {
       items.add(_AlertItem(
-        title: 'Very Poor Air Quality Alert',
-        description: 'AQI at $aqi (${data.aqi?.category}). Limit prolonged outdoor exertion and consider wearing an N95 mask.',
+        title: 'Severe Air Quality Alert',
+        description: 'AQI at $aqi (${data.aqi?.category}). Limit outdoor exertion and wear an N95 mask.',
         icon: Icons.air_rounded,
         severityLabel: 'SEVERE',
         isSevere: true,
@@ -275,12 +277,30 @@ class AlertsScreen extends ConsumerWidget {
         severityLabel: 'MODERATE',
         isSevere: false,
       ));
+    } else if (aqi >= 50) {
+      items.add(_AlertItem(
+        title: 'Moderate AQI Advisory',
+        description: 'AQI at $aqi (${data.aqi?.category}). Generally acceptable air quality.',
+        icon: Icons.air_rounded,
+        severityLabel: 'INFO',
+        isSevere: false,
+      ));
     }
 
-    if (uv >= 8) {
+    if (wind >= 25.0) {
+      items.add(_AlertItem(
+        title: 'Gusty Wind Advisory',
+        description: 'Wind speed reaching ${wind.round()} km/h. Take care during outdoor activities.',
+        icon: Icons.air_rounded,
+        severityLabel: 'MODERATE',
+        isSevere: false,
+      ));
+    }
+
+    if (uv >= 6.0) {
       items.add(_AlertItem(
         title: 'High UV Index Warning',
-        description: 'UV Index at ${uv.toStringAsFixed(1)}. Sun protection (SPF 30+ & sunglasses) strongly recommended.',
+        description: 'UV Index at ${uv.toStringAsFixed(1)}. Sun protection (SPF 30+ & sunglasses) recommended.',
         icon: Icons.wb_sunny_outlined,
         severityLabel: 'HIGH',
         isSevere: false,

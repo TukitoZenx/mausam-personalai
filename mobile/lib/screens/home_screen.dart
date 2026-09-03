@@ -10,11 +10,11 @@ import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
+import '../services/notification_service.dart';
 import '../widgets/cards/recommended_section_widget.dart';
 import '../widgets/navigation/app_drawer.dart';
 import '../widgets/navigation/search_overlay.dart';
 import '../widgets/staggered_item_wrapper.dart';
-import '../widgets/weather/location_switcher_sheet.dart';
 import '../widgets/weather/weather_sections.dart';
 import '../widgets/weather_environment_background.dart';
 import '../widgets/weather_skeleton_loader.dart';
@@ -27,12 +27,32 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _locationCollapsed = false;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initLocationAndFetchData();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    if (offset > 45 && !_locationCollapsed) {
+      setState(() => _locationCollapsed = true);
+    } else if (offset <= 15 && _locationCollapsed) {
+      setState(() => _locationCollapsed = false);
+    }
   }
 
   Future<void> _initLocationAndFetchData() async {
@@ -61,10 +81,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _openSwitcher() {
-    return showLocationSwitcherSheet(context: context, ref: ref);
-  }
-
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
@@ -73,6 +89,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final appearance = ref.watch(appearanceProvider);
     final data = dash.data;
     final topCard = homeState.data?.cards.firstOrNull;
+
+    final activeLocationName = locState.cityName.isNotEmpty
+        ? locState.cityName
+        : (data?.current.location ?? 'Active Location');
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -83,7 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // 1. Floating Glass Control Header Bar: [ ☰   📍 Location   ⌕ ]
+              // 1. Floating Glass Control Header Bar: [ ☰   📍 Location Text   ⌕ ]
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
                 child: Container(
@@ -106,38 +126,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
 
-                      // Center: 📍 Location Selector Pill
-                      GestureDetector(
-                        onTap: _openSwitcher,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: MausamPalette.bgDeep.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: MausamPalette.cardBorderSubtle),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.location_on_outlined, color: MausamPalette.accentBlue, size: 14),
-                              const SizedBox(width: 6),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 140),
-                                child: Text(
-                                  locState.cityName.isNotEmpty
-                                      ? locState.cityName
-                                      : (data?.current.location ?? 'Active Location'),
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.inter(
-                                    color: MausamPalette.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                      // Center: Plain Interactive Location Text (No pill, no border, no fill)
+                      // Dynamic scroll bounce return animation
+                      Expanded(
+                        child: Center(
+                          child: AnimatedSlide(
+                            offset: _locationCollapsed ? const Offset(0, -0.6) : Offset.zero,
+                            duration: const Duration(milliseconds: 350),
+                            curve: _locationCollapsed ? Curves.easeOutCubic : Curves.easeOutBack,
+                            child: AnimatedOpacity(
+                              opacity: _locationCollapsed ? 0.0 : 1.0,
+                              duration: const Duration(milliseconds: 250),
+                              child: InkWell(
+                                onTap: () => context.push('/saved-locations'),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_outlined,
+                                        color: MausamPalette.accentBlue,
+                                        size: 15,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(maxWidth: 160),
+                                        child: Text(
+                                          activeLocationName,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            color: MausamPalette.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 2),
-                              const Icon(Icons.keyboard_arrow_down_rounded, color: MausamPalette.textTertiary, size: 16),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -159,7 +190,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: MausamPalette.accentBlue,
                   backgroundColor: MausamPalette.cardSurface,
                   onRefresh: () async {
+                    if (!mounted) return;
                     await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+                    if (!mounted) return;
                     await ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
                   },
                   child: AnimatedSwitcher(
@@ -169,6 +202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : dash.errorMessage != null && data == null
                             ? ListView(
                                 key: const ValueKey('error_view'),
+                                controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.all(24),
                                 children: [
@@ -209,6 +243,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               )
                             : ListView(
                                 key: ValueKey('data_view_${locState.activeLatitude}_${locState.activeLongitude}'),
+                                controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
                                 children: [
@@ -219,15 +254,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       child: HeroCurrentCard(
                                         current: data.current,
                                         hourly: data.hourly,
-                                        locationName: locState.cityName.isNotEmpty ? locState.cityName : data.current.location,
-                                        onLocationTap: _openSwitcher,
+                                        locationName: activeLocationName,
+                                        onLocationTap: () => context.push('/saved-locations'),
                                         onSearchTap: () => showSearchOverlay(context: context, ref: ref),
                                         onProfileTap: () => context.push('/profile'),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
 
-                                    // 2. FOR YOU Recommendation Section (Clean monochrome surface, no left green line)
+                                    // 1b. Active Weather Alert Banner
+                                    if (_computeHomeAlert(data) != null) ...[
+                                      StaggeredItemWrapper(
+                                        index: 1,
+                                        child: _HomeAlertBanner(
+                                          alert: _computeHomeAlert(data)!,
+                                          onTap: () => context.push('/alerts'),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+
+                                    // 2. FOR YOU Recommendation Section
                                     if (topCard != null)
                                       StaggeredItemWrapper(
                                         index: 1,
@@ -266,6 +313,179 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  _AlertItemData? _computeHomeAlert(data) {
+    if (data == null) return null;
+    final current = data.current;
+    final temp = current.temperatureCelsius;
+    final precip = current.rainMm1h ?? 0.0;
+    final cond = (current.condition ?? '').toLowerCase();
+    final aqi = data.aqi?.aqiValue ?? 0;
+    final wind = current.windSpeedKmh;
+
+    if (temp >= 36) {
+      return _AlertItemData(
+        title: 'EXTREME HEAT WARNING',
+        message: 'High temperature of ${temp.round()}°C. Avoid peak sun & stay hydrated.',
+        isSevere: true,
+        icon: Icons.thermostat_rounded,
+      );
+    }
+    if (precip >= 5.0 || cond.contains('thunder') || cond.contains('heavy rain')) {
+      return _AlertItemData(
+        title: 'HEAVY RAINFALL WARNING',
+        message: 'Active heavy rain or thunderstorm. Plan travel carefully.',
+        isSevere: true,
+        icon: Icons.thunderstorm_rounded,
+      );
+    }
+    if (aqi >= 200) {
+      return _AlertItemData(
+        title: 'SEVERE AIR POLLUTION',
+        message: 'AQI reached $aqi (${data.aqi?.category}). Limit outdoor exposure.',
+        isSevere: true,
+        icon: Icons.air_rounded,
+      );
+    }
+    if (temp >= 30) {
+      return _AlertItemData(
+        title: 'WARM WEATHER CAUTION',
+        message: 'Temperature is ${temp.round()}°C. Drink extra fluids during outdoor activity.',
+        isSevere: false,
+        icon: Icons.wb_sunny_rounded,
+      );
+    }
+    if (precip > 0.0 || anyWordIn(cond, ['rain', 'drizzle', 'shower'])) {
+      return _AlertItemData(
+        title: 'RAINFALL ADVISORY',
+        message: '${current.condition ?? "Light rain"} reported. Carry an umbrella outside.',
+        isSevere: false,
+        icon: Icons.water_drop_rounded,
+      );
+    }
+    if (aqi >= 80) {
+      return _AlertItemData(
+        title: 'MODERATE AQI ADVISORY',
+        message: 'Air Quality Index is $aqi (${data.aqi?.category}).',
+        isSevere: false,
+        icon: Icons.air_rounded,
+      );
+    }
+    if (wind >= 25.0) {
+      return _AlertItemData(
+        title: 'GUSTY WIND ADVISORY',
+        message: 'Wind speed reaching ${wind.round()} km/h.',
+        isSevere: false,
+        icon: Icons.air_rounded,
+      );
+    }
+    return null;
+  }
+}
+
+bool anyWordIn(String text, List<String> words) {
+  return words.any((w) => text.contains(w));
+}
+
+class _AlertItemData {
+  final String title;
+  final String message;
+  final bool isSevere;
+  final IconData icon;
+
+  _AlertItemData({
+    required this.title,
+    required this.message,
+    required this.isSevere,
+    required this.icon,
+  });
+}
+
+class _HomeAlertBanner extends StatelessWidget {
+  final _AlertItemData alert;
+  final VoidCallback onTap;
+
+  const _HomeAlertBanner({
+    required this.alert,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        NotificationService.showAlertNotification(
+          context,
+          title: alert.title,
+          message: alert.message,
+          isSevere: alert.isSevere,
+          onViewAlerts: onTap,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: MausamPalette.cardSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: alert.isSevere ? MausamPalette.accentRed.withValues(alpha: 0.7) : MausamPalette.accentAmber.withValues(alpha: 0.5),
+            width: 1.0,
+          ),
+          boxShadow: MausamPalette.cardShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: alert.isSevere ? MausamPalette.accentRed.withValues(alpha: 0.15) : MausamPalette.accentAmber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                alert.icon,
+                color: alert.isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        alert.title,
+                        style: GoogleFonts.inter(
+                          color: alert.isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: MausamPalette.textTertiary, size: 12),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    alert.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: MausamPalette.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

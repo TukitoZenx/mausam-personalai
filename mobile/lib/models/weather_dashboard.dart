@@ -97,6 +97,8 @@ class CurrentConditions {
   final int? sunsetUnix;
   final int? timezoneOffsetSec;
 
+  double get windSpeedKph => windSpeedKmh;
+
   const CurrentConditions({
     required this.location,
     required this.temperatureCelsius,

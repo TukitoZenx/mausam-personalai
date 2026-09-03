@@ -5,24 +5,34 @@ import '../models/personalized_home_response.dart';
 
 class ApiClient {
   ApiClient({String? baseUrl, http.Client? client})
-      : baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:8000',
-            ),
+      : baseUrl = baseUrl ?? _defaultBaseUrl(),
         _client = client ?? http.Client();
+
+  static String _defaultBaseUrl() {
+    const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) return envUrl;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
+  }
 
   final String baseUrl;
   final http.Client _client;
 
-  List<String> get _candidateHosts => [
-        ...{
-          baseUrl,
-          'http://localhost:8000',
-          'http://127.0.0.1:8000',
-          'http://10.0.2.2:8000',
-        }
-      ];
+  List<String> get _candidateHosts {
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final primary = isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+    final fallback = isAndroid ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+    return [
+      ...{
+        baseUrl,
+        primary,
+        'http://127.0.0.1:8000',
+        fallback,
+      }
+    ];
+  }
 
   // --- Personalization Endpoints ---
 
@@ -213,6 +223,32 @@ class ApiClient {
     throw Exception('Failed to fetch saved locations: $lastError');
   }
 
+  Future<List<dynamic>> searchLocations({
+    required String query,
+    required String idToken,
+  }) async {
+    final encoded = Uri.encodeComponent(query);
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/locations/search?q=$encoded');
+        final response = await _client.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as List<dynamic>;
+        }
+      } catch (e) {
+        debugPrint('Search locations failed on host $host: $e');
+      }
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>> saveLocation({
     required String name,
     required double latitude,
@@ -234,16 +270,18 @@ class ApiClient {
             'latitude': latitude,
             'longitude': longitude,
           }),
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           return jsonDecode(response.body) as Map<String, dynamic>;
+        } else {
+          lastError = 'HTTP ${response.statusCode}: ${response.body}';
         }
       } catch (e) {
         lastError = e;
       }
     }
-    throw Exception('Failed to save destination: $lastError');
+    throw Exception('Failed to save location ($name): $lastError');
   }
 
   Future<void> deleteSavedLocation({

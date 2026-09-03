@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'firebase_options.dart';
 import 'router/app_router.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 // OPTIMIZED: Phased Initialization Architecture for sub-250ms First Paint
@@ -31,7 +32,7 @@ void _initCriticalPath() {
   GoogleFonts.config.allowRuntimeFetching = true;
 }
 
-// OPTIMIZED: Phase 2 — Deferred Services (Firebase, SDKs) post-paint
+// OPTIMIZED: Phase 2 — Deferred Services (Firebase, SDKs, Notifications) post-paint
 Future<void> _initDeferredServices() async {
   try {
     await Firebase.initializeApp(
@@ -39,6 +40,12 @@ Future<void> _initDeferredServices() async {
     );
   } catch (_) {
     // Graceful fallback for test runners or pre-initialized Firebase instances
+  }
+
+  try {
+    await NotificationService.init();
+  } catch (_) {
+    // Graceful fallback for environments without notification bar support
   }
 }
 
