@@ -9,6 +9,7 @@ import '../../providers/homepage_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/weather_dashboard_provider.dart';
+import '../../theme/weather_palette.dart';
 
 Future<void> showLocationSwitcherSheet({
   required BuildContext context,
@@ -25,7 +26,7 @@ Future<void> showLocationSwitcherSheet({
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0B132B).withValues(alpha: 0.85),
+              color: MausamPalette.cardSurface.withValues(alpha: 0.92),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             ),
@@ -59,19 +60,17 @@ Future<void> showLocationSwitcherSheet({
                       Container(
                         decoration: BoxDecoration(
                           color: !locState.isCustomSelected
-                              ? const Color(0xFF00F5FF).withValues(alpha: 0.12)
-                              : Colors.white.withValues(alpha: 0.04),
+                              ? MausamPalette.cardSurfaceLight
+                              : MausamPalette.bgDeep,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: !locState.isCustomSelected
-                                ? const Color(0xFF00F5FF).withValues(alpha: 0.4)
-                                : Colors.white.withValues(alpha: 0.1),
+                            color: MausamPalette.cardBorder,
                           ),
                         ),
                         child: Material(
                           color: Colors.transparent,
                           child: ListTile(
-                          leading: const Icon(Icons.my_location, color: Color(0xFF00F5FF)),
+                          leading: const Icon(Icons.my_location, color: MausamPalette.textPrimary),
                           title: Text(
                             'Current Location',
                             style: GoogleFonts.outfit(
@@ -81,10 +80,10 @@ Future<void> showLocationSwitcherSheet({
                           ),
                           subtitle: Text(
                             locState.deviceCityName ?? 'Live GPS Location',
-                            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                            style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
                           ),
                           trailing: !locState.isCustomSelected
-                              ? const Icon(Icons.check_circle_rounded, color: Color(0xFF00F5FF))
+                              ? const Icon(Icons.check_circle_rounded, color: MausamPalette.textPrimary)
                               : null,
                           onTap: () async {
                             final locationNotifier = ref.read(locationProvider.notifier);
@@ -102,14 +101,14 @@ Future<void> showLocationSwitcherSheet({
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Divider(color: Color(0xFF1E2F4F)),
+                        child: Divider(color: MausamPalette.cardBorder),
                       ),
                       Text(
                         'Saved Destinations',
                         style: GoogleFonts.outfit(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF7DD3FC),
+                          color: MausamPalette.textSecondary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -135,7 +134,7 @@ Future<void> showLocationSwitcherSheet({
                                   locState.activeLatitude == item.latitude &&
                                   locState.activeLongitude == item.longitude;
                               return ListTile(
-                                leading: const Icon(Icons.location_city, color: Color(0xFF3FA9F5)),
+                                leading: const Icon(Icons.location_city, color: MausamPalette.textSecondary),
                                 title: Text(
                                   item.name,
                                   style: GoogleFonts.outfit(color: Colors.white),
@@ -145,7 +144,7 @@ Future<void> showLocationSwitcherSheet({
                                   style: GoogleFonts.inter(color: Colors.white54, fontSize: 12),
                                 ),
                                 trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: Color(0xFF00F5FF))
+                                    ? const Icon(Icons.check_circle, color: MausamPalette.textPrimary)
                                     : null,
                                 onTap: () {
                                   ref.read(locationProvider.notifier).setActiveLocation(

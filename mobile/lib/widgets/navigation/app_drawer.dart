@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/weather_palette.dart';
+import 'drawer_time_header.dart';
 
 class MausamAppDrawer extends ConsumerWidget {
   final String currentRoute;
@@ -35,65 +36,10 @@ class MausamAppDrawer extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drawer Header Bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: MausamPalette.accentBlue,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'MAUSAM',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: MausamPalette.cardSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: MausamPalette.cardBorder),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.location_on_outlined, color: MausamPalette.accentBlue, size: 14),
-                          const SizedBox(width: 6),
-                          Text(
-                            locState.cityName,
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              DrawerTimeHeader(
+                locationName: locState.cityName.isNotEmpty ? locState.cityName : 'Current Location',
               ),
-
               const Divider(color: MausamPalette.drawerDivider, height: 1),
-
-              // Navigation Links
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
@@ -133,12 +79,10 @@ class MausamAppDrawer extends ConsumerWidget {
                       route: '/alerts',
                       isActive: currentRoute == '/alerts',
                     ),
-
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Divider(color: MausamPalette.drawerDivider, height: 1),
                     ),
-
                     _drawerItem(
                       context: context,
                       title: 'Profile & Settings',
@@ -149,8 +93,6 @@ class MausamAppDrawer extends ConsumerWidget {
                   ],
                 ),
               ),
-
-              // Footer Metadata
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
@@ -196,7 +138,7 @@ class MausamAppDrawer extends ConsumerWidget {
           },
           leading: Icon(
             icon,
-            color: isActive ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+            color: isActive ? MausamPalette.textPrimary : MausamPalette.textSecondary,
             size: 20,
           ),
           title: Text(

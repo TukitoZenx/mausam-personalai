@@ -15,6 +15,21 @@ async def test_search_locations():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["Bengaluru", "Mumbai", "Delhi", "London", "Tokyo", "New York"])
+async def test_search_arbitrary_cities(query):
+    results = await LocationService.search_locations(query)
+    assert isinstance(results, list)
+    assert results, f"Expected geocoding results for {query}"
+    token = query.split()[0].lower()
+    assert any(token in (r.name or "").lower() or token in (r.display_name or "").lower() for r in results)
+    assert -90 <= results[0].latitude <= 90
+    assert -180 <= results[0].longitude <= 180
+    is_hyderabad_default = abs(results[0].latitude - 17.3850) < 0.01 and abs(results[0].longitude - 78.4867) < 0.01
+    if query.lower() != "hyderabad":
+        assert not is_hyderabad_default
+
+
+@pytest.mark.asyncio
 async def test_save_and_duplicate_location():
     mock_user = {"uid": "test_user_geocoding", "email": "geo@mausam.ai"}
     payload = SavedLocationCreate(name="Hyderabad", latitude=17.3850, longitude=78.4867)

@@ -88,7 +88,7 @@ class _RainPainter extends CustomPainter {
     required this.progress,
     required this.opacity,
   }) : _paint = Paint()
-          ..color = const Color(0xFF3FA9F5).withValues(alpha: opacity)
+          ..color = const Color(0xFFD4D4D8).withValues(alpha: opacity)
           ..strokeWidth = 1.2
           ..strokeCap = StrokeCap.round;
 

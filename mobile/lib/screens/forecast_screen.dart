@@ -52,7 +52,7 @@ class ForecastScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: MausamPalette.accentBlue,
+          color: MausamPalette.textPrimary,
           backgroundColor: MausamPalette.cardSurface,
           onRefresh: () async {
             await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
@@ -71,7 +71,7 @@ class ForecastScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, color: MausamPalette.accentBlue, size: 16),
+                    const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 16),
                     const SizedBox(width: 6),
                     Text(
                       locState.cityName.isNotEmpty ? locState.cityName : (data?.current.location ?? 'Active Area'),
@@ -123,7 +123,7 @@ class ForecastScreen extends ConsumerWidget {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(
-                    child: CircularProgressIndicator(color: MausamPalette.accentBlue, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: MausamPalette.textPrimary, strokeWidth: 2),
                   ),
                 ),
               ],

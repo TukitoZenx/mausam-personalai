@@ -41,7 +41,7 @@ class AlertsScreen extends ConsumerWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: alerts.isNotEmpty ? MausamPalette.accentAmber : MausamPalette.accentGreen,
+                color: MausamPalette.textPrimary,
                 shape: BoxShape.circle,
               ),
             ),
@@ -60,7 +60,7 @@ class AlertsScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: MausamPalette.accentBlue,
+          color: MausamPalette.textPrimary,
           backgroundColor: MausamPalette.cardSurface,
           onRefresh: () async {
             await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
@@ -88,7 +88,7 @@ class AlertsScreen extends ConsumerWidget {
                     Text(
                       '${alerts.length} Active',
                       style: GoogleFonts.inter(
-                        color: alerts.isNotEmpty ? MausamPalette.accentAmber : MausamPalette.accentGreen,
+                        color: MausamPalette.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -109,7 +109,7 @@ class AlertsScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.check_circle_outline_rounded, color: MausamPalette.accentGreen, size: 44),
+                      const Icon(Icons.check_circle_outline_rounded, color: MausamPalette.textSecondary, size: 44),
                       const SizedBox(height: 16),
                       Text(
                         'No Severe Weather Alerts',
@@ -143,7 +143,7 @@ class AlertsScreen extends ConsumerWidget {
                         color: MausamPalette.cardSurface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: alerts[i].isSevere ? MausamPalette.accentRed.withValues(alpha: 0.6) : MausamPalette.cardBorder,
+                          color: MausamPalette.cardBorder,
                         ),
                       ),
                       child: Row(
@@ -152,14 +152,12 @@ class AlertsScreen extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: alerts[i].isSevere
-                                  ? MausamPalette.accentRed.withValues(alpha: 0.15)
-                                  : MausamPalette.accentAmber.withValues(alpha: 0.15),
+                              color: MausamPalette.cardSurfaceLight,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               alerts[i].icon,
-                              color: alerts[i].isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                              color: MausamPalette.textPrimary,
                               size: 22,
                             ),
                           ),
@@ -183,7 +181,7 @@ class AlertsScreen extends ConsumerWidget {
                                     Text(
                                       alerts[i].severityLabel,
                                       style: GoogleFonts.inter(
-                                        color: alerts[i].isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                                        color: MausamPalette.textSecondary,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                       ),

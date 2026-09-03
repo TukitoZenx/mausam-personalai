@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class ActivityWindowCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -15,14 +16,10 @@ class ActivityWindowCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.directions_run_rounded,
-            color: Color(0xFF10B981),
-            size: 28,
-          ),
+          child: const Icon(Icons.directions_run_rounded, color: MausamPalette.textPrimary, size: 28),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -31,20 +28,12 @@ class ActivityWindowCardWidget extends StatelessWidget {
             children: [
               Text(
                 card.title ?? 'Optimal Activity Window',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 2),
               Text(
-                card.subtitle ?? '7:00 AM - 9:00 AM',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF34D399),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                card.subtitle ?? 'Based on live temperature and humidity',
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),

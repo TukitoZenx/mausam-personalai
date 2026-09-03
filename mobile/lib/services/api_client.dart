@@ -237,10 +237,13 @@ class ApiClient {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $idToken',
           },
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
-          return jsonDecode(response.body) as List<dynamic>;
+          final decoded = jsonDecode(response.body);
+          if (decoded is List) return decoded;
+        } else {
+          debugPrint('Search locations HTTP ${response.statusCode} on $host: ${response.body}');
         }
       } catch (e) {
         debugPrint('Search locations failed on host $host: $e');

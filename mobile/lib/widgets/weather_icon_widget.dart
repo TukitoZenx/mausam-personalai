@@ -19,21 +19,21 @@ class WeatherIconWidget extends StatelessWidget {
     final code = (iconCode ?? '').toLowerCase();
 
     IconData iconData = Icons.wb_sunny_rounded;
-    Color iconColor = MausamPalette.accentOrange;
+    Color iconColor = MausamPalette.textPrimary;
 
     if (cond.contains('thunder') || cond.contains('storm') || code.contains('11')) {
       iconData = Icons.thunderstorm_rounded;
-      iconColor = MausamPalette.accentMagenta;
+      iconColor = MausamPalette.textPrimary;
     } else if (cond.contains('rain') || cond.contains('drizzle') || code.contains('09') || code.contains('10')) {
       iconData = Icons.water_drop_rounded;
-      iconColor = MausamPalette.accentBlue;
+      iconColor = MausamPalette.textSecondary;
     } else if (cond.contains('snow') || cond.contains('ice') || cond.contains('sleet') || code.contains('13')) {
       iconData = Icons.ac_unit_rounded;
-      iconColor = MausamPalette.accentCyan;
+      iconColor = MausamPalette.textPrimary;
     } else if (cond.contains('cloud') || code.contains('02') || code.contains('03') || code.contains('04')) {
       if (cond.contains('few') || cond.contains('scattered') || code == '02d') {
         iconData = Icons.wb_cloudy_rounded;
-        iconColor = MausamPalette.accentBlue;
+        iconColor = MausamPalette.textSecondary;
       } else {
         iconData = Icons.cloud_rounded;
         iconColor = MausamPalette.textSecondary;
@@ -43,7 +43,7 @@ class WeatherIconWidget extends StatelessWidget {
       iconColor = MausamPalette.textSecondary;
     } else if (code.endsWith('n') || cond.contains('night')) {
       iconData = Icons.nights_stay_rounded;
-      iconColor = MausamPalette.accentBlue;
+      iconColor = MausamPalette.textPrimary;
     }
 
     return Container(

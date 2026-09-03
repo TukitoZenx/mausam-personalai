@@ -16,7 +16,7 @@ class AppTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: MausamPalette.bgPrimary,
       primary: MausamPalette.bgPrimary,
-      secondary: MausamPalette.accentBlue,
+      secondary: MausamPalette.textSecondary,
       surface: MausamPalette.bgSurface,
       brightness: Brightness.dark,
     );

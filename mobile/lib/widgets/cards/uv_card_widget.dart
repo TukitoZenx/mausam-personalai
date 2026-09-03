@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class UvCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -17,14 +18,10 @@ class UvCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.wb_sunny_outlined,
-            color: Color(0xFF8B5CF6),
-            size: 28,
-          ),
+          child: const Icon(Icons.wb_sunny_outlined, color: MausamPalette.textPrimary, size: 28),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -33,20 +30,12 @@ class UvCardWidget extends StatelessWidget {
             children: [
               Text(
                 card.title ?? 'UV Protection Advice',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 2),
               Text(
                 card.subtitle ?? (uvIndex == null ? 'UV unavailable' : 'UV Index: $uvIndex'),
-                style: GoogleFonts.inter(
-                  color: const Color(0xFFA78BFA),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),

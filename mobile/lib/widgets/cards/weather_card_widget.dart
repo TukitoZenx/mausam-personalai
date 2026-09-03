@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class WeatherCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -29,10 +30,10 @@ class WeatherCardWidget extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: MausamPalette.textPrimary,
               ),
             ),
-            const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 30),
+            const Icon(Icons.wb_sunny_rounded, color: MausamPalette.textPrimary, size: 30),
           ],
         ),
         const SizedBox(height: 8),
@@ -41,12 +42,12 @@ class WeatherCardWidget extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 34,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: MausamPalette.textPrimary,
           ),
         ),
         Text(
           '$condition',
-          style: GoogleFonts.inter(color: Colors.grey, fontSize: 13),
+          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 12),
         Row(
@@ -54,11 +55,11 @@ class WeatherCardWidget extends StatelessWidget {
           children: [
             Text(
               'Humidity: $humidityLabel%',
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
             ),
             Text(
               'Wind: $windLabel km/h',
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
             ),
           ],
         ),

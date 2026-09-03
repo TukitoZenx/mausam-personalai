@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class AqiCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -15,25 +16,18 @@ class AqiCardWidget extends StatelessWidget {
     final aqiNum = (aqiValue is num) ? aqiValue.toDouble() : null;
     final isEstimated = card.data?['is_estimated'] == true;
 
-    Color categoryColor = const Color(0xFF10B981);
-    if (aqiNum != null && aqiNum > 100) {
-      categoryColor = const Color(0xFFEF4444);
-    } else if (aqiNum != null && aqiNum > 50) {
-      categoryColor = const Color(0xFFF59E0B);
-    }
-
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: categoryColor,
+          decoration: const BoxDecoration(
+            color: MausamPalette.cardSurfaceLight,
             shape: BoxShape.circle,
           ),
           child: Text(
             aqiNum == null ? '--' : '${aqiNum.round()}',
             style: GoogleFonts.inter(
-              color: Colors.white,
+              color: MausamPalette.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 15,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -50,7 +44,7 @@ class AqiCardWidget extends StatelessWidget {
                   Text(
                     card.title ?? 'Air Quality Index',
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: MausamPalette.textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -59,19 +53,16 @@ class AqiCardWidget extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isEstimated
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
-                          : const Color(0xFF10B981).withValues(alpha: 0.2),
+                      color: MausamPalette.cardSurfaceLight,
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: MausamPalette.cardBorder),
                     ),
                     child: Text(
                       isEstimated ? 'Estimated' : 'Live',
                       style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: isEstimated
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF10B981),
+                        color: MausamPalette.textSecondary,
                       ),
                     ),
                   ),
@@ -80,7 +71,7 @@ class AqiCardWidget extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 card.subtitle ?? 'Category: $category',
-                style: GoogleFonts.inter(color: categoryColor, fontSize: 13, fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),

@@ -10,6 +10,7 @@ import '../../providers/homepage_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/weather_dashboard_provider.dart';
+import '../../services/geocoding_service.dart';
 import '../../theme/weather_palette.dart';
 
 Future<void> showSearchOverlay({
@@ -34,10 +35,12 @@ class SearchOverlayModal extends ConsumerStatefulWidget {
 
 class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
   final TextEditingController _searchController = TextEditingController();
+  final GeocodingService _geocoding = GeocodingService();
   Timer? _debounceTimer;
-  List<Map<String, dynamic>> _searchResults = [];
+  List<GeocodedPlace> _searchResults = [];
   bool _isSearching = false;
   bool _isSubmitting = false;
+  String? _searchError;
 
   @override
   void initState() {
@@ -61,10 +64,12 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
       setState(() {
         _searchResults = [];
         _isSearching = false;
+        _searchError = null;
       });
       return;
     }
 
+    setState(() => _isSearching = true);
     _debounceTimer = Timer(const Duration(milliseconds: 350), () {
       _performGeocodingSearch(query);
     });
@@ -72,58 +77,49 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
 
   Future<void> _performGeocodingSearch(String query) async {
     if (!mounted) return;
-    setState(() => _isSearching = true);
-
     final apiClient = ref.read(apiClientProvider);
-    final userState = ref.read(userProvider);
-    final idToken = userState.idToken ?? 'test_token';
+    final idToken = ref.read(userProvider).idToken ?? 'test_token';
 
     try {
-      final raw = await apiClient.searchLocations(query: query, idToken: idToken);
-      if (!mounted) return;
+      final results = await _geocoding.search(
+        query: query,
+        apiClient: apiClient,
+        idToken: idToken,
+      );
+      if (!mounted || _searchController.text.trim() != query) return;
       setState(() {
-        _searchResults = raw.map((e) => e as Map<String, dynamic>).toList();
+        _searchResults = results;
         _isSearching = false;
+        _searchError = results.isEmpty ? 'No matching places found for “$query”.' : null;
       });
     } catch (_) {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+          _searchError = 'Search failed. Try another city name.';
+        });
+      }
     }
   }
 
-  Future<void> _selectSearchResult({
-    required String name,
-    required double latitude,
-    required double longitude,
-    String? placeName,
-  }) async {
+  Future<void> _selectSearchResult(GeocodedPlace place) async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
 
     final apiClient = ref.read(apiClientProvider);
-    final userState = ref.read(userProvider);
-    final idToken = userState.idToken ?? 'test_token';
+    final idToken = ref.read(userProvider).idToken ?? 'test_token';
 
     try {
-      final created = await apiClient.saveLocation(
-        name: name,
-        latitude: latitude,
-        longitude: longitude,
-        idToken: idToken,
-      );
-
-      final newItem = LocationItem(
-        id: created['id'] as String,
-        name: created['name'] as String,
-        latitude: (created['latitude'] as num).toDouble(),
-        longitude: (created['longitude'] as num).toDouble(),
-        placeName: created['place_name'] as String? ?? placeName,
-      );
+      await ref.read(locationProvider.notifier).saveAndSelect(
+            apiClient: apiClient,
+            idToken: idToken,
+            name: place.name,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            placeName: place.displayName,
+          );
 
       if (!mounted) return;
-      ref.read(locationProvider.notifier).addSavedLocation(newItem);
-      ref.read(locationProvider.notifier).selectSavedLocation(newItem);
-
-      // Trigger instant weather dashboard and homepage refresh for new active location
       ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
       ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
 
@@ -133,8 +129,8 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not save location ($name): $e'),
-            backgroundColor: MausamPalette.accentRed,
+            content: Text('Could not save location (${place.name})'),
+            backgroundColor: MausamPalette.cardSurface,
           ),
         );
       }
@@ -166,7 +162,6 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle Bar
             Center(
               child: Container(
                 width: 36,
@@ -178,8 +173,6 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Title
             Text(
               'SEARCH LOCATION',
               style: GoogleFonts.inter(
@@ -190,8 +183,6 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Search Bar Input
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
@@ -201,7 +192,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: MausamPalette.accentBlue, size: 20),
+                  const Icon(Icons.search_rounded, color: MausamPalette.textSecondary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -209,7 +200,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                       autofocus: true,
                       style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 15),
                       decoration: InputDecoration(
-                        hintText: 'Search city or place (e.g. Hyderabad, London)...',
+                        hintText: 'Search any city or locality…',
                         hintStyle: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 14),
                         border: InputBorder.none,
                       ),
@@ -219,7 +210,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                     const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.accentBlue),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.textPrimary),
                     )
                   else if (_searchController.text.isNotEmpty)
                     IconButton(
@@ -229,13 +220,10 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Search Results List
             if (_searchResults.isNotEmpty) ...[
               Text(
-                'GEOCODED RESULTS',
+                'RESULTS',
                 style: GoogleFonts.inter(
                   color: MausamPalette.textTertiary,
                   fontSize: 10,
@@ -250,49 +238,36 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                   itemCount: _searchResults.length,
                   separatorBuilder: (_, __) => const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
                   itemBuilder: (context, index) {
-                    final item = _searchResults[index];
-                    final name = item['name'] as String? ?? 'Unknown';
-                    final displayName = item['display_name'] as String? ?? name;
-                    final lat = (item['latitude'] as num).toDouble();
-                    final lon = (item['longitude'] as num).toDouble();
-
+                    final place = _searchResults[index];
                     return ListTile(
                       dense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      leading: const Icon(Icons.location_on_outlined, color: MausamPalette.accentBlue, size: 20),
+                      leading: const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 20),
                       title: Text(
-                        name,
+                        place.name,
                         style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       subtitle: Text(
-                        displayName,
+                        place.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
                       ),
-                      onTap: () => _selectSearchResult(
-                        name: name,
-                        latitude: lat,
-                        longitude: lon,
-                        placeName: displayName,
-                      ),
+                      onTap: () => _selectSearchResult(place),
                     );
                   },
                 ),
               ),
-            ] else if (_searchController.text.isNotEmpty && !_isSearching) ...[
+            ] else if (_searchError != null && !_isSearching) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  'No matching places found. Try typing city name (e.g. Hyderabad, Mumbai, Tokyo)',
+                  _searchError!,
                   style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
                 ),
               ),
             ],
-
             const SizedBox(height: 16),
-
-            // Quick Select / Saved Locations
             if (saved.isNotEmpty) ...[
               Text(
                 'SAVED LOCATIONS',
@@ -308,14 +283,15 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                 spacing: 8,
                 runSpacing: 8,
                 children: saved.map((item) {
-                  final isActive = item.name.toLowerCase() == locState.cityName.toLowerCase();
+                  final isActive = item.name.toLowerCase() == locState.cityName.toLowerCase() ||
+                      (item.placeName ?? '').toLowerCase() == locState.cityName.toLowerCase();
                   return ActionChip(
                     backgroundColor: isActive ? MausamPalette.cardSurfaceLight : MausamPalette.bgDeep,
-                    side: BorderSide(color: isActive ? MausamPalette.accentBlue : MausamPalette.cardBorder),
+                    side: BorderSide(color: isActive ? MausamPalette.textTertiary : MausamPalette.cardBorder),
                     label: Text(
                       item.name,
                       style: GoogleFonts.inter(
-                        color: isActive ? MausamPalette.accentBlue : MausamPalette.textPrimary,
+                        color: MausamPalette.textPrimary,
                         fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                         fontSize: 12,
                       ),

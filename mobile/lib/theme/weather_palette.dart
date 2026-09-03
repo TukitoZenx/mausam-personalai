@@ -37,25 +37,41 @@ class MausamPalette {
     ),
   ];
 
+  /// Soft, wide elevation under the floating navbar. Reads on both light and dark content.
+  static const List<BoxShadow> navbarShadow = [
+    BoxShadow(
+      color: Color(0x66000000),
+      blurRadius: 32,
+      spreadRadius: 0,
+      offset: Offset(0, 14),
+    ),
+    BoxShadow(
+      color: Color(0x3D000000),
+      blurRadius: 12,
+      spreadRadius: -2,
+      offset: Offset(0, 4),
+    ),
+  ];
+
   // ─── Typography & Contrast ───
   static const Color textPrimary = Color(0xFFFAFAFA);   // High emphasis white
   static const Color textSecondary = Color(0xFFA1A1AA);  // Medium emphasis muted gray
   static const Color textTertiary = Color(0xFF71717A);   // Low emphasis labels / metadata
   static const Color textMuted = Color(0xFF52525B);      // Disabled / hint text
 
-  // ─── Restrained Semantic Accents (Meaningful only) ───
-  static const Color accentBlue = Color(0xFF60A5FA);     // Weather / precipitation / sky
-  static const Color accentCyan = Color(0xFF38BDF8);     // Snow / cold / ice
-  static const Color accentOrange = Color(0xFFF97316);   // Sun / heat
-  static const Color accentAmber = Color(0xFFFBBF24);    // Caution / warning
-  static const Color accentRed = Color(0xFFF87171);      // Dangerous conditions / severe alert
-  static const Color accentGreen = Color(0xFF4ADE80);    // Good conditions / clean AQI
-  static const Color accentMagenta = Color(0xFFF472B6);  // Weather glyph accent
+  // ─── Semantic tokens remapped to grayscale (no decorative RGB) ───
+  static const Color accentBlue = Color(0xFFD4D4D8);
+  static const Color accentCyan = Color(0xFFE4E4E7);
+  static const Color accentOrange = Color(0xFFFAFAFA);
+  static const Color accentAmber = Color(0xFFA1A1AA);
+  static const Color accentRed = Color(0xFFE4E4E7);
+  static const Color accentGreen = Color(0xFFD4D4D8);
+  static const Color accentMagenta = Color(0xFFA1A1AA);
 
-  // ─── Persona Badges (Restrained) ───
-  static const Color personaFitness = Color(0xFF2DD4BF);
-  static const Color personaHealth = Color(0xFFF472B6);
-  static const Color personaTraveler = Color(0xFFFBBF24);
+  // ─── Persona tokens (monochrome hierarchy, not hue) ───
+  static const Color personaFitness = Color(0xFFFAFAFA);
+  static const Color personaHealth = Color(0xFFD4D4D8);
+  static const Color personaTraveler = Color(0xFFA1A1AA);
 
   // ─── Glass & Overlay Effects ───
   static const Color glassWhite = Color(0x0CFFFFFF);      // Subtle overlay
@@ -75,21 +91,17 @@ class MausamPalette {
 
     late List<Color> stops;
     if (hour >= 5 && hour < 8) {
-      // Dawn
-      stops = const [Color(0xFF18181B), Color(0xFF1F1D2B), Color(0xFF2D1F1B)];
+      stops = const [Color(0xFF18181B), Color(0xFF1C1C1F), Color(0xFF222226)];
     } else if (hour >= 8 && hour < 17) {
-      // Day
-      stops = const [Color(0xFF141417), Color(0xFF181B24), Color(0xFF1C2230)];
+      stops = const [Color(0xFF141417), Color(0xFF18181B), Color(0xFF1F1F23)];
     } else if (hour >= 17 && hour < 20) {
-      // Dusk
-      stops = const [Color(0xFF18181B), Color(0xFF241D20), Color(0xFF2A201A)];
+      stops = const [Color(0xFF121214), Color(0xFF18181B), Color(0xFF1C1C1F)];
     } else {
-      // Night
       stops = const [Color(0xFF09090B), Color(0xFF0F0F12), Color(0xFF141417)];
     }
 
     if (rainy) {
-      stops = stops.map((c) => Color.lerp(c, const Color(0xFF0B1019), 0.5)!).toList();
+      stops = stops.map((c) => Color.lerp(c, const Color(0xFF0A0A0C), 0.5)!).toList();
     } else if (overcast) {
       stops = stops.map((c) => Color.lerp(c, const Color(0xFF121215), 0.4)!).toList();
     }

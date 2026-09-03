@@ -132,10 +132,10 @@ class RankedCardShell extends ConsumerWidget {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 16),
           decoration: BoxDecoration(
-            color: MausamPalette.accentRed.withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.delete_outline_rounded, color: MausamPalette.accentRed),
+          child: const Icon(Icons.delete_outline_rounded, color: MausamPalette.textPrimary),
         ),
         child: content,
       );

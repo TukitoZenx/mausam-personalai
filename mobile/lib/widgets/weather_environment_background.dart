@@ -161,12 +161,17 @@ class _EnvironmentPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // 1. Linear atmospheric gradient
+    Color grayOf(Color c) {
+      final l = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b);
+      return Color.from(alpha: c.a, red: l, green: l, blue: l);
+    }
+
+    // 1. Linear atmospheric gradient (forced monochrome)
     final linearPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: gradient.linearColors,
+        colors: gradient.linearColors.map(grayOf).toList(),
         stops: gradient.linearStops,
       ).createShader(rect);
 
@@ -185,9 +190,9 @@ class _EnvironmentPainter extends CustomPainter {
           center: Alignment.center,
           radius: 1.0,
           colors: [
-            gradient.glowColor.withValues(alpha: gradient.glowOpacity),
-            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.45),
-            gradient.glowColor.withValues(alpha: 0.0),
+            grayOf(gradient.glowColor).withValues(alpha: gradient.glowOpacity * 0.55),
+            grayOf(gradient.glowColor).withValues(alpha: gradient.glowOpacity * 0.25),
+            grayOf(gradient.glowColor).withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.45, 1.0],
         ).createShader(Rect.fromCircle(center: glowCenter, radius: glowRadius))

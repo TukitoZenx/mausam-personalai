@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class FallbackCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -15,14 +16,10 @@ class FallbackCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF6B7280).withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.info_outline_rounded,
-            color: Color(0xFF94A3B8),
-            size: 28,
-          ),
+          child: const Icon(Icons.info_outline_rounded, color: MausamPalette.textSecondary, size: 28),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -31,20 +28,12 @@ class FallbackCardWidget extends StatelessWidget {
             children: [
               Text(
                 card.title ?? card.cardType.toUpperCase(),
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 2),
               Text(
                 card.subtitle ?? 'Personalized weather insight',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ],
           ),

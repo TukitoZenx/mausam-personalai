@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class HeatCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -18,14 +19,10 @@ class HeatCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF97316).withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.local_fire_department_rounded,
-            color: Color(0xFFF97316),
-            size: 28,
-          ),
+          child: const Icon(Icons.local_fire_department_rounded, color: MausamPalette.textPrimary, size: 28),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -34,20 +31,12 @@ class HeatCardWidget extends StatelessWidget {
             children: [
               Text(
                 card.title ?? 'Heat Index Advisory',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 2),
               Text(
                 card.subtitle ?? 'Feels like $heatIndex°C ($level)',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFFF97316),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),

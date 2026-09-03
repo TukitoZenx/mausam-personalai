@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,13 +29,18 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  late final AnimationController _locationAnim;
+  double _lastOffset = 0;
   bool _locationCollapsed = false;
+
+  static const _spring = SpringDescription(mass: 0.85, stiffness: 220, damping: 18);
 
   @override
   void initState() {
     super.initState();
+    _locationAnim = AnimationController.unbounded(vsync: this);
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initLocationAndFetchData();
@@ -43,16 +51,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _locationAnim.dispose();
     super.dispose();
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     final offset = _scrollController.offset;
-    if (offset > 45 && !_locationCollapsed) {
-      setState(() => _locationCollapsed = true);
-    } else if (offset <= 15 && _locationCollapsed) {
-      setState(() => _locationCollapsed = false);
+    final delta = offset - _lastOffset;
+    _lastOffset = offset;
+
+    if (offset <= 2) {
+      _setLocationCollapsed(false);
+      return;
     }
+    if (delta > 1.6 && offset > 10) {
+      _setLocationCollapsed(true);
+    } else if (delta < -1.6) {
+      _setLocationCollapsed(false);
+    }
+  }
+
+  void _setLocationCollapsed(bool collapsed) {
+    if (_locationCollapsed == collapsed) return;
+    _locationCollapsed = collapsed;
+    final sim = SpringSimulation(
+      _spring,
+      _locationAnim.value,
+      collapsed ? 1.0 : 0.0,
+      _locationAnim.velocity,
+    );
+    _locationAnim.animateWith(sim);
   }
 
   Future<void> _initLocationAndFetchData() async {
@@ -70,8 +99,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final items = savedRaw.map((e) {
         final itemMap = e as Map<String, dynamic>;
         return LocationItem(
-          id: itemMap['id'] as String,
-          name: itemMap['name'] as String,
+          id: itemMap['id'].toString(),
+          name: itemMap['name'].toString(),
           latitude: (itemMap['latitude'] as num).toDouble(),
           longitude: (itemMap['longitude'] as num).toDouble(),
           placeName: itemMap['place_name'] as String?,
@@ -101,93 +130,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         wallpaperTheme: appearance.wallpaperTheme,
         condition: data?.current.condition,
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              // 1. Floating Glass Control Header Bar: [ ☰   📍 Location Text   ⌕ ]
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: MausamPalette.cardSurface.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: MausamPalette.cardBorder),
-                    boxShadow: MausamPalette.cardShadow,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Left: ☰ Menu Drawer Button
-                      Builder(
-                        builder: (drawerContext) => IconButton(
-                          icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 22),
-                          tooltip: 'Open Menu',
-                          onPressed: () => Scaffold.of(drawerContext).openDrawer(),
-                        ),
-                      ),
-
-                      // Center: Plain Interactive Location Text (No pill, no border, no fill)
-                      // Dynamic scroll bounce return animation
-                      Expanded(
-                        child: Center(
-                          child: AnimatedSlide(
-                            offset: _locationCollapsed ? const Offset(0, -0.6) : Offset.zero,
-                            duration: const Duration(milliseconds: 350),
-                            curve: _locationCollapsed ? Curves.easeOutCubic : Curves.easeOutBack,
-                            child: AnimatedOpacity(
-                              opacity: _locationCollapsed ? 0.0 : 1.0,
-                              duration: const Duration(milliseconds: 250),
-                              child: InkWell(
-                                onTap: () => context.push('/saved-locations'),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.location_on_outlined,
-                                        color: MausamPalette.accentBlue,
-                                        size: 15,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      ConstrainedBox(
-                                        constraints: const BoxConstraints(maxWidth: 160),
-                                        child: Text(
-                                          activeLocationName,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.inter(
-                                            color: MausamPalette.textPrimary,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            letterSpacing: -0.2,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Right: 🔍 Search Control Modal
-                      IconButton(
-                        icon: const Icon(Icons.search_rounded, color: MausamPalette.textPrimary, size: 22),
-                        tooltip: 'Search City',
-                        onPressed: () => showSearchOverlay(context: context, ref: ref),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 2. Main Content Body
-              Expanded(
+              Positioned.fill(
                 child: RefreshIndicator(
-                  color: MausamPalette.accentBlue,
+                  color: MausamPalette.textPrimary,
                   backgroundColor: MausamPalette.cardSurface,
                   onRefresh: () async {
                     if (!mounted) return;
@@ -204,10 +151,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 key: const ValueKey('error_view'),
                                 controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(24),
+                                padding: const EdgeInsets.fromLTRB(24, 78, 24, 24),
                                 children: [
                                   const SizedBox(height: 80),
-                                  const Icon(Icons.cloud_off_rounded, color: MausamPalette.accentAmber, size: 44),
+                                  const Icon(Icons.cloud_off_rounded, color: MausamPalette.textSecondary, size: 44),
                                   const SizedBox(height: 16),
                                   Text(
                                     'Weather Unavailable',
@@ -245,36 +192,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 key: ValueKey('data_view_${locState.activeLatitude}_${locState.activeLongitude}'),
                                 controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+                                padding: const EdgeInsets.fromLTRB(14, 78, 14, 28),
                                 children: [
                                   if (data != null) ...[
-                                    // 1. Weather Hero
                                     StaggeredItemWrapper(
                                       index: 0,
                                       child: HeroCurrentCard(
                                         current: data.current,
                                         hourly: data.hourly,
-                                        locationName: activeLocationName,
-                                        onLocationTap: () => context.push('/saved-locations'),
-                                        onSearchTap: () => showSearchOverlay(context: context, ref: ref),
-                                        onProfileTap: () => context.push('/profile'),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
-
-                                    // 1b. Active Weather Alert Banner
-                                    if (_computeHomeAlert(data) != null) ...[
-                                      StaggeredItemWrapper(
-                                        index: 1,
-                                        child: _HomeAlertBanner(
-                                          alert: _computeHomeAlert(data)!,
-                                          onTap: () => context.push('/alerts'),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-
-                                    // 2. FOR YOU Recommendation Section
                                     if (topCard != null)
                                       StaggeredItemWrapper(
                                         index: 1,
@@ -283,8 +211,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           onTap: () => context.push('/insights'),
                                         ),
                                       ),
-
-                                    // 3. Hourly Forecast Strip
                                     StaggeredItemWrapper(
                                       index: 2,
                                       child: HourlyForecastStrip(
@@ -292,23 +218,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         onMore: () => context.push('/forecast'),
                                       ),
                                     ),
-
-                                    // 4. AQI Card
                                     if (data.aqi != null)
                                       StaggeredItemWrapper(
                                         index: 3,
                                         child: AqiGaugeCard(aqi: data.aqi!),
                                       ),
-
-                                    // 5. Stat Grid
+                                    if (_computeHomeAlert(data) != null) ...[
+                                      StaggeredItemWrapper(
+                                        index: 4,
+                                        child: _HomeAlertBanner(
+                                          alert: _computeHomeAlert(data)!,
+                                          onTap: () => context.push('/alerts'),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
                                     StaggeredItemWrapper(
-                                      index: 4,
+                                      index: 5,
                                       child: StatGrid(dashboard: data),
                                     ),
                                   ],
                                 ],
                               ),
                   ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 14,
+                right: 14,
+                child: _FloatingNavbar(
+                  locationName: activeLocationName,
+                  locationAnimation: _locationAnim,
+                  onLocationTap: () => context.push('/saved-locations'),
+                  onSearch: () => showSearchOverlay(context: context, ref: ref),
                 ),
               ),
             ],
@@ -391,6 +334,103 @@ bool anyWordIn(String text, List<String> words) {
   return words.any((w) => text.contains(w));
 }
 
+class _FloatingNavbar extends StatelessWidget {
+  final String locationName;
+  final Animation<double> locationAnimation;
+  final VoidCallback onLocationTap;
+  final VoidCallback onSearch;
+
+  const _FloatingNavbar({
+    required this.locationName,
+    required this.locationAnimation,
+    required this.onLocationTap,
+    required this.onSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+        boxShadow: MausamPalette.navbarShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (drawerContext) => IconButton(
+                    icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 22),
+                    tooltip: 'Open Menu',
+                    onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+                  ),
+                ),
+                Expanded(
+                  child: ClipRect(
+                    child: AnimatedBuilder(
+                      animation: locationAnimation,
+                      builder: (context, child) {
+                        final t = locationAnimation.value.clamp(0.0, 1.2);
+                        return Transform.translate(
+                          offset: Offset(0, -t * 28),
+                          child: Opacity(
+                            opacity: (1.0 - t * 0.35).clamp(0.0, 1.0),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: GestureDetector(
+                        onTap: onLocationTap,
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              color: MausamPalette.textSecondary,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                locationName,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.search_rounded, color: MausamPalette.textPrimary, size: 22),
+                  tooltip: 'Search City',
+                  onPressed: onSearch,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AlertItemData {
   final String title;
   final String message;
@@ -431,10 +471,7 @@ class _HomeAlertBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: MausamPalette.cardSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: alert.isSevere ? MausamPalette.accentRed.withValues(alpha: 0.7) : MausamPalette.accentAmber.withValues(alpha: 0.5),
-            width: 1.0,
-          ),
+          border: Border.all(color: MausamPalette.cardBorder),
           boxShadow: MausamPalette.cardShadow,
         ),
         child: Row(
@@ -442,12 +479,12 @@ class _HomeAlertBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: alert.isSevere ? MausamPalette.accentRed.withValues(alpha: 0.15) : MausamPalette.accentAmber.withValues(alpha: 0.15),
+                color: MausamPalette.cardSurfaceLight,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 alert.icon,
-                color: alert.isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                color: MausamPalette.textPrimary,
                 size: 20,
               ),
             ),
@@ -462,7 +499,7 @@ class _HomeAlertBanner extends StatelessWidget {
                       Text(
                         alert.title,
                         style: GoogleFonts.inter(
-                          color: alert.isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                          color: MausamPalette.textPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.8,
@@ -477,7 +514,7 @@ class _HomeAlertBanner extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      color: MausamPalette.textPrimary,
+                      color: MausamPalette.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),

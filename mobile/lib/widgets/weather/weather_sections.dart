@@ -11,19 +11,11 @@ import 'weather_glyphs.dart';
 class HeroCurrentCard extends ConsumerStatefulWidget {
   final CurrentConditions current;
   final List<HourlyForecastItem> hourly;
-  final String locationName;
-  final VoidCallback onLocationTap;
-  final VoidCallback onSearchTap;
-  final VoidCallback? onProfileTap;
 
   const HeroCurrentCard({
     super.key,
     required this.current,
     required this.hourly,
-    required this.locationName,
-    required this.onLocationTap,
-    required this.onSearchTap,
-    this.onProfileTap,
   });
 
   @override
@@ -56,86 +48,6 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row: MAUSAM identity | Location Selector Pill | Profile Avatar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: MausamPalette.accentBlue,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'MAUSAM',
-                    style: GoogleFonts.inter(
-                      color: MausamPalette.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: widget.onLocationTap,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: MausamPalette.cardSurfaceLight,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: MausamPalette.cardBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 14),
-                      const SizedBox(width: 4),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 130),
-                        child: Text(
-                          widget.locationName,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(Icons.keyboard_arrow_down_rounded, color: MausamPalette.textTertiary, size: 16),
-                    ],
-                  ),
-                ),
-              ),
-              IconButton(
-                key: const Key('profile_avatar_button'),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                icon: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: MausamPalette.cardSurfaceLight,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MausamPalette.cardBorder),
-                  ),
-                  child: const Icon(Icons.person_outline_rounded, color: MausamPalette.textPrimary, size: 18),
-                ),
-                tooltip: 'Profile & Settings',
-                onPressed: widget.onProfileTap ?? widget.onSearchTap,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Weather Condition Text
           Text(
             current.condition.toUpperCase(),
             style: GoogleFonts.inter(
@@ -219,7 +131,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.water_drop_outlined, color: MausamPalette.accentBlue, size: 14),
+                    const Icon(Icons.water_drop_outlined, color: MausamPalette.textSecondary, size: 14),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -286,7 +198,7 @@ class HourlyForecastStrip extends StatelessWidget {
               child: Text(
                 'Full Forecast',
                 style: GoogleFonts.inter(
-                  color: MausamPalette.accentBlue,
+                  color: MausamPalette.textSecondary,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -328,7 +240,7 @@ class HourlyForecastStrip extends StatelessWidget {
                     Text(
                       '${slot.rainProbabilityPercent}%',
                       style: GoogleFonts.inter(
-                        color: MausamPalette.accentBlue,
+                        color: MausamPalette.textSecondary,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         fontFeatures: MausamTypography.tabularFeatures,
@@ -390,7 +302,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
               child: Text(
                 _expanded ? 'Less' : 'More',
                 style: GoogleFonts.inter(
-                  color: MausamPalette.accentBlue,
+                  color: MausamPalette.textSecondary,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -431,7 +343,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
                     child: Text(
                       visible[i].rainProbabilityPercent > 0 ? '${visible[i].rainProbabilityPercent}%' : '—',
                       style: GoogleFonts.inter(
-                        color: MausamPalette.accentBlue,
+                        color: MausamPalette.textSecondary,
                         fontSize: 11,
                         fontFeatures: MausamTypography.tabularFeatures,
                       ),
@@ -473,16 +385,11 @@ class AqiGaugeCard extends StatelessWidget {
     const keys = ['no2', 'o3', 'pm10', 'pm2_5', 'co', 'so2'];
     const labels = ['NO₂', 'O₃', 'PM10', 'PM2.5', 'CO', 'SO₂'];
 
-    Color categoryColor;
-    if (aqi.aqiValue <= 50) {
-      categoryColor = MausamPalette.accentGreen;
-    } else if (aqi.aqiValue <= 100) {
-      categoryColor = MausamPalette.accentBlue;
-    } else if (aqi.aqiValue <= 150) {
-      categoryColor = MausamPalette.accentAmber;
-    } else {
-      categoryColor = MausamPalette.accentRed;
-    }
+    final Color categoryColor = aqi.aqiValue <= 50
+        ? MausamPalette.textPrimary
+        : aqi.aqiValue <= 100
+            ? MausamPalette.textSecondary
+            : MausamPalette.textTertiary;
 
     return _sectionCard(
       title: 'AIR QUALITY INDEX',
@@ -590,7 +497,7 @@ class AqiGaugeCard extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Got it', style: GoogleFonts.inter(color: MausamPalette.accentBlue, fontWeight: FontWeight.w600)),
+              child: Text('Got it', style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.w600)),
             ),
           ],
         );
@@ -825,10 +732,10 @@ class _UvCard extends StatelessWidget {
               painter: _GradientMarkerPainter(
                 position: (uv / 12).clamp(0.0, 1.0),
                 colors: const [
-                  MausamPalette.accentGreen,
-                  MausamPalette.accentAmber,
-                  MausamPalette.accentOrange,
-                  MausamPalette.accentRed,
+                  Color(0xFFE4E4E7),
+                  Color(0xFFA1A1AA),
+                  Color(0xFF71717A),
+                  Color(0xFF3F3F46),
                 ],
               ),
               child: const SizedBox.expand(),
@@ -1073,10 +980,10 @@ class _GradientMarkerPainter extends CustomPainter {
   _GradientMarkerPainter({
     required this.position,
     this.colors = const [
-      MausamPalette.accentGreen,
-      MausamPalette.accentBlue,
-      MausamPalette.accentAmber,
-      MausamPalette.accentRed,
+      Color(0xFFE4E4E7),
+      Color(0xFFA1A1AA),
+      Color(0xFF71717A),
+      Color(0xFF3F3F46),
     ],
   });
 
@@ -1109,7 +1016,7 @@ class _SunArcPainter extends CustomPainter {
     final angle = math.pi + t * math.pi;
     final cx = rect.center.dx + rect.width / 2 * math.cos(angle);
     final cy = rect.center.dy + rect.height / 2 * math.sin(angle);
-    canvas.drawCircle(Offset(cx, cy), 6, Paint()..color = MausamPalette.accentAmber);
+    canvas.drawCircle(Offset(cx, cy), 6, Paint()..color = MausamPalette.textPrimary);
   }
 
   @override
@@ -1137,7 +1044,7 @@ class _PressureGaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
         ..strokeCap = StrokeCap.round
-        ..color = MausamPalette.accentBlue,
+        ..color = MausamPalette.textPrimary,
     );
   }
 
@@ -1165,7 +1072,7 @@ class _CompassPainter extends CustomPainter {
       ..lineTo(0, 6)
       ..lineTo(-5, 12)
       ..close();
-    canvas.drawPath(path, Paint()..color = MausamPalette.accentBlue);
+    canvas.drawPath(path, Paint()..color = MausamPalette.textPrimary);
     canvas.restore();
   }
 

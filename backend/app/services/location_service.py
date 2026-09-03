@@ -105,19 +105,30 @@ class LocationService:
         if not user_id:
             raise UnauthorizedException("User ID missing from authentication context.")
 
-        place_name = payload.name
+        place_name = payload.name.strip()
+        email = user.get("email") or f"{user_id}@mausam.ai"
+        # Generic stub emails are shared across test tokens — uniquify to avoid UNIQUE(email) collisions.
+        if email in {"user@mausam.ai", "guest@mausam.ai"}:
+            email = f"{user_id}@mausam.ai"
 
         async with AsyncSessionLocal() as session:
-            # 1. Ensure user row exists to satisfy FK constraint
-            await session.execute(
-                text(
-                    "INSERT INTO users (id, firebase_uid, email) VALUES (:id, :id, :email) ON CONFLICT (id) DO NOTHING"
-                ),
-                {"id": user_id, "email": user.get("email", "user@mausam.ai")},
-            )
-            await session.commit()
+            # 1. Ensure user row exists to satisfy FK constraint.
+            # users table has (id, email, ...) — there is no firebase_uid column.
+            try:
+                await session.execute(
+                    text(
+                        "INSERT INTO users (id, email, persona_type, notifications_enabled, location_access) "
+                        "VALUES (:id, :email, 'Fitness', true, true) "
+                        "ON CONFLICT (id) DO NOTHING"
+                    ),
+                    {"id": user_id, "email": email},
+                )
+                await session.commit()
+            except Exception as exc:
+                logger.warning("Ensure user row failed (continuing with save): %s", exc)
+                await session.rollback()
 
-            # 2. Check for duplicate location (same name or within ~5km proximity)
+            # 2. Check for duplicate location (same place, not merely the same city name worldwide)
             existing_stmt = select(SavedLocationModel).where(
                 SavedLocationModel.user_id == user_id,
             )
@@ -125,9 +136,17 @@ class LocationService:
             existing_records = res.scalars().all()
 
             for item in existing_records:
-                same_name = item.name.lower().strip() == payload.name.lower().strip()
-                close_coords = abs(item.latitude - payload.latitude) < 0.05 and abs(item.longitude - payload.longitude) < 0.05
-                if same_name or close_coords:
+                same_name = item.name.lower().strip() == place_name.lower()
+                close_coords = (
+                    abs(item.latitude - payload.latitude) < 0.05
+                    and abs(item.longitude - payload.longitude) < 0.05
+                )
+                # Treat as duplicate only when coordinates are near, or the same name is also nearby.
+                nearby_same_name = same_name and (
+                    abs(item.latitude - payload.latitude) < 1.0
+                    and abs(item.longitude - payload.longitude) < 1.0
+                )
+                if close_coords or nearby_same_name:
                     logger.info("Found existing saved location for user %s: %s (%s)", user_id, item.name, item.id)
                     return SavedLocationResponse(
                         id=item.id,
@@ -141,7 +160,7 @@ class LocationService:
             # 3. Create new saved location row
             db_item = SavedLocationModel(
                 user_id=user_id,
-                name=payload.name,
+                name=place_name,
                 latitude=payload.latitude,
                 longitude=payload.longitude,
             )

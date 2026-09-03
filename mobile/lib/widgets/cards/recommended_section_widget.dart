@@ -34,13 +34,12 @@ class RecommendedSectionWidget extends ConsumerWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            splashColor: MausamPalette.accentGreen.withValues(alpha: 0.1),
+            splashColor: Colors.white.withValues(alpha: 0.04),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header badge
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -48,7 +47,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                         children: [
                           const Icon(
                             Icons.auto_awesome_rounded,
-                            color: MausamPalette.accentGreen,
+                            color: MausamPalette.textSecondary,
                             size: 14,
                           ),
                           const SizedBox(width: 6),
@@ -83,10 +82,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Title
                   Text(
                     card.title ?? 'Personalized Recommendation',
                     style: GoogleFonts.inter(
@@ -96,7 +92,6 @@ class RecommendedSectionWidget extends ConsumerWidget {
                       letterSpacing: -0.3,
                     ),
                   ),
-
                   if (card.subtitle != null && card.subtitle!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -108,10 +103,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 12),
-
-                  // Human Readable Reason Callout
                   if (card.effectiveReason.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -126,7 +118,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                         children: [
                           const Icon(
                             Icons.lightbulb_outline_rounded,
-                            color: MausamPalette.accentAmber,
+                            color: MausamPalette.textTertiary,
                             size: 15,
                           ),
                           const SizedBox(width: 8),
@@ -144,7 +136,6 @@ class RecommendedSectionWidget extends ConsumerWidget {
                         ],
                       ),
                     ),
-
                   if (card.actionLabel != null && card.actionLabel!.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Align(
@@ -155,7 +146,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                           Text(
                             card.actionLabel!,
                             style: GoogleFonts.inter(
-                              color: MausamPalette.accentBlue,
+                              color: MausamPalette.textSecondary,
                               fontWeight: FontWeight.w600,
                               fontSize: 12,
                             ),
@@ -163,7 +154,7 @@ class RecommendedSectionWidget extends ConsumerWidget {
                           const SizedBox(width: 4),
                           const Icon(
                             Icons.arrow_forward_rounded,
-                            color: MausamPalette.accentBlue,
+                            color: MausamPalette.textSecondary,
                             size: 13,
                           ),
                         ],

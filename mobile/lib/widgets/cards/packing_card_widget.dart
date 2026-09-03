@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../theme/weather_palette.dart';
 
 class PackingCardWidget extends StatelessWidget {
   final RankedHomeCard card;
@@ -15,14 +16,10 @@ class PackingCardWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+            color: MausamPalette.cardSurfaceLight,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.work_outline_rounded,
-            color: Color(0xFFEC4899),
-            size: 28,
-          ),
+          child: const Icon(Icons.work_outline_rounded, color: MausamPalette.textPrimary, size: 28),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -31,20 +28,12 @@ class PackingCardWidget extends StatelessWidget {
             children: [
               Text(
                 card.title ?? 'Smart Packing Assistant',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 2),
               Text(
                 card.subtitle ?? 'Recommended items based on local weather',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFFF472B6),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ],
           ),

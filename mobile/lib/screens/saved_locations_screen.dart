@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +10,7 @@ import '../providers/homepage_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
-
+import '../services/geocoding_service.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
@@ -21,79 +23,101 @@ class SavedLocationsScreen extends ConsumerStatefulWidget {
 
 class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  bool _isAdding = false;
+  final GeocodingService _geocoding = GeocodingService();
+  Timer? _debounce;
+  List<GeocodedPlace> _results = [];
+  bool _isSearching = false;
+  bool _isSubmitting = false;
+  String? _searchError;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _addLocation() async {
-    final text = _searchController.text.trim();
-    if (text.isEmpty) return;
+  void _onQueryChanged(String raw) {
+    final query = raw.trim();
+    _debounce?.cancel();
+    if (query.isEmpty) {
+      setState(() {
+        _results = [];
+        _isSearching = false;
+        _searchError = null;
+      });
+      return;
+    }
+    setState(() => _isSearching = true);
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(query));
+  }
 
-    setState(() => _isAdding = true);
-    final userState = ref.read(userProvider);
+  Future<void> _search(String query) async {
     final apiClient = ref.read(apiClientProvider);
-    final idToken = userState.idToken ?? 'test_token';
-
+    final idToken = ref.read(userProvider).idToken ?? 'test_token';
     try {
-      // 1. Perform geocoding search first to resolve real lat/lon
-      final searchResults = await apiClient.searchLocations(query: text, idToken: idToken);
-      double lat = 17.3850;
-      double lon = 78.4867;
-      String locationName = text;
-      String? placeName;
-
-      if (searchResults.isNotEmpty) {
-        final first = searchResults.first as Map<String, dynamic>;
-        locationName = first['name'] as String? ?? text;
-        placeName = first['display_name'] as String?;
-        lat = (first['latitude'] as num).toDouble();
-        lon = (first['longitude'] as num).toDouble();
-      }
-
-      // 2. Save location on backend
-      final created = await apiClient.saveLocation(
-        name: locationName,
-        latitude: lat,
-        longitude: lon,
+      final results = await _geocoding.search(
+        query: query,
+        apiClient: apiClient,
         idToken: idToken,
       );
-
-      final newItem = LocationItem(
-        id: created['id'] as String,
-        name: created['name'] as String,
-        latitude: (created['latitude'] as num).toDouble(),
-        longitude: (created['longitude'] as num).toDouble(),
-        placeName: created['place_name'] as String? ?? placeName,
-      );
-
+      if (!mounted || _searchController.text.trim() != query) return;
+      setState(() {
+        _results = results;
+        _isSearching = false;
+        _searchError = results.isEmpty ? 'No matching places found for “$query”.' : null;
+      });
+    } catch (e) {
       if (!mounted) return;
-      ref.read(locationProvider.notifier).addSavedLocation(newItem);
-      ref.read(locationProvider.notifier).selectSavedLocation(newItem);
+      setState(() {
+        _isSearching = false;
+        _searchError = 'Search failed. Try another city name.';
+      });
+    }
+  }
+
+  Future<void> _selectPlace(GeocodedPlace place) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final apiClient = ref.read(apiClientProvider);
+    final idToken = ref.read(userProvider).idToken ?? 'test_token';
+
+    try {
+      await ref.read(locationProvider.notifier).saveAndSelect(
+            apiClient: apiClient,
+            idToken: idToken,
+            name: place.name,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            placeName: place.displayName,
+          );
+      if (!mounted) return;
       ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
       ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
-
       _searchController.clear();
+      setState(() {
+        _results = [];
+        _searchError = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added and selected $locationName'),
+          content: Text('Now showing weather for ${place.name}'),
           backgroundColor: MausamPalette.cardSurface,
         ),
       );
+      context.go('/home');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not save location: $e'),
-            backgroundColor: MausamPalette.accentRed,
+            content: Text('Could not add ${place.name}'),
+            backgroundColor: MausamPalette.cardSurface,
           ),
         );
       }
     } finally {
-      if (mounted) setState(() => _isAdding = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -116,8 +140,8 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete location: $e'),
-            backgroundColor: MausamPalette.accentRed,
+            content: Text('Failed to delete location'),
+            backgroundColor: MausamPalette.cardSurface,
           ),
         );
       }
@@ -157,7 +181,6 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Search / Add Location Input Bar
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Container(
@@ -169,39 +192,90 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search_rounded, color: MausamPalette.accentBlue, size: 20),
+                    const Icon(Icons.search_rounded, color: MausamPalette.textSecondary, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
                         style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Enter city (e.g. Hyderabad, London, Tokyo)...',
+                          hintText: 'Search any city or locality…',
                           hintStyle: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 14),
                           border: InputBorder.none,
                         ),
-                        onSubmitted: (_) => _addLocation(),
+                        onChanged: _onQueryChanged,
                       ),
                     ),
-                    if (_isAdding)
+                    if (_isSearching || _isSubmitting)
                       const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.accentBlue),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.textPrimary),
                       )
-                    else
+                    else if (_searchController.text.isNotEmpty)
                       IconButton(
-                        icon: const Icon(Icons.add_rounded, color: MausamPalette.accentBlue),
-                        onPressed: _addLocation,
-                        tooltip: 'Add City',
+                        icon: const Icon(Icons.clear_rounded, color: MausamPalette.textTertiary, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onQueryChanged('');
+                        },
                       ),
                   ],
                 ),
               ),
             ),
-
-            // Saved Locations List
+            if (_results.isNotEmpty)
+              Flexible(
+                flex: 2,
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  itemCount: _results.length,
+                  separatorBuilder: (_, __) => const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                  itemBuilder: (context, index) {
+                    final place = _results[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      leading: const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 20),
+                      title: Text(
+                        place.name,
+                        style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        place.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () => _selectPlace(place),
+                    );
+                  },
+                ),
+              )
+            else if (_searchError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Text(
+                  _searchError!,
+                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'SAVED',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ),
             Expanded(
+              flex: 3,
               child: saved.isEmpty
                   ? Center(
                       child: Column(
@@ -215,7 +289,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Type a city name above to add it to your list.',
+                            'Search any city, then tap a result to save it.',
                             style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
                           ),
                         ],
@@ -226,7 +300,8 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                       itemCount: saved.length,
                       itemBuilder: (context, index) {
                         final item = saved[index];
-                        final isSelected = item.name.toLowerCase() == locState.cityName.toLowerCase();
+                        final isSelected = (item.placeName ?? item.name).toLowerCase() == locState.cityName.toLowerCase() ||
+                            item.name.toLowerCase() == locState.cityName.toLowerCase();
 
                         return StaggeredItemWrapper(
                           index: index,
@@ -236,7 +311,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                               color: isSelected ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
+                                color: isSelected ? MausamPalette.textTertiary : MausamPalette.cardBorder,
                                 width: isSelected ? 1.5 : 1.0,
                               ),
                             ),
@@ -251,14 +326,12 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                               leading: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? MausamPalette.accentBlue.withValues(alpha: 0.15)
-                                      : MausamPalette.bgDeep,
+                                  color: MausamPalette.bgDeep,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
                                   Icons.location_on_rounded,
-                                  color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+                                  color: isSelected ? MausamPalette.textPrimary : MausamPalette.textSecondary,
                                   size: 20,
                                 ),
                               ),
@@ -278,13 +351,14 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: MausamPalette.accentBlue.withValues(alpha: 0.2),
+                                        color: MausamPalette.cardSurfaceLight,
                                         borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: MausamPalette.cardBorder),
                                       ),
                                       child: Text(
                                         'ACTIVE',
                                         style: GoogleFonts.inter(
-                                          color: MausamPalette.accentBlue,
+                                          color: MausamPalette.textPrimary,
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 0.8,

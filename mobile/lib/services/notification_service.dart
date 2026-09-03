@@ -101,75 +101,6 @@ class NotificationService {
     }
   }
 
-  static Future<void> showTestNotification(BuildContext context) async {
-    // 1. Trigger Native System OS Notification Bar Notification
-    await showSystemNotification(
-      title: '⚡ Mausam Weather Alert',
-      body: 'Precipitation Advisory: Rain expected in your area. Carry an umbrella.',
-    );
-
-    // 2. Show In-App Atmospheric SnackBar Toast
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: MausamPalette.accentAmber.withValues(alpha: 0.6)),
-          ),
-          backgroundColor: MausamPalette.cardSurface,
-          elevation: 8,
-          content: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: MausamPalette.accentAmber.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.notifications_active_rounded,
-                  color: MausamPalette.accentAmber,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '⚡ NOTIFICATION SENT TO SYSTEM BAR',
-                      style: GoogleFonts.inter(
-                        color: MausamPalette.accentAmber,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Check your phone/device top notification bar for the alert!',
-                      style: GoogleFonts.inter(
-                        color: MausamPalette.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
   static Future<void> showAlertNotification(
     BuildContext context, {
     required String title,
@@ -194,9 +125,7 @@ class NotificationService {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isSevere
-                ? MausamPalette.accentRed.withValues(alpha: 0.8)
-                : MausamPalette.accentAmber.withValues(alpha: 0.6),
+            color: MausamPalette.cardBorder,
           ),
         ),
         backgroundColor: MausamPalette.cardSurface,
@@ -206,14 +135,12 @@ class NotificationService {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSevere
-                    ? MausamPalette.accentRed.withValues(alpha: 0.2)
-                    : MausamPalette.accentAmber.withValues(alpha: 0.2),
+                color: MausamPalette.cardSurfaceLight,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isSevere ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
-                color: isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                color: MausamPalette.textPrimary,
                 size: 24,
               ),
             ),
@@ -226,7 +153,7 @@ class NotificationService {
                   Text(
                     title.toUpperCase(),
                     style: GoogleFonts.inter(
-                      color: isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                      color: MausamPalette.textPrimary,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
@@ -250,7 +177,7 @@ class NotificationService {
               TextButton(
                 onPressed: onViewAlerts,
                 style: TextButton.styleFrom(
-                  foregroundColor: isSevere ? MausamPalette.accentRed : MausamPalette.accentAmber,
+                  foregroundColor: MausamPalette.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 child: Text(

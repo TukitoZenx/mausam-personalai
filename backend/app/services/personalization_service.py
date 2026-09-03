@@ -423,9 +423,10 @@ class PersonalizationService:
             async with AsyncSessionLocal() as session:
                 await session.execute(
                     text(
-                        "INSERT INTO users (id, firebase_uid, email) VALUES (:id, :id, :email) ON CONFLICT (firebase_uid) DO NOTHING"
+                        "INSERT INTO users (id, email, persona_type) "
+                        "VALUES (:id, :email, 'Fitness') ON CONFLICT (id) DO NOTHING"
                     ),
-                    {"id": user_id, "email": user.get("email", "user@mausam.ai")},
+                    {"id": user_id, "email": user.get("email") or f"{user_id}@mausam.ai"},
                 )
                 await session.commit()
 

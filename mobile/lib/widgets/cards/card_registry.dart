@@ -51,9 +51,13 @@ class CardRegistry {
       case 'destination':
         return DestinationCardWidget(card: card);
       case 'packing':
+      case 'packing_tips':
         return PackingCardWidget(card: card);
       case 'alerts':
         return AlertsCardWidget(card: card);
+      case 'health_caution':
+      case 'travel_suitability':
+        return FallbackCardWidget(card: card);
       default:
         return FallbackCardWidget(card: card);
     }

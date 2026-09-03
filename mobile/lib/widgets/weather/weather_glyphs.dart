@@ -20,11 +20,7 @@ IconData weatherGlyph(String condition, {String? icon}) {
 }
 
 Color weatherGlyphColor(String condition) {
-  final c = condition.toLowerCase();
-  if (c.contains('rain') || c.contains('drizzle')) return MausamPalette.accentBlue;
-  if (c.contains('thunder')) return MausamPalette.accentMagenta;
-  if (c.contains('clear') || c.contains('sun')) return MausamPalette.accentOrange;
-  return MausamPalette.textSecondary;
+  return MausamPalette.textPrimary;
 }
 
 String aqiMoodGlyph(String category) {

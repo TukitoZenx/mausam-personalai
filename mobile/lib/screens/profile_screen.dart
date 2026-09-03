@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/notification_service.dart';
 import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/staggered_item_wrapper.dart';
@@ -251,7 +250,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               previewGradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xFF142B4E), Color(0xFF265296), Color(0xFF964424)],
+                                colors: [Color(0xFF18181B), Color(0xFF3F3F46), Color(0xFF71717A)],
                               ),
                               onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.auto),
                             ),
@@ -266,7 +265,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               previewGradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xFF162B4C), Color(0xFF244D88), Color(0xFF2B599B)],
+                                colors: [Color(0xFF27272A), Color(0xFF3F3F46), Color(0xFF52525B)],
                               ),
                               onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.horizon),
                             ),
@@ -288,7 +287,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               previewGradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xFF0E2838), Color(0xFF1C4D66), Color(0xFF225F7C)],
+                                colors: [Color(0xFF1C1C1F), Color(0xFF3F3F46), Color(0xFF52525B)],
                               ),
                               onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.aurora),
                             ),
@@ -303,7 +302,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               previewGradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xFF1E2838), Color(0xFF34445C), Color(0xFF32425B)],
+                                colors: [Color(0xFF27272A), Color(0xFF3F3F46), Color(0xFF71717A)],
                               ),
                               onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.clouds),
                             ),
@@ -322,7 +321,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         previewGradient: const LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Color(0xFF0A1424), Color(0xFF162B46), Color(0xFF1A3352)],
+                          colors: [Color(0xFF09090B), Color(0xFF141417), Color(0xFF1C1C1F)],
                         ),
                         onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.nightfall),
                       ),
@@ -378,13 +377,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: MausamPalette.accentBlue.withValues(alpha: 0.15),
+                                color: MausamPalette.cardSurfaceLight,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '${appearance.transparencyPercent}%',
                                 style: GoogleFonts.inter(
-                                  color: MausamPalette.accentBlue,
+                                  color: MausamPalette.textPrimary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   fontFeatures: MausamTypography.tabularFeatures,
@@ -403,10 +402,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         SliderTheme(
                           data: SliderThemeData(
-                            activeTrackColor: MausamPalette.accentBlue,
+                            activeTrackColor: MausamPalette.textSecondary,
                             inactiveTrackColor: MausamPalette.cardBorder,
                             thumbColor: MausamPalette.textPrimary,
-                            overlayColor: MausamPalette.accentBlue.withValues(alpha: 0.2),
+                            overlayColor: MausamPalette.textPrimary.withValues(alpha: 0.12),
                           ),
                           child: Slider(
                             value: appearance.transparencyPercent.toDouble(),
@@ -441,7 +440,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.wb_sunny_rounded, color: MausamPalette.accentAmber, size: 28),
+                              const Icon(Icons.wb_sunny_rounded, color: MausamPalette.textPrimary, size: 28),
                               const SizedBox(width: 12),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,7 +503,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       SwitchListTile(
                         value: _notifications,
                         onChanged: (val) => setState(() => _notifications = val),
-                        activeThumbColor: MausamPalette.accentBlue,
+                        activeThumbColor: MausamPalette.textPrimary,
                         title: Text(
                           'Weather Notifications',
                           style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
@@ -515,31 +514,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                       const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.notifications_active_rounded, color: MausamPalette.accentAmber, size: 22),
-                        title: Text(
-                          'Send Test Alert Notification',
-                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          'Tap to trigger a live atmospheric weather alert toast notification',
-                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
-                        ),
-                        trailing: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: MausamPalette.accentAmber,
-                            side: const BorderSide(color: MausamPalette.accentAmber),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          ),
-                          onPressed: () => NotificationService.showTestNotification(context),
-                          child: Text('TEST', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11)),
-                        ),
-                      ),
-                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
                       SwitchListTile(
                         value: _locationAccess,
                         onChanged: (val) => setState(() => _locationAccess = val),
-                        activeThumbColor: MausamPalette.accentBlue,
+                        activeThumbColor: MausamPalette.textPrimary,
                         title: Text(
                           'GPS Location Access',
                           style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
@@ -564,7 +542,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: TextButton.icon(
                   onPressed: _logout,
                   style: TextButton.styleFrom(
-                    foregroundColor: MausamPalette.accentRed,
+                    foregroundColor: MausamPalette.textSecondary,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
                   icon: const Icon(Icons.logout_rounded, size: 18),
@@ -659,7 +637,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               : MausamPalette.cardSurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
+            color: isSelected ? MausamPalette.textSecondary : MausamPalette.cardBorder,
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected ? MausamPalette.cardShadow : null,
@@ -703,7 +681,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     right: 8,
                     child: Icon(
                       isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
-                      color: isSelected ? MausamPalette.accentBlue : Colors.white54,
+                      color: isSelected ? MausamPalette.textPrimary : Colors.white54,
                       size: 16,
                     ),
                   ),

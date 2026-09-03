@@ -200,7 +200,48 @@ class LocationNotifier extends Notifier<LocationState> {
   }
 
   void addSavedLocation(LocationItem item) {
+    final exists = state.savedLocations.any((loc) =>
+        loc.id == item.id ||
+        (loc.name.toLowerCase() == item.name.toLowerCase() &&
+            (loc.latitude - item.latitude).abs() < 0.05 &&
+            (loc.longitude - item.longitude).abs() < 0.05));
+    if (exists) return;
     state = state.copyWith(savedLocations: [...state.savedLocations, item]);
+  }
+
+  /// Persist a geocoded place (best-effort) and make it the active location.
+  /// Weather still updates even if the backend save fails.
+  Future<LocationItem> saveAndSelect({
+    required ApiClient apiClient,
+    required String idToken,
+    required String name,
+    required double latitude,
+    required double longitude,
+    String? placeName,
+  }) async {
+    Map<String, dynamic>? created;
+    try {
+      created = await apiClient.saveLocation(
+        name: name,
+        latitude: latitude,
+        longitude: longitude,
+        idToken: idToken,
+      );
+    } catch (e) {
+      debugPrint('saveLocation failed, activating locally: $e');
+    }
+
+    final item = LocationItem(
+      id: (created?['id'] ?? 'local_${DateTime.now().millisecondsSinceEpoch}').toString(),
+      name: (created?['name'] ?? name).toString(),
+      latitude: (created?['latitude'] as num?)?.toDouble() ?? latitude,
+      longitude: (created?['longitude'] as num?)?.toDouble() ?? longitude,
+      placeName: (created?['place_name'] as String?) ?? placeName ?? name,
+    );
+
+    addSavedLocation(item);
+    selectSavedLocation(item);
+    return item;
   }
 
   void removeSavedLocation(String id) {

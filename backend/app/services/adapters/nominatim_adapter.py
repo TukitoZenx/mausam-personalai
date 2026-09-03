@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 NOMINATIM_BASE = "https://nominatim.openstreetmap.org"
 OPEN_METEO_GEO_BASE = "https://geocoding-api.open-meteo.com/v1/search"
-TIMEOUT = httpx.Timeout(5.0)
+TIMEOUT = httpx.Timeout(8.0)
 USER_AGENT = "MausamPersonalAI/1.0 (contact@mausam.ai)"
 
 
@@ -97,11 +97,11 @@ async def search_locations(query: str) -> list[LocationSearchResult]:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             resp = await client.get(
                 OPEN_METEO_GEO_BASE,
-                params={"name": query, "count": 10, "language": "en", "format": "json"},
+                params={"name": query, "count": 15, "language": "en", "format": "json"},
             )
             if resp.status_code == 200:
-                raw_data = resp.json()
-                raw_results = raw_data.get("results", [])
+                raw_data = resp.json() if resp.content else {}
+                raw_results = raw_data.get("results") or []
                 for item in raw_results:
                     name = item.get("name", "")
                     admin1 = item.get("admin1", "")
@@ -138,9 +138,10 @@ async def search_locations(query: str) -> list[LocationSearchResult]:
             "q": query,
             "format": "json",
             "addressdetails": 1,
-            "limit": 8,
+            "limit": 10,
+            "accept-language": "en",
         }
-        headers = {"User-Agent": USER_AGENT}
+        headers = {"User-Agent": USER_AGENT, "Accept-Language": "en"}
 
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             resp = await client.get(url, params=params, headers=headers)
