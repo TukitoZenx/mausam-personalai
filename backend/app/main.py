@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.alerts import router as alerts_router
@@ -22,6 +23,15 @@ app = FastAPI(
     description="Personalized weather, AQI & recommendations API for Mausam PersonalAI",
     docs_url="/docs",
     redoc_url="/redoc",
+)
+
+# CORS middleware for mobile & web clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Logging middleware
