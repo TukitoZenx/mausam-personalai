@@ -1,121 +1,130 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/location_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/weather/location_switcher_sheet.dart';
+import '../widgets/staggered_item_wrapper.dart';
 import '../widgets/weather/weather_sections.dart';
-import '../widgets/weather_skeleton_loader.dart';
 
 class ForecastScreen extends ConsumerWidget {
   const ForecastScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final weatherDash = ref.watch(weatherDashboardProvider);
     final locState = ref.watch(locationProvider);
-    final dash = ref.watch(weatherDashboardProvider);
-    final data = dash.data;
+    final data = weatherDash.data;
 
     return Scaffold(
       backgroundColor: MausamPalette.bgPrimary,
-      drawer: const AppDrawer(currentRoute: '/forecast'),
       appBar: AppBar(
         backgroundColor: MausamPalette.bgDeep,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 24),
-            tooltip: 'Open navigation',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: MausamPalette.textPrimary),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
-        title: GestureDetector(
-          onTap: () => showLocationSwitcherSheet(context: context, ref: ref),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  locState.cityName.isNotEmpty ? locState.cityName : 'Forecast',
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down_rounded, color: MausamPalette.textSecondary),
-            ],
+        title: Text(
+          'DETAILED FORECAST',
+          style: GoogleFonts.inter(
+            color: MausamPalette.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
           ),
         ),
         actions: [
           IconButton(
-            tooltip: 'Saved Locations',
-            icon: const Icon(Icons.location_city_rounded, color: MausamPalette.textSecondary),
-            onPressed: () => showLocationSwitcherSheet(context: context, ref: ref),
+            icon: const Icon(Icons.person_outline_rounded, color: MausamPalette.textPrimary),
+            onPressed: () => context.push('/profile'),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
           color: MausamPalette.accentBlue,
           backgroundColor: MausamPalette.cardSurface,
-          onRefresh: () => ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true),
+          onRefresh: () async {
+            await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+          },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              Text(
-                '7-Day Extended Forecast',
-                style: GoogleFonts.inter(
-                  color: MausamPalette.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+              // Active Location Indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, color: MausamPalette.accentBlue, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      locState.cityName.isNotEmpty ? locState.cityName : (data?.current.location ?? 'Active Area'),
+                      style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    if (data != null)
+                      Text(
+                        '${data.current.temperatureCelsius.round()}°C • ${data.current.condition}',
+                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 14),
-              if (dash.isLoading && data == null)
-                const SizedBox(
-                  height: 400,
-                  child: WeatherSkeletonLoader(),
-                )
-              else if (dash.errorMessage != null && data == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Could not load weather forecast.\n${dash.errorMessage}',
-                        style: GoogleFonts.inter(color: MausamPalette.textSecondary),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: MausamPalette.accentBlue,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () {
-                          ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
-                        },
-                        child: const Text('Retry'),
-                      ),
-                    ],
+
+              const SizedBox(height: 16),
+
+              if (data != null) ...[
+                // Hourly Forecast Timeline
+                StaggeredItemWrapper(
+                  index: 0,
+                  child: HourlyForecastStrip(
+                    hourly: data.hourly,
                   ),
-                )
-              else if (data != null) ...[
-                HourlyForecastStrip(hourly: data.hourly),
+                ),
+
                 const SizedBox(height: 14),
-                DailyForecastPanel(days: data.daily, initiallyExpanded: true),
+
+                // 7-Day Forecast Panel
+                StaggeredItemWrapper(
+                  index: 1,
+                  child: DailyForecastPanel(
+                    days: data.daily,
+                    initiallyExpanded: true,
+                  ),
+                ),
+
                 const SizedBox(height: 14),
-                SunMoonCard(
-                  current: data.current,
-                  today: data.daily.isEmpty ? null : data.daily.first,
+
+                // Sun & Moon Solar Cycle
+                StaggeredItemWrapper(
+                  index: 2,
+                  child: SunMoonCard(
+                    current: data.current,
+                    today: data.daily.isEmpty ? null : data.daily.first,
+                  ),
+                ),
+              ] else ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: CircularProgressIndicator(color: MausamPalette.accentBlue, strokeWidth: 2),
+                  ),
                 ),
               ],
             ],

@@ -1,7 +1,9 @@
 import 'package:go_router/go_router.dart';
 
+import '../screens/alerts_screen.dart';
 import '../screens/forecast_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/insights_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/profile_screen.dart';
@@ -46,6 +48,16 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
         path: '/saved-locations',
         name: 'saved_locations',
         builder: (context, state) => const SavedLocationsScreen(),
+      ),
+      GoRoute(
+        path: '/insights',
+        name: 'insights',
+        builder: (context, state) => const InsightsScreen(),
+      ),
+      GoRoute(
+        path: '/alerts',
+        name: 'alerts',
+        builder: (context, state) => const AlertsScreen(),
       ),
       GoRoute(
         path: '/profile',

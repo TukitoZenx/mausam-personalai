@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
+
 import '../theme/weather_palette.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/staggered_item_wrapper.dart';
 
 class SavedLocationsScreen extends ConsumerStatefulWidget {
   const SavedLocationsScreen({super.key});
@@ -16,164 +18,87 @@ class SavedLocationsScreen extends ConsumerStatefulWidget {
 }
 
 class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
-  final _nameController = TextEditingController();
-  final _latController = TextEditingController();
-  final _lonController = TextEditingController();
-  bool _isSaving = false;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isAdding = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _latController.dispose();
-    _lonController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _addLocationDialog() async {
-    _nameController.clear();
-    _latController.clear();
-    _lonController.clear();
+  Future<void> _addLocation() async {
+    final text = _searchController.text.trim();
+    if (text.isEmpty) return;
 
-    return showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: MausamPalette.cardSurface,
-        title: Text(
-          'Add Saved Destination',
-          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.bold),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _nameController,
-                style: const TextStyle(color: MausamPalette.textPrimary),
-                decoration: const InputDecoration(
-                  labelText: 'City / Location Name',
-                  labelStyle: TextStyle(color: MausamPalette.textSecondary),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.cardBorder)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.accentBlue)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _latController,
-                style: const TextStyle(color: MausamPalette.textPrimary),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                decoration: const InputDecoration(
-                  labelText: 'Latitude (e.g. 12.9716)',
-                  labelStyle: TextStyle(color: MausamPalette.textSecondary),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.cardBorder)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.accentBlue)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _lonController,
-                style: const TextStyle(color: MausamPalette.textPrimary),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                decoration: const InputDecoration(
-                  labelText: 'Longitude (e.g. 77.5946)',
-                  labelStyle: TextStyle(color: MausamPalette.textSecondary),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.cardBorder)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: MausamPalette.accentBlue)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: MausamPalette.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MausamPalette.accentBlue,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              final name = _nameController.text.trim();
-              final lat = double.tryParse(_latController.text.trim());
-              final lon = double.tryParse(_lonController.text.trim());
+    setState(() => _isAdding = true);
+    final userState = ref.read(userProvider);
+    final apiClient = ref.read(apiClientProvider);
+    final idToken = userState.idToken ?? 'test_token';
 
-              if (name.isEmpty || lat == null || lon == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid name, latitude, and longitude.')),
-                );
-                return;
-              }
-
-              Navigator.of(ctx).pop();
-              setState(() => _isSaving = true);
-
-              try {
-                final apiClient = ref.read(apiClientProvider);
-                final userState = ref.read(userProvider);
-                final idToken = userState.idToken ?? 'test_token';
-
-                final savedMap = await apiClient.saveLocation(
-                  name: name,
-                  latitude: lat,
-                  longitude: lon,
-                  idToken: idToken,
-                );
-
-                final newItem = LocationItem(
-                  id: savedMap['id'] as String,
-                  name: savedMap['name'] as String,
-                  latitude: (savedMap['latitude'] as num).toDouble(),
-                  longitude: (savedMap['longitude'] as num).toDouble(),
-                  placeName: savedMap['place_name'] as String?,
-                );
-
-                final currentList = ref.read(locationProvider).savedLocations;
-                ref.read(locationProvider.notifier).setSavedLocations([...currentList, newItem]);
-
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added $name to saved destinations!')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save location: $e')),
-                  );
-                }
-              } finally {
-                if (mounted) setState(() => _isSaving = false);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteLocation(LocationItem item) async {
     try {
-      final apiClient = ref.read(apiClientProvider);
-      final userState = ref.read(userProvider);
-      final idToken = userState.idToken ?? 'test_token';
-
-      await apiClient.deleteSavedLocation(id: item.id, idToken: idToken);
-      final currentList = ref.read(locationProvider).savedLocations;
-      ref.read(locationProvider.notifier).setSavedLocations(
-        currentList.where((l) => l.id != item.id).toList(),
+      final created = await apiClient.saveLocation(
+        name: text,
+        latitude: 19.0760, // Fallback coordinates for new named search entry
+        longitude: 72.8777,
+        idToken: idToken,
       );
 
+      final newItem = LocationItem(
+        id: created['id'] as String,
+        name: created['name'] as String,
+        latitude: (created['latitude'] as num).toDouble(),
+        longitude: (created['longitude'] as num).toDouble(),
+        placeName: created['place_name'] as String?,
+      );
+
+      ref.read(locationProvider.notifier).addSavedLocation(newItem);
+      _searchController.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Removed ${item.name}')),
+          SnackBar(
+            content: Text('Added $text to saved locations'),
+            backgroundColor: MausamPalette.cardSurface,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete location: $e')),
+          SnackBar(
+            content: Text('Failed to add location: $e'),
+            backgroundColor: MausamPalette.accentRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  Future<void> _deleteLocation(String id, String name) async {
+    final userState = ref.read(userProvider);
+    final apiClient = ref.read(apiClientProvider);
+    final idToken = userState.idToken ?? 'test_token';
+
+    try {
+      await apiClient.deleteSavedLocation(id: id, idToken: idToken);
+      ref.read(locationProvider.notifier).removeSavedLocation(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Removed $name'),
+            backgroundColor: MausamPalette.cardSurface,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete location: $e'),
+            backgroundColor: MausamPalette.accentRed,
+          ),
         );
       }
     }
@@ -182,146 +107,242 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
-    final savedList = locState.savedLocations;
+    final savedLocations = locState.savedLocations;
 
     return Scaffold(
       backgroundColor: MausamPalette.bgPrimary,
-      drawer: const AppDrawer(currentRoute: '/saved-locations'),
       appBar: AppBar(
         backgroundColor: MausamPalette.bgDeep,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 24),
-            tooltip: 'Open navigation',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: MausamPalette.textPrimary),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         title: Text(
-          'Saved Destinations',
+          'MY LOCATIONS',
           style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
             color: MausamPalette.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_location_alt_rounded, color: MausamPalette.accentBlue),
-            onPressed: _addLocationDialog,
-            tooltip: 'Add Destination',
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
-            Text(
-              'Your Locations',
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: MausamPalette.textPrimary),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap a location to switch active weather forecast view.',
-              style: GoogleFonts.inter(fontSize: 12, color: MausamPalette.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            if (_isSaving)
-              const LinearProgressIndicator(color: MausamPalette.accentBlue, backgroundColor: MausamPalette.cardSurface),
-            Expanded(
-              child: savedList.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.location_off_rounded, color: MausamPalette.textMuted, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No saved destinations yet.',
-                            style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 14),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: MausamPalette.accentBlue,
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: _addLocationDialog,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Location'),
-                          ),
-                        ],
+            // Current GPS Location Banner
+            StaggeredItemWrapper(
+              index: 0,
+              child: GestureDetector(
+                onTap: () {
+                  ref.read(locationProvider.notifier).useCurrentLocation();
+                  context.go('/home');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: MausamPalette.cardSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: !locState.isCustomSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
+                      width: !locState.isCustomSelected ? 1.5 : 1.0,
+                    ),
+                    boxShadow: MausamPalette.cardShadow,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: MausamPalette.accentBlue.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.my_location_rounded, color: MausamPalette.accentBlue, size: 20),
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: savedList.length,
-                      itemBuilder: (context, index) {
-                        final item = savedList[index];
-                        final isActive = (locState.activeLatitude == item.latitude &&
-                            locState.activeLongitude == item.longitude);
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: isActive ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isActive ? MausamPalette.accentBlue : MausamPalette.cardBorder,
-                              width: isActive ? 1.5 : 1.0,
-                            ),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                              leading: CircleAvatar(
-                                backgroundColor: isActive ? MausamPalette.accentBlue : MausamPalette.bgSurface,
-                                child: Icon(
-                                  isActive ? Icons.my_location_rounded : Icons.location_city_rounded,
-                                  color: Colors.white,
-                                  size: 20,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Current Location',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              title: Text(
-                                item.name,
-                                style: GoogleFonts.inter(
-                                  color: MausamPalette.textPrimary,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '${item.latitude.toStringAsFixed(4)}, ${item.longitude.toStringAsFixed(4)}',
-                                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (isActive)
-                                    const Padding(
-                                      padding: EdgeInsets.only(right: 8),
-                                      child: Icon(Icons.check_circle_rounded, color: MausamPalette.accentBlue, size: 20),
+                                if (!locState.isCustomSelected) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: MausamPalette.accentBlue.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                    onPressed: () => _deleteLocation(item),
+                                    child: Text(
+                                      'ACTIVE',
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.accentBlue,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ),
                                 ],
-                              ),
-                              onTap: () {
-                                ref.read(locationProvider.notifier).selectSavedLocation(item);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Switched location to ${item.name}')),
-                                );
-                              },
+                              ],
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            const SizedBox(height: 2),
+                            Text(
+                              locState.deviceCityName ?? locState.cityName,
+                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: MausamPalette.textTertiary),
+                    ],
+                  ),
+                ),
+              ),
             ),
+
+            const SizedBox(height: 20),
+
+            // Search / Add Location Section
+            StaggeredItemWrapper(
+              index: 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, color: MausamPalette.textTertiary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Search city or location...',
+                          hintStyle: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 14),
+                          border: InputBorder.none,
+                        ),
+                        onSubmitted: (_) => _addLocation(),
+                      ),
+                    ),
+                    if (_isAdding)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.accentBlue),
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.add_rounded, color: MausamPalette.textPrimary),
+                        onPressed: _addLocation,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Text(
+              'SAVED LOCATIONS',
+              style: GoogleFonts.inter(
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            if (savedLocations.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.bookmark_border_rounded, color: MausamPalette.textTertiary, size: 36),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No saved locations yet',
+                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Search above to save your favorite cities for quick weather access.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              for (int i = 0; i < savedLocations.length; i++)
+                StaggeredItemWrapper(
+                  index: i + 2,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: MausamPalette.cardSurface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: locState.isCustomSelected &&
+                                locState.activeLatitude == savedLocations[i].latitude &&
+                                locState.activeLongitude == savedLocations[i].longitude
+                            ? MausamPalette.accentBlue
+                            : MausamPalette.cardBorder,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        onTap: () {
+                          ref.read(locationProvider.notifier).selectSavedLocation(savedLocations[i]);
+                          context.go('/home');
+                        },
+                        leading: const Icon(Icons.place_outlined, color: MausamPalette.textSecondary),
+                        title: Text(
+                          savedLocations[i].name,
+                          style: GoogleFonts.inter(
+                            color: MausamPalette.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: MausamPalette.textTertiary, size: 20),
+                          onPressed: () => _deleteLocation(savedLocations[i].id, savedLocations[i].name),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),

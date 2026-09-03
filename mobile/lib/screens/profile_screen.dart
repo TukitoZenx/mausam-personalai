@@ -1,233 +1,489 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/weather_palette.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/staggered_item_wrapper.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
-  static const List<Map<String, String>> personas = [
-    {
-      'id': 'Fitness',
-      'title': 'Fitness Enthusiast',
-      'description': 'Prioritizes outdoor workout windows, ideal running temp & humidity.',
-      'icon': 'directions_run',
-    },
-    {
-      'id': 'Health',
-      'title': 'Health Sensitive',
-      'description': 'Prioritizes air quality alerts (AQI), UV index warnings & heat advisories.',
-      'icon': 'health_and_safety',
-    },
-    {
-      'id': 'Traveler',
-      'title': 'Active Traveler',
-      'description': 'Prioritizes destination weather, trip packing checklists & rain alerts.',
-      'icon': 'flight_takeoff',
-    },
-  ];
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _notifications = true;
+  bool _locationAccess = true;
+
+  Future<void> _updatePersona(String persona) async {
+    final userNotifier = ref.read(userProvider.notifier);
+    final apiClient = ref.read(apiClientProvider);
+    final userState = ref.read(userProvider);
+    final idToken = userState.idToken ?? 'test_token';
+
+    userNotifier.setPersona(persona);
+
+    try {
+      await apiClient.postUser(
+        idToken: idToken,
+        email: userState.email ?? 'guest@mausam.ai',
+        personaType: persona,
+        notificationsEnabled: _notifications,
+        locationAccess: _locationAccess,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Switched persona to $persona'),
+            backgroundColor: MausamPalette.cardSurface,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      // Persona updated locally in Riverpod even if backend network call fails
+    }
+  }
+
+  Future<void> _logout() async {
+    final authService = ref.read(authServiceProvider);
+    await authService.signOut();
+    ref.read(userProvider.notifier).signOut();
+    if (mounted) {
+      context.go('/login');
+    }
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
     final activePersona = userState.selectedPersona ?? 'Fitness';
 
     return Scaffold(
       backgroundColor: MausamPalette.bgPrimary,
-      drawer: const AppDrawer(currentRoute: '/profile'),
       appBar: AppBar(
         backgroundColor: MausamPalette.bgDeep,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 24),
-            tooltip: 'Open navigation',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: MausamPalette.textPrimary),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         title: Text(
-          'User Profile & Persona',
+          'PROFILE & SETTINGS',
           style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
             color: MausamPalette.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
-            // User Header Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: MausamPalette.cardSurface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: MausamPalette.cardBorder),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: MausamPalette.accentBlue,
-                    child: Text(
-                      (userState.email ?? 'U').substring(0, 1).toUpperCase(),
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+            // Account Badge Card
+            StaggeredItemWrapper(
+              index: 0,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                  boxShadow: MausamPalette.cardShadow,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: MausamPalette.cardSurfaceLight,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: MausamPalette.cardBorder),
+                      ),
+                      child: const Icon(Icons.person_rounded, color: MausamPalette.textPrimary, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userState.email?.split('@').first ?? 'Mausam User',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            userState.email ?? 'guest@mausam.ai',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userState.email ?? 'User',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Active Persona: $activePersona',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.accentCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 24),
 
+            // Persona Selection Section
             Text(
-              'Select Personalization Focus',
+              'ACTIVE PERSONA',
               style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: MausamPalette.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Changing persona updates homepage card ranking live.',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: MausamPalette.textSecondary,
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            Expanded(
-              child: ListView.builder(
-                itemCount: personas.length,
-                itemBuilder: (context, index) {
-                  final p = personas[index];
-                  final isSelected = activePersona.toLowerCase() == p['id']!.toLowerCase();
+            StaggeredItemWrapper(
+              index: 1,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    _personaTile(
+                      title: 'Fitness Persona',
+                      subtitle: 'Optimized for running windows, outdoor exercise & UV exposure.',
+                      icon: Icons.directions_run_rounded,
+                      color: MausamPalette.personaFitness,
+                      isSelected: activePersona == 'Fitness',
+                      onTap: () => _updatePersona('Fitness'),
+                    ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 16),
+                    _personaTile(
+                      title: 'Health Focus',
+                      subtitle: 'Focuses on air quality precautions, AQI alerts & respiratory safety.',
+                      icon: Icons.favorite_rounded,
+                      color: MausamPalette.personaHealth,
+                      isSelected: activePersona == 'Health',
+                      onTap: () => _updatePersona('Health'),
+                    ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 16),
+                    _personaTile(
+                      title: 'Traveler Persona',
+                      subtitle: 'Sightseeing comfort, commute rain warnings & packing essentials.',
+                      icon: Icons.flight_takeoff_rounded,
+                      color: MausamPalette.personaTraveler,
+                      isSelected: activePersona == 'Traveler',
+                      onTap: () => _updatePersona('Traveler'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                  IconData iconData = Icons.person;
-                  if (p['icon'] == 'directions_run') iconData = Icons.directions_run_rounded;
-                  if (p['icon'] == 'health_and_safety') iconData = Icons.health_and_safety_rounded;
-                  if (p['icon'] == 'flight_takeoff') iconData = Icons.flight_takeoff_rounded;
+            const SizedBox(height: 24),
+
+            // Appearance & Widget Transparency
+            Text(
+              'APPEARANCE & WIDGETS',
+              style: GoogleFonts.inter(
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            StaggeredItemWrapper(
+              index: 2,
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final appearance = ref.watch(appearanceProvider);
+                  final opacity = ref.watch(cardSurfaceOpacityProvider);
 
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSelected ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
+                      color: MausamPalette.cardSurface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
-                        width: isSelected ? 1.5 : 1.0,
-                      ),
+                      border: Border.all(color: MausamPalette.cardBorder),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? MausamPalette.accentBlue.withValues(alpha: 0.2)
-                                : MausamPalette.bgSurface,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            iconData,
-                            color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
-                            size: 24,
-                          ),
-                        ),
-                        title: Text(
-                          p['title']!,
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 15,
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            p['description']!,
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle_rounded, color: MausamPalette.accentBlue)
-                            : null,
-                        onTap: () async {
-                          final newPersona = p['id']!;
-                          ref.read(userProvider.notifier).setPersona(newPersona);
-
-                          // Save persona to backend
-                          final idToken = userState.idToken ?? 'test_token';
-                          try {
-                            await ref.read(apiClientProvider).postUser(
-                                  idToken: idToken,
-                                  email: userState.email ?? '',
-                                  persona: newPersona,
-                                );
-                          } catch (_) {}
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Persona updated to $newPersona. Homepage refetched.'),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: MausamPalette.cardSurface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Widget Transparency',
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                            );
-                          }
-                        },
-                      ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: MausamPalette.accentBlue.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${appearance.transparencyPercent}%',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.accentBlue,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: MausamTypography.tabularFeatures,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Opaque', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
+                            Text('Transparent', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
+                          ],
+                        ),
+                        SliderTheme(
+                          data: SliderThemeData(
+                            activeTrackColor: MausamPalette.accentBlue,
+                            inactiveTrackColor: MausamPalette.cardBorder,
+                            thumbColor: MausamPalette.textPrimary,
+                            overlayColor: MausamPalette.accentBlue.withValues(alpha: 0.2),
+                          ),
+                          child: Slider(
+                            value: appearance.transparencyPercent.toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 20,
+                            onChanged: (val) {
+                              ref.read(appearanceProvider.notifier).setTransparency(val.round());
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Live Preview Widget
+                        Text(
+                          'LIVE PREVIEW WIDGET',
+                          style: GoogleFonts.inter(
+                            color: MausamPalette.textTertiary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: MausamPalette.cardSurface.withValues(alpha: opacity),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: MausamPalette.cardBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.wb_sunny_rounded, color: MausamPalette.accentAmber, size: 28),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '28°C • Clear Sky',
+                                    style: GoogleFonts.inter(
+                                      color: MausamPalette.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: MausamTypography.tabularFeatures,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Surface opacity ${(opacity * 100).round()}%',
+                                    style: GoogleFonts.inter(
+                                      color: MausamPalette.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
               ),
             ),
+
+            const SizedBox(height: 24),
+
+            // App Preferences
+            Text(
+              'PREFERENCES',
+              style: GoogleFonts.inter(
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            StaggeredItemWrapper(
+              index: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        value: _notifications,
+                        onChanged: (val) => setState(() => _notifications = val),
+                        activeThumbColor: MausamPalette.accentBlue,
+                        title: Text(
+                          'Weather Notifications',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Receive severe rain and high AQI advisories',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                      SwitchListTile(
+                        value: _locationAccess,
+                        onChanged: (val) => setState(() => _locationAccess = val),
+                        activeThumbColor: MausamPalette.accentBlue,
+                        title: Text(
+                          'GPS Location Access',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Automatically detect local weather for current coordinates',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Logout Button
+            StaggeredItemWrapper(
+              index: 3,
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: _logout,
+                  style: TextButton.styleFrom(
+                    foregroundColor: MausamPalette.accentRed,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: Text(
+                    'Sign Out',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _personaTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        color: MausamPalette.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                color: isSelected ? color : MausamPalette.textTertiary,
+                size: 20,
+              ),
+            ],
+          ),
         ),
       ),
     );

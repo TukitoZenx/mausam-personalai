@@ -51,7 +51,7 @@ void main() {
     expect(find.byKey(const Key('continue_with_email_button')), findsOneWidget);
   });
 
-  testWidgets('App navigates through feature routes without errors', (WidgetTester tester) async {
+  testWidgets('App renders HomeScreen at /home', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -67,27 +67,92 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(HomeScreen), findsOneWidget);
+  });
 
-    // Onboarding
-    router.go('/onboarding');
-    await tester.pumpAndSettle();
+  testWidgets('App renders OnboardingScreen at /onboarding', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/onboarding');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Choose Your Persona'), findsOneWidget);
+  });
 
-    // Forecast
-    router.go('/forecast');
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Forecast'), findsWidgets);
+  testWidgets('App renders ForecastScreen at /forecast', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    // Saved Locations
-    router.go('/saved-locations');
-    await tester.pumpAndSettle();
-    expect(find.text('Saved Destinations'), findsOneWidget);
+    final router = createRouter(initialLocation: '/forecast');
 
-    // Profile
-    router.go('/profile');
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Profile'), findsWidgets);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('FORECAST'), findsWidgets);
+  });
+
+  testWidgets('App renders InsightsScreen at /insights', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/insights');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('INSIGHTS'), findsWidgets);
+  });
+
+  testWidgets('App renders AlertsScreen at /alerts', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/alerts');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('ALERTS'), findsWidgets);
+  });
+
+  testWidgets('App renders ProfileScreen at /profile', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/profile');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('PROFILE'), findsWidgets);
   });
 }

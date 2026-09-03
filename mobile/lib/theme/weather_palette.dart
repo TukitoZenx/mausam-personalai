@@ -1,74 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Mausam PersonalAI — Purple/Lavender Visual System
+/// Mausam PersonalAI — Obsidian Monochrome Visual System
 ///
-/// Deep violet backgrounds, muted lavender card surfaces,
-/// restrained accent colors reserved for weather condition icons only.
+/// Black-and-white first, minimal developer-product aesthetic.
+/// Deep obsidian base (`#09090B`), elevated cards (`#18181B`), crisp 1px borders (`#27272A`),
+/// and high-contrast typography (`#FAFAFA`) with restrained, meaningful semantic accents.
 class MausamPalette {
   // ─── Background Spectrum ───
-  static const Color bgDeep = Color(0xFF1A0E2E);       // Deepest background
-  static const Color bgPrimary = Color(0xFF211539);     // Main scaffold bg
-  static const Color bgSurface = Color(0xFF2D1B4E);    // Elevated surfaces
+  static const Color bgDeep = Color(0xFF09090B);       // Deepest obsidian background
+  static const Color bgPrimary = Color(0xFF0C0C0E);     // Main scaffold bg
+  static const Color bgSurface = Color(0xFF141417);    // Elevated surfaces
 
-  // ─── Card Surfaces ───
-  static const Color cardSurface = Color(0xFF362558);   // Primary card fill
-  static const Color cardSurfaceLight = Color(0xFF3D2D62); // Lighter card variant
-  static const Color cardBorder = Color(0xFF4A3670);    // Subtle card borders
+  // ─── Card Surfaces & Borders ───
+  static const Color cardSurface = Color(0xFF18181B);   // Primary card fill
+  static const Color cardSurfaceLight = Color(0xFF202024); // Hover/active card variant
+  static const Color cardBorder = Color(0xFF27272A);    // Subtle 1px card borders
+  static const Color cardBorderSubtle = Color(0xFF1F1F23); // Extremely subtle divider
 
-  // ─── Soft Ambient Card Shadows (Craft Polish) ───
+  // ─── Soft Ambient Card Shadows ───
   static const List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Color(0x3D0D0720),
-      blurRadius: 16,
-      spreadRadius: -2,
-      offset: Offset(0, 8),
-    ),
-    BoxShadow(
-      color: Color(0x1A000000),
-      blurRadius: 4,
+      color: Color(0x33000000),
+      blurRadius: 12,
       spreadRadius: 0,
-      offset: Offset(0, 2),
+      offset: Offset(0, 4),
     ),
   ];
 
   static const List<BoxShadow> heroShadow = [
     BoxShadow(
-      color: Color(0x541A0E2E),
-      blurRadius: 24,
-      spreadRadius: -4,
-      offset: Offset(0, 12),
+      color: Color(0x66000000),
+      blurRadius: 20,
+      spreadRadius: -2,
+      offset: Offset(0, 8),
     ),
   ];
 
-  // ─── Text ───
-  static const Color textPrimary = Color(0xFFF0EBF8);   // High emphasis
-  static const Color textSecondary = Color(0xFFB8A8D0);  // Medium emphasis
-  static const Color textTertiary = Color(0xFF8A78A8);   // Low emphasis / labels
-  static const Color textMuted = Color(0xFF6B5A88);      // Disabled / hint
+  // ─── Typography & Contrast ───
+  static const Color textPrimary = Color(0xFFFAFAFA);   // High emphasis white
+  static const Color textSecondary = Color(0xFFA1A1AA);  // Medium emphasis muted gray
+  static const Color textTertiary = Color(0xFF71717A);   // Low emphasis labels / metadata
+  static const Color textMuted = Color(0xFF52525B);      // Disabled / hint text
 
-  // ─── Accent (sparingly — icons & condition glyphs only) ───
-  static const Color accentBlue = Color(0xFF5B9CF5);     // Clear sky
-  static const Color accentCyan = Color(0xFF4DD0E1);     // Snow / ice
-  static const Color accentOrange = Color(0xFFFF9E47);   // Sunrise / warm
-  static const Color accentMagenta = Color(0xFFE066A0);  // Storm / alert
-  static const Color accentGreen = Color(0xFF4ADE80);    // Good AQI / healthy
+  // ─── Restrained Semantic Accents (Meaningful only) ───
+  static const Color accentBlue = Color(0xFF60A5FA);     // Weather / precipitation / sky
+  static const Color accentCyan = Color(0xFF38BDF8);     // Snow / cold / ice
+  static const Color accentOrange = Color(0xFFF97316);   // Sun / heat
+  static const Color accentAmber = Color(0xFFFBBF24);    // Caution / warning
+  static const Color accentRed = Color(0xFFF87171);      // Dangerous conditions / severe alert
+  static const Color accentGreen = Color(0xFF4ADE80);    // Good conditions / clean AQI
+  static const Color accentMagenta = Color(0xFFF472B6);  // Weather glyph accent
 
-  // ─── Persona Brand (retained for persona badges only) ───
-  static const Color personaFitness = Color(0xFF0D9488);
-  static const Color personaHealth = Color(0xFFE066A0);
-  static const Color personaTraveler = Color(0xFFFF9E47);
+  // ─── Persona Badges (Restrained) ───
+  static const Color personaFitness = Color(0xFF2DD4BF);
+  static const Color personaHealth = Color(0xFFF472B6);
+  static const Color personaTraveler = Color(0xFFFBBF24);
 
-  // ─── Glass Effect ───
-  static const Color glassWhite = Color(0x18FFFFFF);      // Glass overlay
-  static const Color glassBorder = Color(0x25FFFFFF);     // Glass border
+  // ─── Glass & Overlay Effects ───
+  static const Color glassWhite = Color(0x0CFFFFFF);      // Subtle overlay
+  static const Color glassBorder = Color(0x1AFFFFFF);     // Subtle border
 
-  // ─── Drawer ───
-  static const Color drawerBg = Color(0xFF1A0E2E);
-  static const Color drawerDivider = Color(0xFF362558);
-  static const Color drawerActiveItem = Color(0xFF362558);
+  // ─── Drawer & Menu Navigation ───
+  static const Color drawerBg = Color(0xFF09090B);
+  static const Color drawerDivider = Color(0xFF27272A);
+  static const Color drawerActiveItem = Color(0xFF18181B);
 
-  // ─── Hero Gradients ───
+  // ─── Hero Gradients (Minimal Atmospheric Dark) ───
   static LinearGradient heroGradient({required int hour, required String condition}) {
     final cond = condition.toLowerCase();
     final rainy = cond.contains('rain') || cond.contains('drizzle') ||
@@ -78,22 +76,22 @@ class MausamPalette {
     late List<Color> stops;
     if (hour >= 5 && hour < 8) {
       // Dawn
-      stops = const [Color(0xFF3D1E6D), Color(0xFF8B3A62), Color(0xFFFF9E47)];
+      stops = const [Color(0xFF18181B), Color(0xFF1F1D2B), Color(0xFF2D1F1B)];
     } else if (hour >= 8 && hour < 17) {
       // Day
-      stops = const [Color(0xFF2D1B4E), Color(0xFF3D5A99), Color(0xFF5B9CF5)];
+      stops = const [Color(0xFF141417), Color(0xFF181B24), Color(0xFF1C2230)];
     } else if (hour >= 17 && hour < 20) {
       // Dusk
-      stops = const [Color(0xFF1A0E2E), Color(0xFF6B3A6D), Color(0xFFFF9E47)];
+      stops = const [Color(0xFF18181B), Color(0xFF241D20), Color(0xFF2A201A)];
     } else {
       // Night
-      stops = const [Color(0xFF0D0720), Color(0xFF1A0E2E), Color(0xFF2D1B4E)];
+      stops = const [Color(0xFF09090B), Color(0xFF0F0F12), Color(0xFF141417)];
     }
 
     if (rainy) {
-      stops = stops.map((c) => Color.lerp(c, const Color(0xFF0D0720), 0.35)!).toList();
+      stops = stops.map((c) => Color.lerp(c, const Color(0xFF0B1019), 0.5)!).toList();
     } else if (overcast) {
-      stops = stops.map((c) => Color.lerp(c, const Color(0xFF2D1B4E), 0.25)!).toList();
+      stops = stops.map((c) => Color.lerp(c, const Color(0xFF121215), 0.4)!).toList();
     }
 
     return LinearGradient(
@@ -104,13 +102,13 @@ class MausamPalette {
   }
 }
 
-/// Backward compatibility layer mapping legacy WeatherPalette fields to the new purple visual system.
+/// Backward compatibility layer mapping legacy WeatherPalette fields.
 class WeatherPalette {
   static const Color navy = MausamPalette.bgSurface;
   static const Color navyDeep = MausamPalette.bgDeep;
   static const Color teal = MausamPalette.accentCyan;
   static const Color sky = MausamPalette.accentBlue;
-  static const Color amber = MausamPalette.accentOrange;
+  static const Color amber = MausamPalette.accentAmber;
   static const Color background = MausamPalette.bgPrimary;
   static const Color card = MausamPalette.cardSurface;
   static const Color cardBorder = MausamPalette.cardBorder;
@@ -125,7 +123,7 @@ class MausamTypography {
   static const List<FontFeature> tabularFeatures = [FontFeature.tabularFigures()];
 
   static TextStyle largeTitle = GoogleFonts.inter(
-    fontSize: 72,
+    fontSize: 68,
     fontWeight: FontWeight.w700,
     color: MausamPalette.textPrimary,
     height: 1.0,
@@ -134,15 +132,17 @@ class MausamTypography {
   );
 
   static TextStyle sectionTitle = GoogleFonts.inter(
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: FontWeight.w700,
     color: MausamPalette.textPrimary,
+    letterSpacing: -0.3,
   );
 
   static TextStyle cardTitle = GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: MausamPalette.textPrimary,
+    letterSpacing: -0.2,
   );
 
   static TextStyle cardSubtitle = GoogleFonts.inter(
@@ -170,7 +170,7 @@ class MausamTypography {
   );
 
   static TextStyle statValue = GoogleFonts.inter(
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: FontWeight.w700,
     color: MausamPalette.textPrimary,
     fontFeatures: tabularFeatures,
@@ -183,7 +183,7 @@ class MausamTypography {
   );
 
   static TextStyle hourlyTemp = GoogleFonts.inter(
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: FontWeight.w600,
     color: MausamPalette.textPrimary,
     fontFeatures: tabularFeatures,

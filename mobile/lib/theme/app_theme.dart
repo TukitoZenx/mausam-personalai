@@ -33,8 +33,9 @@ class AppTheme {
         centerTitle: true,
         titleTextStyle: GoogleFonts.inter(
           color: MausamPalette.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
         ),
       ),
       drawerTheme: const DrawerThemeData(
@@ -43,11 +44,16 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: MausamPalette.accentBlue,
-          foregroundColor: Colors.white,
+          backgroundColor: MausamPalette.textPrimary,
+          foregroundColor: MausamPalette.bgDeep,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ),
       ),
@@ -63,12 +69,14 @@ class AppTheme {
         headlineLarge: GoogleFonts.inter(
           color: MausamPalette.textPrimary,
           fontSize: 32,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.8,
         ),
         titleLarge: GoogleFonts.inter(
           color: MausamPalette.textPrimary,
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.4,
         ),
         bodyLarge: GoogleFonts.inter(
           color: MausamPalette.textPrimary,
@@ -77,6 +85,10 @@ class AppTheme {
         bodyMedium: GoogleFonts.inter(
           color: MausamPalette.textSecondary,
           fontSize: 14,
+        ),
+        bodySmall: GoogleFonts.inter(
+          color: MausamPalette.textTertiary,
+          fontSize: 12,
         ),
       ),
     );

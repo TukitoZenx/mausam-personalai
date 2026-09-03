@@ -1,10 +1,12 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/home_card.dart';
+import '../../providers/appearance_provider.dart';
+import '../../theme/weather_palette.dart';
 
-class RankedCardShell extends StatelessWidget {
+class RankedCardShell extends ConsumerWidget {
   final RankedHomeCard card;
   final Widget child;
   final VoidCallback? onTap;
@@ -17,225 +19,128 @@ class RankedCardShell extends StatelessWidget {
     required this.child,
     this.onTap,
     this.onDismiss,
-    this.showRankBadge = true,
+    this.showRankBadge = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final showReasonBanner = card.rank <= 3 ||
-        card.cardType == 'alerts' ||
-        card.effectiveReason.isNotEmpty;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
-    final isAlert = card.cardType == 'alerts';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+    Widget content = Container(
+      decoration: BoxDecoration(
+        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MausamPalette.cardBorder),
+        boxShadow: MausamPalette.cardShadow,
+      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isAlert
-                    ? [
-                        const Color(0xFFEF4444).withValues(alpha: 0.22),
-                        const Color(0xFF7F1D1D).withValues(alpha: 0.12),
-                      ]
-                    : [
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.04),
-                      ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isAlert
-                    ? const Color(0xFFEF4444).withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.18),
-                width: isAlert ? 1.4 : 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isAlert
-                      ? const Color(0xFFEF4444).withValues(alpha: 0.2)
-                      : Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                splashColor: const Color(0xFF00F5FF).withValues(alpha: 0.1),
-                highlightColor: Colors.white.withValues(alpha: 0.05),
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Header Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              if (showRankBadge && card.rank < 99) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        const Color(0xFF00F5FF).withValues(alpha: 0.25),
-                                        const Color(0xFF3FA9F5).withValues(alpha: 0.15),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: const Color(0xFF00F5FF).withValues(alpha: 0.5),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'RANK #${card.rank}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF00F5FF),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              if (card.category != null && card.category!.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.12),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    card.category!.toUpperCase(),
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: 0.7),
-                                      letterSpacing: 0.6,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (onDismiss != null)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white70, size: 14),
-                                onPressed: onDismiss,
-                                padding: const EdgeInsets.all(4),
-                                constraints: const BoxConstraints(),
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // Card Specific Content Body
-                      child,
-
-                      // Reason Banner (for ranks 1-3 or when reason present)
-                      if (showReasonBanner && card.effectiveReason.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+        borderRadius: BorderRadius.circular(16),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            highlightColor: Colors.white.withValues(alpha: 0.04),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (card.category != null && card.category!.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFFFFB703).withValues(alpha: 0.15),
-                                const Color(0xFFF59E0B).withValues(alpha: 0.05),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFFFFB703).withValues(alpha: 0.35),
-                              width: 1,
-                            ),
+                            color: MausamPalette.cardSurfaceLight.withValues(alpha: surfaceOpacity),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: MausamPalette.cardBorder),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.auto_awesome,
-                                color: Color(0xFFFFB703),
-                                size: 14,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  card.effectiveReason,
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white.withValues(alpha: 0.95),
-                                    fontSize: 11.5,
-                                    height: 1.3,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            card.category!.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: MausamPalette.textSecondary,
+                              letterSpacing: 0.6,
+                            ),
                           ),
                         ),
+                        if (showRankBadge && card.rank < 99)
+                          Text(
+                            '#${card.rank}',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: MausamPalette.textTertiary,
+                            ),
+                          ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
 
-                      // Reason codes chips
-                      if (card.reasonCodes.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 5,
-                          runSpacing: 3,
-                          children: card.reasonCodes.map((code) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00F5FF).withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(
-                                  color: const Color(0xFF00F5FF).withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: Text(
-                                code.startsWith('#') ? code : '#$code',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 9.5,
-                                  color: const Color(0xFF7DD3FC),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                  if (card.title != null && card.title!.isNotEmpty) ...[
+                    Text(
+                      card.title!,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: MausamPalette.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+
+                  child,
+
+                  if (card.effectiveReason.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: MausamPalette.bgDeep.withValues(alpha: surfaceOpacity * 0.7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: MausamPalette.cardBorderSubtle),
+                      ),
+                      child: Text(
+                        card.effectiveReason,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textSecondary,
+                          fontSize: 12,
+                          height: 1.35,
                         ),
-                      ],
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
         ),
       ),
     );
+
+    if (onDismiss != null) {
+      return Dismissible(
+        key: ValueKey(card.id),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => onDismiss!(),
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(
+            color: MausamPalette.accentRed.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.delete_outline_rounded, color: MausamPalette.accentRed),
+        ),
+        child: content,
+      );
+    }
+
+    return content;
   }
 }
