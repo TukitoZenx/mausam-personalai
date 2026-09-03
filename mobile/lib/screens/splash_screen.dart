@@ -61,8 +61,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _checkAuthAndNavigate() async {
     if (!mounted) return;
 
-    final authService = ref.read(authServiceProvider);
-    final user = authService.currentUser ?? FirebaseAuth.instance.currentUser;
+    User? user;
+    try {
+      final authService = ref.read(authServiceProvider);
+      user = authService.currentUser ?? FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      // Firebase not initialized or not supported on current desktop platform
+    }
 
     if (user != null) {
       String? idToken;

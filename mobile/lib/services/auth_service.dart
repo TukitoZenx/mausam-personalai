@@ -25,22 +25,32 @@ abstract class AuthService {
 }
 
 class FirebaseAuthService implements AuthService {
-  FirebaseAuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  FirebaseAuthService({FirebaseAuth? auth}) : _auth = auth ?? _safeGetAuth();
 
-  final FirebaseAuth _auth;
+  static FirebaseAuth? _safeGetAuth() {
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final FirebaseAuth? _auth;
 
   @override
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges => _auth?.authStateChanges() ?? const Stream.empty();
 
   @override
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => _auth?.currentUser;
 
   @override
   Future<AuthUser> signInWithEmail({
     required String email,
     required String password,
   }) async {
-    final credential = await _auth.signInWithEmailAndPassword(
+    final auth = _auth;
+    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
+    final credential = await auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -60,7 +70,9 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
+    final auth = _auth;
+    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
+    final credential = await auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -77,12 +89,14 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<AuthUser> signInWithGoogle() async {
+    final auth = _auth;
+    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
     try {
       if (kIsWeb) {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
-        final UserCredential userCredential = await _auth.signInWithPopup(googleProvider);
+        final UserCredential userCredential = await auth.signInWithPopup(googleProvider);
         final user = userCredential.user;
         if (user == null) {
           throw FirebaseAuthException(
@@ -109,7 +123,7 @@ class FirebaseAuthService implements AuthService {
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await auth.signInWithCredential(credential);
       final user = userCredential.user;
       if (user == null) {
         throw FirebaseAuthException(
@@ -127,7 +141,7 @@ class FirebaseAuthService implements AuthService {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
-        final UserCredential userCredential = await _auth.signInWithProvider(googleProvider);
+        final UserCredential userCredential = await auth.signInWithProvider(googleProvider);
         final user = userCredential.user;
         if (user == null) {
           throw FirebaseAuthException(
@@ -151,12 +165,12 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {
-    await _auth.signOut();
+    await _auth?.signOut();
   }
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async {
-    final user = _auth.currentUser;
+    final user = _auth?.currentUser;
     if (user == null) return null;
     return await user.getIdToken(forceRefresh);
   }
