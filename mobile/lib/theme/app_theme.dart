@@ -1,65 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'weather_palette.dart';
 
 class AppTheme {
-  // Brand Colors — Navy & Teal Palette
-  static const Color navyPrimary = Color(0xFF0F172A);
-  static const Color navyDark = Color(0xFF020617);
-  static const Color tealAccent = Color(0xFF0D9488);
-  static const Color tealLight = Color(0xFF14B8A6);
-  static const Color backgroundLight = Color(0xFFF8FAFC);
-  static const Color surfaceLight = Color(0xFFFFFFFF);
+  // Re-export palette colors for backward compatibility
+  static const Color navyPrimary = MausamPalette.bgPrimary;
+  static const Color navyDark = MausamPalette.bgDeep;
+  static const Color tealAccent = MausamPalette.accentGreen;
+  static const Color tealLight = MausamPalette.accentCyan;
+  static const Color backgroundLight = MausamPalette.bgPrimary;
+  static const Color surfaceLight = MausamPalette.bgSurface;
 
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: navyPrimary,
-      primary: navyPrimary,
-      secondary: tealAccent,
-      surface: surfaceLight,
-      brightness: Brightness.light,
+      seedColor: MausamPalette.bgPrimary,
+      primary: MausamPalette.bgPrimary,
+      secondary: MausamPalette.accentBlue,
+      surface: MausamPalette.bgSurface,
+      brightness: Brightness.dark,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: backgroundLight,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: navyPrimary,
-        foregroundColor: Colors.white,
+      scaffoldBackgroundColor: MausamPalette.bgPrimary,
+      canvasColor: MausamPalette.bgDeep,
+      appBarTheme: AppBarTheme(
+        backgroundColor: MausamPalette.bgDeep,
+        foregroundColor: MausamPalette.textPrimary,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: Colors.white,
+        titleTextStyle: GoogleFonts.inter(
+          color: MausamPalette.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: MausamPalette.drawerBg,
+        surfaceTintColor: Colors.transparent,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: tealAccent,
+          backgroundColor: MausamPalette.accentBlue,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          color: navyPrimary,
+      cardTheme: CardThemeData(
+        color: MausamPalette.cardSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: MausamPalette.cardBorder, width: 1),
+        ),
+      ),
+      textTheme: TextTheme(
+        headlineLarge: GoogleFonts.inter(
+          color: MausamPalette.textPrimary,
           fontSize: 32,
           fontWeight: FontWeight.bold,
         ),
-        titleLarge: TextStyle(
-          color: navyPrimary,
+        titleLarge: GoogleFonts.inter(
+          color: MausamPalette.textPrimary,
           fontSize: 22,
           fontWeight: FontWeight.w600,
         ),
-        bodyLarge: TextStyle(
-          color: navyPrimary,
+        bodyLarge: GoogleFonts.inter(
+          color: MausamPalette.textPrimary,
           fontSize: 16,
         ),
-        bodyMedium: TextStyle(
-          color: Color(0xFF475569),
+        bodyMedium: GoogleFonts.inter(
+          color: MausamPalette.textSecondary,
           fontSize: 14,
         ),
       ),

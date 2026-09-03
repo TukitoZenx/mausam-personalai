@@ -9,3 +9,4 @@ class AQIResponse(BaseModel):
     pollutants: dict[str, float]
     cached: bool = False
     stale: bool = False
+    is_estimated: bool = False

@@ -9,6 +9,7 @@ import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/weather/location_switcher_sheet.dart';
 import '../widgets/weather/weather_sections.dart';
 
@@ -33,8 +34,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
 
-    await ref.read(locationProvider.notifier).detectDeviceLocation(apiClient, idToken);
-    if (!mounted) return;
+    // Start fetching dashboard and feed immediately with default/active coordinates
+    ref.read(homepageProvider.notifier).fetchHomeFeed();
+    ref.read(weatherDashboardProvider.notifier).fetchDashboard();
+
+    // Detect device location in background and fetch saved locations
+    ref.read(locationProvider.notifier).detectDeviceLocation(apiClient, idToken);
 
     try {
       final savedRaw = await apiClient.fetchSavedLocations(idToken: idToken);
@@ -51,10 +56,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }).toList();
       ref.read(locationProvider.notifier).setSavedLocations(items);
     } catch (_) {}
-
-    if (!mounted) return;
-    ref.read(homepageProvider.notifier).fetchHomeFeed();
-    ref.read(weatherDashboardProvider.notifier).fetchDashboard();
   }
 
   Future<void> _openSwitcher() {
@@ -68,7 +69,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final data = dash.data;
 
     return Scaffold(
-      backgroundColor: WeatherPalette.background,
+      backgroundColor: MausamPalette.bgPrimary,
+      drawer: const AppDrawer(currentRoute: '/home'),
       body: SafeArea(
         child: RefreshIndicator(
           color: WeatherPalette.sky,
@@ -83,39 +85,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               if (dash.isLoading && data == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 80),
-                  child: Center(child: CircularProgressIndicator(color: WeatherPalette.sky)),
+                  padding: EdgeInsets.only(top: 120),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: WeatherPalette.sky),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading live weather data...',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
                 )
               else if (dash.errorMessage != null && data == null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Text(
-                    'Could not load live weather.\n${dash.errorMessage}',
-                    style: GoogleFonts.inter(color: Colors.white70),
-                    textAlign: TextAlign.center,
+                  padding: const EdgeInsets.only(top: 80),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.cloud_off_rounded, color: Colors.orangeAccent, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Could not load live weather.\n${dash.errorMessage}',
+                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: WeatherPalette.sky,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () {
+                          ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 )
-              else if (data != null) ...[
-                HeroCurrentCard(
-                  current: data.current,
-                  hourly: data.hourly,
-                  locationName: locState.cityName.isNotEmpty ? locState.cityName : data.current.location,
-                  onLocationTap: _openSwitcher,
-                  onSearchTap: _openSwitcher,
-                ),
-                const SizedBox(height: 12),
-                HourlyForecastStrip(
-                  hourly: data.hourly,
-                  onMore: () => context.go('/forecast'),
-                ),
-                DailyForecastPanel(days: data.daily),
-                if (data.aqi != null) AqiGaugeCard(aqi: data.aqi!),
-                StatGrid(dashboard: data),
-                const SizedBox(height: 10),
-                SunMoonCard(
-                  current: data.current,
-                  today: data.daily.isEmpty ? null : data.daily.first,
-                ),
+              else ...[
+                if (data != null) ...[
+                  HeroCurrentCard(
+                    current: data.current,
+                    hourly: data.hourly,
+                    locationName: locState.cityName.isNotEmpty ? locState.cityName : data.current.location,
+                    onLocationTap: _openSwitcher,
+                    onSearchTap: _openSwitcher,
+                  ),
+                  const SizedBox(height: 12),
+                  HourlyForecastStrip(
+                    hourly: data.hourly,
+                    onMore: () => context.go('/forecast'),
+                  ),
+                  DailyForecastPanel(days: data.daily),
+                  if (data.aqi != null) AqiGaugeCard(aqi: data.aqi!),
+                  StatGrid(dashboard: data),
+                  const SizedBox(height: 10),
+                  SunMoonCard(
+                    current: data.current,
+                    today: data.daily.isEmpty ? null : data.daily.first,
+                  ),
+                ]
               ],
             ],
           ),

@@ -632,6 +632,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ],
 
+                                  // Guest access: below the auth buttons,
+                                  // appears regardless of login step
+                                  const SizedBox(height: 12),
+                                  TextButton(
+                                    key: const Key('continue_as_guest_button'),
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : () {
+                                            ref.read(userProvider.notifier).setGuestSession();
+                                            context.go('/onboarding');
+                                          },
+                                    child: Text(
+                                      'Continue as Guest',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF5A6A8A),
+                                      ),
+                                    ),
+                                  ),
+
                                   // Footer: "By continuing, you agree..." 9px #5A6A8A lineHeight 1.4 maxWidth 280 centered marginTop 12 links blue #3FA9F5 underline
                                   ConstrainedBox(
                                     constraints: const BoxConstraints(maxWidth: 280),

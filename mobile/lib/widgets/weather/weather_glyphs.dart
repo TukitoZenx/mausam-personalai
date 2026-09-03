@@ -21,10 +21,10 @@ IconData weatherGlyph(String condition, {String? icon}) {
 
 Color weatherGlyphColor(String condition) {
   final c = condition.toLowerCase();
-  if (c.contains('rain') || c.contains('drizzle')) return WeatherPalette.sky;
-  if (c.contains('thunder')) return const Color(0xFFA78BFA);
-  if (c.contains('clear') || c.contains('sun')) return WeatherPalette.amber;
-  return const Color(0xFF94A3B8);
+  if (c.contains('rain') || c.contains('drizzle')) return MausamPalette.accentBlue;
+  if (c.contains('thunder')) return MausamPalette.accentMagenta;
+  if (c.contains('clear') || c.contains('sun')) return MausamPalette.accentOrange;
+  return MausamPalette.textSecondary;
 }
 
 String aqiMoodGlyph(String category) {

@@ -49,10 +49,11 @@ class WeatherDashboardNotifier extends Notifier<WeatherDashboardState> {
     final userState = ref.read(userProvider);
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
-    final lat = locationState.activeLatitude;
-    final lon = locationState.activeLongitude;
+    double lat = locationState.activeLatitude;
+    double lon = locationState.activeLongitude;
     if (lat == 0.0 && lon == 0.0) {
-      return;
+      lat = 28.6139;
+      lon = 77.2090;
     }
 
     state = state.copyWith(isLoading: true, clearError: true);

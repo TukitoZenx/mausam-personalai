@@ -93,7 +93,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         context.go('/home');
       }
     } else {
-      context.go('/login');
+      // Try to restore a persisted guest session before falling through to /login
+      final userNotifier = ref.read(userProvider.notifier);
+      final guestRestored = await userNotifier.restoreGuestSession();
+      if (guestRestored && mounted) {
+        context.go('/home');
+      } else if (mounted) {
+        context.go('/login');
+      }
     }
   }
 

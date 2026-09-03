@@ -44,7 +44,7 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
       decoration: BoxDecoration(
-        gradient: WeatherPalette.heroGradient(hour: hour, condition: current.condition),
+        gradient: MausamPalette.heroGradient(hour: hour, condition: current.condition),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
@@ -53,8 +53,11 @@ class _HeroCurrentCardState extends State<HeroCurrentCard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.menu_rounded, color: Colors.white70, size: 22),
-              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+                tooltip: 'Open navigation',
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
               Expanded(
                 child: GestureDetector(
                   onTap: widget.onLocationTap,
@@ -211,7 +214,7 @@ class HourlyForecastStrip extends StatelessWidget {
           ? null
           : TextButton(
               onPressed: onMore,
-              child: Text('More', style: GoogleFonts.inter(color: WeatherPalette.sky, fontWeight: FontWeight.w700)),
+              child: Text('More', style: GoogleFonts.inter(color: MausamPalette.accentBlue, fontWeight: FontWeight.w700)),
             ),
       child: SizedBox(
         height: 112,
@@ -227,7 +230,7 @@ class HourlyForecastStrip extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: WeatherPalette.cardBorder),
+                border: Border.all(color: MausamPalette.cardBorder),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -241,7 +244,7 @@ class HourlyForecastStrip extends StatelessWidget {
                   if (slot.rainProbabilityPercent > 0)
                     Text(
                       '${slot.rainProbabilityPercent}%',
-                      style: GoogleFonts.inter(color: WeatherPalette.sky, fontSize: 10),
+                      style: GoogleFonts.inter(color: MausamPalette.accentBlue, fontSize: 10),
                     )
                   else
                     const SizedBox(height: 12),
@@ -293,7 +296,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
               onPressed: () => setState(() => _expanded = !_expanded),
               child: Text(
                 _expanded ? 'Less' : 'More',
-                style: GoogleFonts.inter(color: WeatherPalette.sky, fontWeight: FontWeight.w700),
+                style: GoogleFonts.inter(color: MausamPalette.accentBlue, fontWeight: FontWeight.w700),
               ),
             )
           : null,
@@ -305,7 +308,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
               decoration: BoxDecoration(
                 color: i.isOdd ? Colors.white.withValues(alpha: 0.03) : Colors.transparent,
                 border: Border(
-                  bottom: BorderSide(color: WeatherPalette.cardBorder.withValues(alpha: 0.7)),
+                  bottom: BorderSide(color: MausamPalette.cardBorder.withValues(alpha: 0.7)),
                 ),
               ),
               child: Row(
@@ -329,7 +332,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
                     width: 36,
                     child: Text(
                       visible[i].rainProbabilityPercent > 0 ? '${visible[i].rainProbabilityPercent}%' : '—',
-                      style: GoogleFonts.inter(color: WeatherPalette.sky, fontSize: 11),
+                      style: GoogleFonts.inter(color: MausamPalette.accentBlue, fontSize: 11),
                     ),
                   ),
                   Expanded(
@@ -427,7 +430,7 @@ class AqiGaugeCard extends StatelessWidget {
                         margin: const EdgeInsets.only(top: 4),
                         decoration: BoxDecoration(
                           color: [
-                            WeatherPalette.sky,
+                            MausamPalette.accentBlue,
                             WeatherPalette.teal,
                             WeatherPalette.amber,
                             const Color(0xFF94A3B8),
@@ -452,7 +455,7 @@ class AqiGaugeCard extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: WeatherPalette.card,
+          backgroundColor: MausamPalette.cardSurface,
           title: Text('AQI scale', style: GoogleFonts.outfit(color: Colors.white)),
           content: Text(
             'Good 0–50. Fair 51–100. Moderate 101–150. Poor 151–200. Very Poor 201+.\n\n'
@@ -788,9 +791,9 @@ Widget _sectionCard({
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
     decoration: BoxDecoration(
-      color: WeatherPalette.card,
+      color: MausamPalette.cardSurface,
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: WeatherPalette.cardBorder),
+      border: Border.all(color: MausamPalette.cardBorder),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,9 +824,9 @@ Widget _miniCard({required String title, required Widget child}) {
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: WeatherPalette.card,
+      color: MausamPalette.cardSurface,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: WeatherPalette.cardBorder),
+      border: Border.all(color: MausamPalette.cardBorder),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -883,12 +886,12 @@ class _SunArcPainter extends CustomPainter {
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = WeatherPalette.amber.withValues(alpha: 0.7);
+      ..color = MausamPalette.accentOrange.withValues(alpha: 0.7);
     canvas.drawArc(rect, math.pi, math.pi, false, arcPaint);
     final angle = math.pi + t * math.pi;
     final cx = rect.center.dx + rect.width / 2 * math.cos(angle);
     final cy = rect.center.dy + rect.height / 2 * math.sin(angle);
-    canvas.drawCircle(Offset(cx, cy), 8, Paint()..color = WeatherPalette.amber);
+    canvas.drawCircle(Offset(cx, cy), 8, Paint()..color = MausamPalette.accentOrange);
   }
 
   @override
@@ -906,7 +909,7 @@ class _PressureGaugePainter extends CustomPainter {
     canvas.drawArc(rect, math.pi, math.pi, false, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
-      ..color = WeatherPalette.cardBorder);
+      ..color = MausamPalette.cardBorder);
     canvas.drawArc(
       rect,
       math.pi,
@@ -916,7 +919,7 @@ class _PressureGaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8
         ..strokeCap = StrokeCap.round
-        ..color = WeatherPalette.teal,
+        ..color = MausamPalette.accentCyan,
     );
   }
 
@@ -933,7 +936,7 @@ class _CompassPainter extends CustomPainter {
     final c = Offset(size.width / 2, size.height / 2);
     canvas.drawCircle(c, 46, Paint()
       ..style = PaintingStyle.stroke
-      ..color = WeatherPalette.cardBorder
+      ..color = MausamPalette.cardBorder
       ..strokeWidth = 2);
     canvas.save();
     canvas.translate(c.dx, c.dy);
@@ -944,7 +947,7 @@ class _CompassPainter extends CustomPainter {
       ..lineTo(0, 8)
       ..lineTo(-7, 16)
       ..close();
-    canvas.drawPath(path, Paint()..color = WeatherPalette.sky);
+    canvas.drawPath(path, Paint()..color = MausamPalette.accentBlue);
     canvas.restore();
   }
 

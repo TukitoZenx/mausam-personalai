@@ -70,6 +70,7 @@ class PersonalizationService:
         place_name: str | None = None
         aqi_value: int | None = None
         aqi_category: str | None = None
+        aqi_is_estimated = False
         degraded = False
 
         try:
@@ -89,9 +90,11 @@ class PersonalizationService:
             aqi = await AQIService.get_current_aqi(resolved_lat, resolved_lon)
             aqi_value = aqi.aqi_value
             aqi_category = aqi.category
+            aqi_is_estimated = aqi.is_estimated
             if aqi.stale:
                 degraded = True
         except Exception:
+            aqi_is_estimated = True
             degraded = True
 
         temp_label = f"{temp:.1f}°C" if temp is not None else "unavailable"
@@ -185,7 +188,7 @@ class PersonalizationService:
                 subtitle=f"AQI {aqi_label} • {aqi_cat_label}",
                 category="Health",
                 action_label="Details",
-                data={"aqi_value": aqi_value, "category": aqi_category},
+                data={"aqi_value": aqi_value, "category": aqi_category, "is_estimated": aqi_is_estimated},
             ),
         ]
 
@@ -221,7 +224,7 @@ class PersonalizationService:
                 # Ensure user exists in users table to satisfy FK constraint
                 await session.execute(
                     text(
-                        "INSERT INTO users (id, firebase_uid, email) VALUES (:id, :id, :email) ON CONFLICT (id) DO NOTHING"
+                        "INSERT INTO users (id, firebase_uid, email) VALUES (:id, :id, :email) ON CONFLICT (firebase_uid) DO NOTHING"
                     ),
                     {"id": user_id, "email": user.get("email", "user@mausam.ai")},
                 )

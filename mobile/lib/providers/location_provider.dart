@@ -201,6 +201,18 @@ class LocationNotifier extends Notifier<LocationState> {
       savedLocations: state.savedLocations.where((loc) => loc.id != id).toList(),
     );
   }
+
+  /// Select a saved location as the active location.
+  /// Sets active coordinates and marks isCustomSelected so device GPS
+  /// updates won't overwrite the user's explicit choice.
+  void selectSavedLocation(LocationItem item) {
+    setActiveLocation(
+      item.latitude,
+      item.longitude,
+      item.placeName ?? item.name,
+      isCustom: true,
+    );
+  }
 }
 
 final locationProvider = NotifierProvider<LocationNotifier, LocationState>(LocationNotifier.new);

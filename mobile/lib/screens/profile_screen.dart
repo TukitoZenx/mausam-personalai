@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../theme/weather_palette.dart';
+import '../widgets/app_drawer.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -35,16 +37,24 @@ class ProfileScreen extends ConsumerWidget {
     final activePersona = userState.selectedPersona ?? 'Fitness';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1220),
+      backgroundColor: MausamPalette.bgPrimary,
+      drawer: const AppDrawer(currentRoute: '/profile'),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A1220),
+        backgroundColor: MausamPalette.bgDeep,
         elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 24),
+            tooltip: 'Open navigation',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: Text(
           'User Profile & Persona',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: MausamPalette.textPrimary,
           ),
         ),
       ),
@@ -53,19 +63,19 @@ class ProfileScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Header
+            // User Header Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF152238),
+                color: MausamPalette.cardSurface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF233554)),
+                border: Border.all(color: MausamPalette.cardBorder),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: const Color(0xFF3FA9F5),
+                    backgroundColor: MausamPalette.accentBlue,
                     child: Text(
                       (userState.email ?? 'U').substring(0, 1).toUpperCase(),
                       style: GoogleFonts.inter(
@@ -83,7 +93,7 @@ class ProfileScreen extends ConsumerWidget {
                         Text(
                           userState.email ?? 'User',
                           style: GoogleFonts.inter(
-                            color: Colors.white,
+                            color: MausamPalette.textPrimary,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
@@ -92,7 +102,7 @@ class ProfileScreen extends ConsumerWidget {
                         Text(
                           'Active Persona: $activePersona',
                           style: GoogleFonts.inter(
-                            color: const Color(0xFF3FA9F5),
+                            color: MausamPalette.accentCyan,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -111,7 +121,7 @@ class ProfileScreen extends ConsumerWidget {
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: MausamPalette.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
@@ -119,7 +129,7 @@ class ProfileScreen extends ConsumerWidget {
               'Changing persona updates homepage card ranking live.',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                color: const Color(0xFF94A3B8),
+                color: MausamPalette.textSecondary,
               ),
             ),
 
@@ -140,10 +150,10 @@ class ProfileScreen extends ConsumerWidget {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF1C2C4E) : const Color(0xFF111E35),
+                      color: isSelected ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF3FA9F5) : const Color(0xFF1E2F4F),
+                        color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
                         width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
@@ -151,68 +161,68 @@ class ProfileScreen extends ConsumerWidget {
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                       child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF3FA9F5).withValues(alpha: 0.2)
-                              : const Color(0xFF1A2A44),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          iconData,
-                          color: isSelected ? const Color(0xFF3FA9F5) : Colors.grey,
-                          size: 24,
-                        ),
-                      ),
-                      title: Text(
-                        p['title']!,
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 15,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          p['description']!,
-                          style: GoogleFonts.inter(
-                            color: Colors.white70,
-                            fontSize: 12,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? MausamPalette.accentBlue.withValues(alpha: 0.2)
+                                : MausamPalette.bgSurface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            iconData,
+                            color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+                            size: 24,
                           ),
                         ),
-                      ),
-                      trailing: isSelected
-                          ? const Icon(Icons.check_circle_rounded, color: Color(0xFF3FA9F5))
-                          : null,
-                      onTap: () async {
-                        final newPersona = p['id']!;
-                        ref.read(userProvider.notifier).setPersona(newPersona);
-
-                        // Save persona to backend
-                        final idToken = userState.idToken ?? 'test_token';
-                        try {
-                          await ref.read(apiClientProvider).postUser(
-                                idToken: idToken,
-                                email: userState.email ?? '',
-                                persona: newPersona,
-                              );
-                        } catch (_) {}
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Persona updated to $newPersona. Homepage refetched.'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: const Color(0xFF152238),
+                        title: Text(
+                          p['title']!,
+                          style: GoogleFonts.inter(
+                            color: MausamPalette.textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 15,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            p['description']!,
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textSecondary,
+                              fontSize: 12,
                             ),
-                          );
-                        }
-                      },
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle_rounded, color: MausamPalette.accentBlue)
+                            : null,
+                        onTap: () async {
+                          final newPersona = p['id']!;
+                          ref.read(userProvider.notifier).setPersona(newPersona);
+
+                          // Save persona to backend
+                          final idToken = userState.idToken ?? 'test_token';
+                          try {
+                            await ref.read(apiClientProvider).postUser(
+                                  idToken: idToken,
+                                  email: userState.email ?? '',
+                                  persona: newPersona,
+                                );
+                          } catch (_) {}
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Persona updated to $newPersona. Homepage refetched.'),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: MausamPalette.cardSurface,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     ),
-                  ),
                   );
                 },
               ),

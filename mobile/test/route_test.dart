@@ -78,12 +78,12 @@ void main() {
     // Forecast
     router.go('/forecast');
     await tester.pumpAndSettle();
-    expect(find.text('Forecast'), findsWidgets);
+    expect(find.textContaining('Forecast'), findsWidgets);
 
     // Saved Locations
     router.go('/saved-locations');
     await tester.pumpAndSettle();
-    expect(find.text('Saved Locations Screen'), findsOneWidget);
+    expect(find.text('Saved Destinations'), findsOneWidget);
 
     // Profile
     router.go('/profile');

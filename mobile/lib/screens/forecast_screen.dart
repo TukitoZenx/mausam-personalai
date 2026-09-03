@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/location_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/weather/location_switcher_sheet.dart';
 import '../widgets/weather/weather_sections.dart';
 
@@ -18,67 +19,106 @@ class ForecastScreen extends ConsumerWidget {
     final data = dash.data;
 
     return Scaffold(
-      backgroundColor: WeatherPalette.background,
+      backgroundColor: MausamPalette.bgPrimary,
+      drawer: const AppDrawer(currentRoute: '/forecast'),
+      appBar: AppBar(
+        backgroundColor: MausamPalette.bgDeep,
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 24),
+            tooltip: 'Open navigation',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: GestureDetector(
+          onTap: () => showLocationSwitcherSheet(context: context, ref: ref),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  locState.cityName.isNotEmpty ? locState.cityName : 'Forecast',
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down_rounded, color: MausamPalette.textSecondary),
+            ],
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Saved Locations',
+            icon: const Icon(Icons.location_city_rounded, color: MausamPalette.textSecondary),
+            onPressed: () => showLocationSwitcherSheet(context: context, ref: ref),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: WeatherPalette.sky,
-          backgroundColor: WeatherPalette.card,
+          color: MausamPalette.accentBlue,
+          backgroundColor: MausamPalette.cardSurface,
           onRefresh: () => ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => showLocationSwitcherSheet(context: context, ref: ref),
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              locState.cityName,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                          const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70),
-                        ],
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    key: const Key('forecast_location_search_button'),
-                    tooltip: 'Saved locations',
-                    onPressed: () => showLocationSwitcherSheet(context: context, ref: ref),
-                    icon: const Icon(Icons.search_rounded, color: Colors.white),
-                  ),
-                ],
+              Text(
+                '7-Day Extended Forecast',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(height: 8),
-              Text('Forecast', style: GoogleFonts.outfit(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               if (dash.isLoading && data == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 60),
-                  child: Center(child: CircularProgressIndicator(color: WeatherPalette.sky)),
+                  padding: EdgeInsets.only(top: 80),
+                  child: Center(
+                    child: CircularProgressIndicator(color: MausamPalette.accentBlue),
+                  ),
+                )
+              else if (dash.errorMessage != null && data == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Could not load weather forecast.\n${dash.errorMessage}',
+                        style: GoogleFonts.inter(color: MausamPalette.textSecondary),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: MausamPalette.accentBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+                        },
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 )
               else if (data != null) ...[
                 HourlyForecastStrip(hourly: data.hourly),
+                const SizedBox(height: 14),
                 DailyForecastPanel(days: data.daily, initiallyExpanded: true),
+                const SizedBox(height: 14),
                 SunMoonCard(
                   current: data.current,
                   today: data.daily.isEmpty ? null : data.daily.first,
                 ),
-              ] else
-                Text(
-                  dash.errorMessage ?? 'Forecast will appear after live weather loads.',
-                  style: GoogleFonts.inter(color: Colors.white70),
-                ),
+              ],
             ],
           ),
         ),
