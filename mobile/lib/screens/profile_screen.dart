@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
@@ -204,9 +205,138 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             const SizedBox(height: 24),
 
+            // Home Wallpaper Selection
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'HOME WALLPAPER',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                Text(
+                  'Choose your atmosphere',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            StaggeredItemWrapper(
+              index: 2,
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final appearance = ref.watch(appearanceProvider);
+                  final selected = appearance.wallpaperTheme;
+
+                  return Column(
+                    children: [
+                      // Grid 1: Auto & Horizon
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _wallpaperCard(
+                              title: 'Auto',
+                              subtitle: 'Smart dynamic',
+                              theme: WallpaperTheme.auto,
+                              isSelected: selected == WallpaperTheme.auto,
+                              previewGradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFF142B4E), Color(0xFF265296), Color(0xFF964424)],
+                              ),
+                              onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.auto),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _wallpaperCard(
+                              title: 'Horizon',
+                              subtitle: 'Natural daylight (Default)',
+                              theme: WallpaperTheme.horizon,
+                              isSelected: selected == WallpaperTheme.horizon,
+                              previewGradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFF162B4C), Color(0xFF244D88), Color(0xFF2B599B)],
+                              ),
+                              onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.horizon),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Grid 2: Aurora & Clouds
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _wallpaperCard(
+                              title: 'Aurora',
+                              subtitle: 'Atmospheric teal',
+                              theme: WallpaperTheme.aurora,
+                              isSelected: selected == WallpaperTheme.aurora,
+                              previewGradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFF0E2838), Color(0xFF1C4D66), Color(0xFF225F7C)],
+                              ),
+                              onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.aurora),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _wallpaperCard(
+                              title: 'Clouds',
+                              subtitle: 'Cloud haze',
+                              theme: WallpaperTheme.clouds,
+                              isSelected: selected == WallpaperTheme.clouds,
+                              previewGradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFF1E2838), Color(0xFF34445C), Color(0xFF32425B)],
+                              ),
+                              onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.clouds),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Grid 3: Nightfall
+                      _wallpaperCard(
+                        title: 'Nightfall',
+                        subtitle: 'Moody dark nightfall lighting',
+                        theme: WallpaperTheme.nightfall,
+                        isSelected: selected == WallpaperTheme.nightfall,
+                        previewGradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFF0A1424), Color(0xFF162B46), Color(0xFF1A3352)],
+                        ),
+                        onTap: () => ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.nightfall),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             // Appearance & Widget Transparency
             Text(
-              'APPEARANCE & WIDGETS',
+              'WIDGET TRANSPARENCY',
               style: GoogleFonts.inter(
                 color: MausamPalette.textTertiary,
                 fontSize: 11,
@@ -484,6 +614,105 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _wallpaperCard({
+    required String title,
+    required String subtitle,
+    required WallpaperTheme theme,
+    required bool isSelected,
+    required LinearGradient previewGradient,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? MausamPalette.cardSurfaceLight
+              : MausamPalette.cardSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? MausamPalette.accentBlue : MausamPalette.cardBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected ? MausamPalette.cardShadow : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Preview Box
+            Container(
+              height: 54,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: previewGradient,
+                border: Border.all(color: MausamPalette.cardBorderSubtle),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 8,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'PREVIEW',
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textPrimary,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Icon(
+                      isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
+                      color: isSelected ? MausamPalette.accentBlue : Colors.white54,
+                      size: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                color: MausamPalette.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            const SizedBox(height: 2),
+
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: MausamPalette.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -8,12 +8,13 @@ import '../theme/environment_theme.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // MAUSAM — Weather Environment Background
 //
-// A premium, cinematic, time-aware atmospheric background for the Home screen.
+// A premium, cinematic, time-aware & theme-adaptive background for the Home screen.
 //
 // Features:
+//   • Theme selection (Auto, Horizon, Aurora, Clouds, Nightfall)
 //   • Real local-time tracking (refreshes every 60s, live during session)
 //   • Continuous fractional interpolation — NO abrupt hourly jumps
-//   • Smooth AnimationController-driven crossfade between gradient states
+//   • Smooth AnimationController-driven crossfade when theme or time updates
 //   • CustomPainter atmospheric rendering: multi-stop gradient + radial glow
 //   • Per-state adaptive readability vignette overlay
 //   • Weather condition modifiers
@@ -22,12 +23,14 @@ import '../theme/environment_theme.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class WeatherEnvironmentBackground extends StatefulWidget {
+  final WallpaperTheme wallpaperTheme;
   final String? condition;
   final int? hourOverride;
   final Widget child;
 
   const WeatherEnvironmentBackground({
     super.key,
+    this.wallpaperTheme = WallpaperTheme.auto,
     this.condition,
     this.hourOverride,
     required this.child,
@@ -61,11 +64,11 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
     // Animation controller for crossfade on each update
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 45), // smooth 45s crossfade between states
+      duration: const Duration(milliseconds: 1200), // smooth 1.2s crossfade on theme toggle
     );
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
 
-    // Tick every 60 seconds to re-evaluate and trigger a new crossfade
+    // Tick every 60 seconds to re-evaluate time and trigger a new crossfade
     _minuteTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _updateGradient();
     });
@@ -75,11 +78,12 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
     final now = DateTime.now();
     final effectiveHour = widget.hourOverride;
     final condition = widget.condition ?? '';
+    final theme = widget.wallpaperTheme;
 
     if (effectiveHour != null) {
-      return EnvironmentTheme.resolveForHour(effectiveHour, condition: condition);
+      return EnvironmentTheme.resolveForHour(effectiveHour, theme: theme, condition: condition);
     }
-    return EnvironmentTheme.resolve(now: now, condition: condition);
+    return EnvironmentTheme.resolve(now: now, theme: theme, condition: condition);
   }
 
   void _updateGradient() {
@@ -94,8 +98,10 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
   @override
   void didUpdateWidget(WeatherEnvironmentBackground old) {
     super.didUpdateWidget(old);
-    // React to condition or hourOverride changes from parent
-    if (old.condition != widget.condition || old.hourOverride != widget.hourOverride) {
+    // React immediately to wallpaperTheme, condition, or hourOverride changes
+    if (old.wallpaperTheme != widget.wallpaperTheme ||
+        old.condition != widget.condition ||
+        old.hourOverride != widget.hourOverride) {
       _updateGradient();
     }
   }
@@ -118,7 +124,7 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
         return Stack(
           fit: StackFit.expand,
           children: [
-            // ── Layer 1: Atmospheric gradient + radial glow (isolated repaint)
+            // ── Layer 1: Atmospheric gradient + radial celestial glow (isolated repaint)
             RepaintBoundary(
               child: CustomPaint(
                 painter: _EnvironmentPainter(gradient: current),
@@ -145,10 +151,6 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Atmospheric Gradient Painter
-//
-// Renders two components:
-//   1. Vertical linear gradient (5-stop, top → bottom)
-//   2. Radial glow (sun/moon position) at very low opacity
 // ─────────────────────────────────────────────────────────────────────────────
 class _EnvironmentPainter extends CustomPainter {
   final EnvironmentGradient gradient;
@@ -170,7 +172,7 @@ class _EnvironmentPainter extends CustomPainter {
 
     canvas.drawRect(rect, linearPaint);
 
-    // 2. Radial glow (sun / moon / horizon warmth)
+    // 2. Celestial radial glow (sun / moon / horizon warmth)
     if (gradient.hasGlow && gradient.glowOpacity > 0.002) {
       final glowCenter = Offset(
         size.width * gradient.glowX,
@@ -184,12 +186,12 @@ class _EnvironmentPainter extends CustomPainter {
           radius: 1.0,
           colors: [
             gradient.glowColor.withValues(alpha: gradient.glowOpacity),
-            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.5),
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.45),
             gradient.glowColor.withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.45, 1.0],
         ).createShader(Rect.fromCircle(center: glowCenter, radius: glowRadius))
-        ..blendMode = BlendMode.screen; // additive — enhances without washing out
+        ..blendMode = BlendMode.screen;
 
       canvas.drawCircle(glowCenter, glowRadius, glowPaint);
     }
@@ -204,13 +206,9 @@ class _EnvironmentPainter extends CustomPainter {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Adaptive Readability Vignette Painter
-//
-// Renders a 5-stop vertical gradient of semi-transparent black ensuring
-// white text is always readable regardless of background state.
-// Alphas are interpolated per-state so the overlay is never heavier than needed.
 // ─────────────────────────────────────────────────────────────────────────────
 class _VignettePainter extends CustomPainter {
-  final List<double> alphas; // [top, midUpper, midLower, bottom, base]
+  final List<double> alphas;
 
   const _VignettePainter({required this.alphas});
 

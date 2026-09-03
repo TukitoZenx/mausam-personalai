@@ -1,14 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../theme/environment_theme.dart';
+
 const String _kWidgetTransparency = 'widget_transparency_percent';
+const String _kWallpaperTheme = 'home_wallpaper_theme';
 
 class AppearanceState {
   /// Transparency percentage from 0 (0% transparent / fully opaque) to 100 (100% max translucent glass)
   final int transparencyPercent;
 
+  /// Selected home wallpaper theme (Auto, Horizon, Aurora, Clouds, Nightfall)
+  final WallpaperTheme wallpaperTheme;
+
   const AppearanceState({
     this.transparencyPercent = 25,
+    this.wallpaperTheme = WallpaperTheme.auto,
   });
 
   /// Map 0-100% transparency to background surface alpha multiplier (1.0 down to 0.22)
@@ -16,9 +23,13 @@ class AppearanceState {
     return (1.0 - (transparencyPercent / 100.0) * 0.78).clamp(0.22, 1.0);
   }
 
-  AppearanceState copyWith({int? transparencyPercent}) {
+  AppearanceState copyWith({
+    int? transparencyPercent,
+    WallpaperTheme? wallpaperTheme,
+  }) {
     return AppearanceState(
       transparencyPercent: transparencyPercent ?? this.transparencyPercent,
+      wallpaperTheme: wallpaperTheme ?? this.wallpaperTheme,
     );
   }
 }
@@ -33,10 +44,21 @@ class AppearanceNotifier extends Notifier<AppearanceState> {
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getInt(_kWidgetTransparency);
-      if (saved != null) {
-        state = state.copyWith(transparencyPercent: saved.clamp(0, 100));
+      final savedTransparency = prefs.getInt(_kWidgetTransparency);
+      final savedThemeName = prefs.getString(_kWallpaperTheme);
+
+      WallpaperTheme? parsedTheme;
+      if (savedThemeName != null) {
+        parsedTheme = WallpaperTheme.values.firstWhere(
+          (t) => t.name == savedThemeName,
+          orElse: () => WallpaperTheme.auto,
+        );
       }
+
+      state = state.copyWith(
+        transparencyPercent: savedTransparency?.clamp(0, 100),
+        wallpaperTheme: parsedTheme,
+      );
     } catch (_) {}
   }
 
@@ -46,6 +68,14 @@ class AppearanceNotifier extends Notifier<AppearanceState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kWidgetTransparency, clamped);
+    } catch (_) {}
+  }
+
+  Future<void> setWallpaperTheme(WallpaperTheme theme) async {
+    state = state.copyWith(wallpaperTheme: theme);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kWallpaperTheme, theme.name);
     } catch (_) {}
   }
 }

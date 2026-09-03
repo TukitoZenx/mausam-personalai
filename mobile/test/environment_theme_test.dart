@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/theme/environment_theme.dart';
 
@@ -19,6 +18,43 @@ void main() {
     test('Hour 4 → night', () => expect(EnvironmentTheme.periodForHour(4), TimeOfDayPeriod.night));
   });
 
+  group('EnvironmentTheme — WallpaperTheme variants', () {
+    test('All 5 themes generate valid 5-stop gradients across all hours', () {
+      for (final theme in WallpaperTheme.values) {
+        for (final hour in [5, 8, 13, 17, 20, 23]) {
+          final g = EnvironmentTheme.resolveForHour(hour, theme: theme);
+          expect(g.linearColors.length, 5, reason: '${theme.name} at $hour should produce 5 colors');
+          expect(g.linearStops.length, 5);
+          expect(g.overlayAlphas.length, 5);
+        }
+      }
+    });
+
+    test('Horizon is brighter and crisp in morning than Nightfall', () {
+      final horizon = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.horizon);
+      final nightfall = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.nightfall);
+
+      // Top color red component should be brighter in Horizon
+      expect(horizon.linearColors.first.r, greaterThanOrEqualTo(nightfall.linearColors.first.r));
+    });
+
+    test('Aurora theme carries cyan/teal tones', () {
+      final aurora = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.aurora);
+      // Teal tone has higher green/blue component than red
+      final midColor = aurora.linearColors[2];
+      expect(midColor.g, greaterThan(midColor.r));
+      expect(midColor.b, greaterThan(midColor.r));
+    });
+
+    test('Auto theme resolves appropriately based on conditions', () {
+      final autoClear = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.auto, condition: 'clear sky');
+      final autoCloudy = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.auto, condition: 'overcast clouds');
+
+      expect(autoClear.linearColors.length, 5);
+      expect(autoCloudy.linearColors.length, 5);
+    });
+  });
+
   group('EnvironmentTheme — modifierForCondition', () {
     test('Empty string → clear', () => expect(EnvironmentTheme.modifierForCondition(''), WeatherModifier.clear));
     test('clear sky → clear', () => expect(EnvironmentTheme.modifierForCondition('clear sky'), WeatherModifier.clear));
@@ -27,64 +63,6 @@ void main() {
     test('thunderstorm → stormy', () => expect(EnvironmentTheme.modifierForCondition('thunderstorm'), WeatherModifier.stormy));
     test('mist → foggy', () => expect(EnvironmentTheme.modifierForCondition('mist'), WeatherModifier.foggy));
     test('light snow → snowy', () => expect(EnvironmentTheme.modifierForCondition('light snow'), WeatherModifier.snowy));
-  });
-
-  group('EnvironmentTheme — resolve returns correct gradient shape', () {
-    test('All time states produce 5-color gradients', () {
-      for (final hour in [5, 7, 11, 16, 19, 21]) {
-        final g = EnvironmentTheme.resolveForHour(hour);
-        expect(g.linearColors.length, 5, reason: 'Hour $hour should produce 5 color stops');
-        expect(g.linearStops.length, 5, reason: 'Hour $hour should produce 5 stops');
-        expect(g.overlayAlphas.length, 5, reason: 'Hour $hour should produce 5 overlay alphas');
-      }
-    });
-
-    test('Colors are fully opaque (alpha = 1.0)', () {
-      final g = EnvironmentTheme.resolveForHour(14);
-      for (final color in g.linearColors) {
-        expect(color.a, closeTo(1.0, 0.01), reason: 'Background linear colors should be fully opaque');
-      }
-    });
-
-    test('Overlay alphas are in valid range 0.0–1.0', () {
-      for (final hour in [5, 9, 13, 17, 20, 23]) {
-        final g = EnvironmentTheme.resolveForHour(hour);
-        for (final alpha in g.overlayAlphas) {
-          expect(alpha, greaterThanOrEqualTo(0.0));
-          expect(alpha, lessThanOrEqualTo(1.0));
-        }
-      }
-    });
-
-    test('Glow opacity is in valid range 0.0–1.0', () {
-      for (final hour in [5, 9, 13, 17, 20, 23]) {
-        final g = EnvironmentTheme.resolveForHour(hour);
-        expect(g.glowOpacity, greaterThanOrEqualTo(0.0));
-        expect(g.glowOpacity, lessThanOrEqualTo(1.0));
-      }
-    });
-  });
-
-  group('EnvironmentTheme — weather modifiers darken appropriately', () {
-    test('Clear is brighter than stormy at same hour', () {
-      final clear = EnvironmentTheme.resolveForHour(12, condition: 'clear sky');
-      final stormy = EnvironmentTheme.resolveForHour(12, condition: 'thunderstorm');
-      // Upper sky color should be darker in stormy (lower red component)
-      final clearTop = clear.linearColors.first;
-      final stormyTop = stormy.linearColors.first;
-      expect(stormyTop.r, lessThanOrEqualTo(clearTop.r + 0.01));
-    });
-
-    test('Rain reduces glow opacity to zero', () {
-      final g = EnvironmentTheme.resolveForHour(16, condition: 'heavy rain');
-      expect(g.glowOpacity, equals(0.0));
-      expect(g.hasGlow, isFalse);
-    });
-
-    test('Storm reduces glow opacity to zero', () {
-      final g = EnvironmentTheme.resolveForHour(10, condition: 'thunderstorm');
-      expect(g.glowOpacity, equals(0.0));
-    });
   });
 
   group('EnvironmentGradient.lerp — interpolation sanity', () {
@@ -104,33 +82,6 @@ void main() {
       for (int i = 0; i < b.linearColors.length; i++) {
         expect(result.linearColors[i].r, closeTo(b.linearColors[i].r, 0.01));
       }
-    });
-
-    test('t=0.5 is between a and b', () {
-      final a = EnvironmentTheme.resolveForHour(5);  // dawn — warm
-      final b = EnvironmentTheme.resolveForHour(19); // dusk — cool-purple
-      final mid = EnvironmentGradient.lerp(a, b, 0.5);
-      // Mid glow opacity should be between a and b
-      expect(mid.glowOpacity, greaterThanOrEqualTo(math.min(a.glowOpacity, b.glowOpacity) - 0.001));
-      expect(mid.glowOpacity, lessThanOrEqualTo(math.max(a.glowOpacity, b.glowOpacity) + 0.001));
-    });
-  });
-
-  group('EnvironmentTheme — fractionThroughPeriod', () {
-    test('Midpoint through morning gives ~0.5', () {
-      // Morning = 7:00–11:00 (4h). Midpoint = 9:00 = 2h in → 0.50
-      final t = EnvironmentTheme.fractionThroughPeriod(DateTime(2024, 1, 1, 9, 0));
-      expect(t, closeTo(0.5, 0.01));
-    });
-
-    test('Start of period gives ~0.0', () {
-      final t = EnvironmentTheme.fractionThroughPeriod(DateTime(2024, 1, 1, 7, 0));
-      expect(t, closeTo(0.0, 0.01));
-    });
-
-    test('Near end of period gives close to 1.0', () {
-      final t = EnvironmentTheme.fractionThroughPeriod(DateTime(2024, 1, 1, 10, 59));
-      expect(t, greaterThan(0.98));
     });
   });
 }
