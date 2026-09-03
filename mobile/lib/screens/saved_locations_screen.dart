@@ -272,47 +272,51 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                               width: isActive ? 1.5 : 1.0,
                             ),
                           ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            leading: CircleAvatar(
-                              backgroundColor: isActive ? MausamPalette.accentBlue : MausamPalette.bgSurface,
-                              child: Icon(
-                                isActive ? Icons.my_location_rounded : Icons.location_city_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              item.name,
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textPrimary,
-                                fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${item.latitude.toStringAsFixed(4)}, ${item.longitude.toStringAsFixed(4)}',
-                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isActive)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 8),
-                                    child: Icon(Icons.check_circle_rounded, color: MausamPalette.accentBlue, size: 20),
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                  onPressed: () => _deleteLocation(item),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              leading: CircleAvatar(
+                                backgroundColor: isActive ? MausamPalette.accentBlue : MausamPalette.bgSurface,
+                                child: Icon(
+                                  isActive ? Icons.my_location_rounded : Icons.location_city_rounded,
+                                  color: Colors.white,
+                                  size: 20,
                                 ),
-                              ],
+                              ),
+                              title: Text(
+                                item.name,
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textPrimary,
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${item.latitude.toStringAsFixed(4)}, ${item.longitude.toStringAsFixed(4)}',
+                                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isActive)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 8),
+                                      child: Icon(Icons.check_circle_rounded, color: MausamPalette.accentBlue, size: 20),
+                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                    onPressed: () => _deleteLocation(item),
+                                  ),
+                                ],
+                              ),
+                              onTap: () {
+                                ref.read(locationProvider.notifier).selectSavedLocation(item);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Switched location to ${item.name}')),
+                                );
+                              },
                             ),
-                            onTap: () {
-                              ref.read(locationProvider.notifier).selectSavedLocation(item);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Switched location to ${item.name}')),
-                              );
-                            },
                           ),
                         );
                       },

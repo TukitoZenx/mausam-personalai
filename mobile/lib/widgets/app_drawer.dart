@@ -262,20 +262,24 @@ class _DrawerItem extends StatelessWidget {
             ? Border.all(color: MausamPalette.cardBorder, width: 1)
             : null,
       ),
-      child: ListTile(
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(
-          icon,
-          color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
-          size: 22,
-        ),
-        title: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? MausamPalette.textPrimary : MausamPalette.textSecondary,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          onTap: onTap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: Icon(
+            icon,
+            color: isSelected ? MausamPalette.accentBlue : MausamPalette.textSecondary,
+            size: 22,
+          ),
+          title: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? MausamPalette.textPrimary : MausamPalette.textSecondary,
+            ),
           ),
         ),
       ),
