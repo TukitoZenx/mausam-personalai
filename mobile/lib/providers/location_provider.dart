@@ -82,6 +82,13 @@ class LocationNotifier extends Notifier<LocationState> {
 
   Future<void> detectDeviceLocation(ApiClient apiClient, String idToken) async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+        debugPrint('Desktop Linux platform — using default coordinates.');
+        setDeviceLocation(12.9716, 77.5946, state.deviceCityName ?? 'Bengaluru');
+        await _fetchReverseGeocode(apiClient, 12.9716, 77.5946, idToken);
+        return;
+      }
+
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         debugPrint('Location services disabled on device.');

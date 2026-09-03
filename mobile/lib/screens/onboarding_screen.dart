@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -94,7 +95,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
     if (locationAllowed) {
       try {
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+          ref.read(locationProvider.notifier).setLocation(12.9716, 77.5946, 'Bengaluru');
+        } else {
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
         if (serviceEnabled) {
           LocationPermission permission = await Geolocator.checkPermission();
           if (permission == LocationPermission.denied) {
@@ -125,6 +129,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   );
             }).catchError((_) {});
           }
+        }
         }
       } catch (_) {}
     }
