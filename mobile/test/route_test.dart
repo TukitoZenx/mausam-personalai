@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/router/app_router.dart';
 import 'package:mobile/screens/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FakeUser extends Fake implements User {
   @override
@@ -14,6 +15,9 @@ class FakeUser extends Fake implements User {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   testWidgets('App renders SplashScreen at root', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -28,8 +32,9 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.textContaining('Mausam'), findsWidgets);
+    expect(find.textContaining('MAUSAM'), findsWidgets);
   });
 
   testWidgets('App renders LoginScreen with Google & Email buttons', (WidgetTester tester) async {

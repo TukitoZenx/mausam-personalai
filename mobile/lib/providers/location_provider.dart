@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_client.dart';
 
@@ -74,10 +75,60 @@ class LocationState {
   }
 }
 
+const _kActiveLat = 'active_latitude';
+const _kActiveLon = 'active_longitude';
+const _kActiveName = 'active_city_name';
+const _kCustomSelected = 'is_custom_selected';
+
 class LocationNotifier extends Notifier<LocationState> {
   @override
   LocationState build() {
     return const LocationState();
+  }
+
+  Future<void> restorePersisted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lat = prefs.getDouble(_kActiveLat);
+      final lon = prefs.getDouble(_kActiveLon);
+      final name = prefs.getString(_kActiveName);
+      final custom = prefs.getBool(_kCustomSelected) ?? false;
+      if (lat != null && lon != null && name != null && name.isNotEmpty) {
+        state = state.copyWith(
+          activeLatitude: lat,
+          activeLongitude: lon,
+          activeCityName: name,
+          isCustomSelected: custom,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> hydrateSavedLocations(ApiClient apiClient, String idToken) async {
+    try {
+      final savedRaw = await apiClient.fetchSavedLocations(idToken: idToken);
+      final items = savedRaw.map((e) {
+        final itemMap = e as Map<String, dynamic>;
+        return LocationItem(
+          id: itemMap['id'].toString(),
+          name: itemMap['name'].toString(),
+          latitude: (itemMap['latitude'] as num).toDouble(),
+          longitude: (itemMap['longitude'] as num).toDouble(),
+          placeName: itemMap['place_name'] as String?,
+        );
+      }).toList();
+      setSavedLocations(items);
+    } catch (_) {}
+  }
+
+  Future<void> _persistActive() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_kActiveLat, state.activeLatitude);
+      await prefs.setDouble(_kActiveLon, state.activeLongitude);
+      await prefs.setString(_kActiveName, state.activeCityName);
+      await prefs.setBool(_kCustomSelected, state.isCustomSelected);
+    } catch (_) {}
   }
 
   Future<void> detectDeviceLocation(ApiClient apiClient, String idToken) async {
@@ -171,6 +222,7 @@ class LocationNotifier extends Notifier<LocationState> {
       activeLongitude: state.isCustomSelected ? state.activeLongitude : lon,
       activeCityName: state.isCustomSelected ? state.activeCityName : city,
     );
+    _persistActive();
   }
 
   void setLocation(double lat, double lon, String city) {
@@ -184,6 +236,7 @@ class LocationNotifier extends Notifier<LocationState> {
       activeCityName: city,
       isCustomSelected: isCustom,
     );
+    _persistActive();
   }
 
   void useCurrentLocation() {
@@ -193,6 +246,7 @@ class LocationNotifier extends Notifier<LocationState> {
       activeCityName: state.deviceCityName ?? 'Current Location',
       isCustomSelected: false,
     );
+    _persistActive();
   }
 
   void setSavedLocations(List<LocationItem> items) {

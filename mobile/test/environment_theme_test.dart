@@ -1,6 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/theme/environment_theme.dart';
 
+double _meanLuma(EnvironmentGradient g) {
+  var sum = 0.0;
+  for (final c in g.linearColors) {
+    sum += 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  }
+  return sum / g.linearColors.length;
+}
+
 void main() {
   group('EnvironmentTheme — periodForHour', () {
     test('Hour 5 → dawn', () => expect(EnvironmentTheme.periodForHour(5), TimeOfDayPeriod.dawn));
@@ -18,40 +26,80 @@ void main() {
     test('Hour 4 → night', () => expect(EnvironmentTheme.periodForHour(4), TimeOfDayPeriod.night));
   });
 
-  group('EnvironmentTheme — WallpaperTheme variants', () {
-    test('All 5 themes generate valid 5-stop gradients across all hours', () {
-      for (final theme in WallpaperTheme.values) {
-        for (final hour in [5, 8, 13, 17, 20, 23]) {
-          final g = EnvironmentTheme.resolveForHour(hour, theme: theme);
-          expect(g.linearColors.length, 5, reason: '${theme.name} at $hour should produce 5 colors');
-          expect(g.linearStops.length, 5);
-          expect(g.overlayAlphas.length, 5);
-        }
+  group('Wallpaper catalog', () {
+    test('exposes exactly 3 wallpapers and Dynamic is default', () {
+      expect(WallpaperCatalog.all.length, 3);
+      expect(WallpaperCatalog.all.first.id, WallpaperTheme.dynamic);
+      expect(WallpaperCatalog.of(WallpaperTheme.dynamic).isDefault, isTrue);
+      expect(WallpaperCatalog.of(WallpaperTheme.dynamic).isDynamic, isTrue);
+      expect(WallpaperCatalog.of(WallpaperTheme.wallpaper2).isDynamic, isFalse);
+      expect(WallpaperCatalog.of(WallpaperTheme.wallpaper3).isDynamic, isFalse);
+    });
+
+    test('legacy persisted names map onto the new catalog', () {
+      expect(WallpaperTheme.parse(null), WallpaperTheme.dynamic);
+      expect(WallpaperTheme.parse('auto'), WallpaperTheme.dynamic);
+      expect(WallpaperTheme.parse('horizon'), WallpaperTheme.dynamic);
+      expect(WallpaperTheme.parse('aurora'), WallpaperTheme.dynamic);
+      expect(WallpaperTheme.parse('clouds'), WallpaperTheme.dynamic);
+      expect(WallpaperTheme.parse('nightfall'), WallpaperTheme.wallpaper3);
+      expect(WallpaperTheme.parse('wallpaper2'), WallpaperTheme.wallpaper2);
+      expect(WallpaperTheme.parse('dynamic'), WallpaperTheme.dynamic);
+    });
+  });
+
+  group('Mausam Dynamic — time of day', () {
+    test('all hours produce a 5-stop gradient', () {
+      for (final hour in [5, 8, 13, 17, 20, 23]) {
+        final g = EnvironmentTheme.resolveForHour(hour, theme: WallpaperTheme.dynamic);
+        expect(g.linearColors.length, 5, reason: 'dynamic at $hour');
+        expect(g.linearStops.length, 5);
+        expect(g.overlayAlphas.length, 5);
       }
     });
 
-    test('Horizon is brighter and crisp in morning than Nightfall', () {
-      final horizon = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.horizon);
-      final nightfall = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.nightfall);
-
-      // Top color red component should be brighter in Horizon
-      expect(horizon.linearColors.first.r, greaterThanOrEqualTo(nightfall.linearColors.first.r));
+    test('9 AM morning is brighter than 10 PM night', () {
+      final morning = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.dynamic);
+      final night = EnvironmentTheme.resolveForHour(22, theme: WallpaperTheme.dynamic);
+      expect(_meanLuma(morning), greaterThan(_meanLuma(night)));
     });
 
-    test('Aurora theme carries cyan/teal tones', () {
-      final aurora = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.aurora);
-      // Teal tone has higher green/blue component than red
-      final midColor = aurora.linearColors[2];
-      expect(midColor.g, greaterThan(midColor.r));
-      expect(midColor.b, greaterThan(midColor.r));
+    test('2 PM afternoon is brighter than 6 PM evening', () {
+      final afternoon = EnvironmentTheme.resolveForHour(14, theme: WallpaperTheme.dynamic);
+      final evening = EnvironmentTheme.resolveForHour(18, theme: WallpaperTheme.dynamic);
+      expect(_meanLuma(afternoon), greaterThan(_meanLuma(evening)));
     });
 
-    test('Auto theme resolves appropriately based on conditions', () {
-      final autoClear = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.auto, condition: 'clear sky');
-      final autoCloudy = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.auto, condition: 'overcast clouds');
+    test('ignores weather so rain does not swap the atmosphere', () {
+      final clear = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.dynamic, condition: 'clear sky');
+      final rain = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.dynamic, condition: 'heavy rain');
+      expect(clear.visuallyEquals(rain), isTrue);
+    });
+  });
 
-      expect(autoClear.linearColors.length, 5);
-      expect(autoCloudy.linearColors.length, 5);
+  group('Fixed wallpapers', () {
+    test('Wallpaper 2 is identical at 9 AM and 10 PM', () {
+      final day = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.wallpaper2);
+      final night = EnvironmentTheme.resolveForHour(22, theme: WallpaperTheme.wallpaper2);
+      expect(day.visuallyEquals(night), isTrue);
+    });
+
+    test('Wallpaper 3 is identical at 9 AM and 10 PM', () {
+      final day = EnvironmentTheme.resolveForHour(9, theme: WallpaperTheme.wallpaper3);
+      final night = EnvironmentTheme.resolveForHour(22, theme: WallpaperTheme.wallpaper3);
+      expect(day.visuallyEquals(night), isTrue);
+    });
+
+    test('fixed wallpapers ignore weather', () {
+      final a = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.wallpaper2, condition: 'clear sky');
+      final b = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.wallpaper2, condition: 'thunderstorm');
+      expect(a.visuallyEquals(b), isTrue);
+    });
+
+    test('Wallpaper 2 and Wallpaper 3 are visually distinct', () {
+      final a = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.wallpaper2);
+      final b = EnvironmentTheme.resolveForHour(12, theme: WallpaperTheme.wallpaper3);
+      expect(a.visuallyEquals(b), isFalse);
     });
   });
 

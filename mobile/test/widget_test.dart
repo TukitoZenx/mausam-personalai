@@ -4,8 +4,12 @@ import 'package:mobile/main.dart';
 import 'package:mobile/providers/user_provider.dart';
 import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/providers/weather_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   testWidgets('App builds with ProviderScope and renders SplashScreen at root', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
@@ -13,8 +17,9 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('Mausam'), findsWidgets);
+    expect(find.textContaining('MAUSAM'), findsWidgets);
   });
 
   testWidgets('Riverpod providers initialize with default states', (WidgetTester tester) async {

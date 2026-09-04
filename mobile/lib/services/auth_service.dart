@@ -1,6 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+
+import '../firebase_options.dart';
+import 'firebase_bootstrap.dart';
 
 class AuthUser {
   const AuthUser({
@@ -25,44 +29,52 @@ abstract class AuthService {
 }
 
 class FirebaseAuthService implements AuthService {
-  FirebaseAuthService({FirebaseAuth? auth}) : _auth = auth ?? _safeGetAuth();
+  FirebaseAuth? _auth;
 
-  static FirebaseAuth? _safeGetAuth() {
+  Future<FirebaseAuth> _requireAuth() async {
+    await FirebaseBootstrap.ensureInitialized();
     try {
-      return FirebaseAuth.instance;
+      _auth ??= FirebaseAuth.instance;
+    } catch (e) {
+      throw Exception('Firebase Auth is unavailable: $e');
+    }
+    final auth = _auth;
+    if (auth == null) {
+      throw Exception('Firebase Auth did not start. Please restart Mausam and try again.');
+    }
+    return auth;
+  }
+
+  @override
+  Stream<User?> get authStateChanges async* {
+    try {
+      final auth = await _requireAuth();
+      yield* auth.authStateChanges();
     } catch (_) {
-      return null;
+      yield null;
     }
   }
 
-  final FirebaseAuth? _auth;
-
   @override
-  Stream<User?> get authStateChanges => _auth?.authStateChanges() ?? const Stream.empty();
-
-  @override
-  User? get currentUser => _auth?.currentUser;
+  User? get currentUser {
+    try {
+      if (_auth != null) return _auth!.currentUser;
+      if (Firebase.apps.isNotEmpty) return FirebaseAuth.instance.currentUser;
+    } catch (_) {}
+    return null;
+  }
 
   @override
   Future<AuthUser> signInWithEmail({
     required String email,
     required String password,
   }) async {
-    final auth = _auth;
-    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
+    final auth = await _requireAuth();
     final credential = await auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
-    final user = credential.user;
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'user-not-found',
-        message: 'Sign-in succeeded but no user was returned.',
-      );
-    }
-    final token = await user.getIdToken();
-    return AuthUser(uid: user.uid, email: user.email ?? email, idToken: token);
+    return _fromUser(credential.user, fallbackEmail: email);
   }
 
   @override
@@ -70,91 +82,63 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    final auth = _auth;
-    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
+    final auth = await _requireAuth();
     final credential = await auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
-    final user = credential.user;
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'user-not-found',
-        message: 'Registration succeeded but no user was returned.',
-      );
-    }
-    final token = await user.getIdToken();
-    return AuthUser(uid: user.uid, email: user.email ?? email, idToken: token);
+    return _fromUser(credential.user, fallbackEmail: email);
   }
 
   @override
   Future<AuthUser> signInWithGoogle() async {
-    final auth = _auth;
-    if (auth == null) throw Exception('Firebase is uninitialized on this platform.');
+    final auth = await _requireAuth();
     try {
       if (kIsWeb) {
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
-        final UserCredential userCredential = await auth.signInWithPopup(googleProvider);
-        final user = userCredential.user;
-        if (user == null) {
-          throw FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'Google Sign-In succeeded but no user was returned.',
-          );
-        }
-        final token = await user.getIdToken();
-        return AuthUser(uid: user.uid, email: user.email ?? '', idToken: token);
+        final googleProvider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+        final credential = await auth.signInWithPopup(googleProvider);
+        return await _fromUser(credential.user, fallbackEmail: '');
       }
 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        serverClientId: DefaultFirebaseOptions.googleWebClientId,
       );
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         throw FirebaseAuthException(
           code: 'ERROR_ABORTED_BY_USER',
           message: 'Google Sign-In was cancelled by user.',
         );
       }
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final OAuthCredential credential = GoogleAuthProvider.credential(
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null && googleAuth.accessToken == null) {
+        throw FirebaseAuthException(
+          code: 'missing-google-id-token',
+          message: 'Google Sign-In did not return a token.',
+        );
+      }
+      final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      final UserCredential userCredential = await auth.signInWithCredential(credential);
-      final user = userCredential.user;
-      if (user == null) {
-        throw FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'Google Sign-In succeeded but no user was returned.',
-        );
-      }
-      final token = await user.getIdToken();
-      return AuthUser(uid: user.uid, email: user.email ?? googleUser.email, idToken: token);
+      final userCredential = await auth.signInWithCredential(credential);
+      return await _fromUser(userCredential.user, fallbackEmail: googleUser.email);
     } catch (e) {
-      if (e is FirebaseAuthException && e.code == 'ERROR_ABORTED_BY_USER') {
+      if (e is FirebaseAuthException &&
+          (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501')) {
         rethrow;
       }
       try {
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
-        final UserCredential userCredential = await auth.signInWithProvider(googleProvider);
-        final user = userCredential.user;
-        if (user == null) {
-          throw FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'Google Sign-In succeeded but no user was returned.',
-          );
-        }
-        final token = await user.getIdToken();
-        return AuthUser(uid: user.uid, email: user.email ?? '', idToken: token);
-      } catch (fallbackError) {
-        if (e is FirebaseAuthException) {
-          rethrow;
-        }
+        final googleProvider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+        final userCredential = await auth.signInWithProvider(googleProvider);
+        return await _fromUser(userCredential.user, fallbackEmail: '');
+      } catch (_) {
+        if (e is FirebaseAuthException) rethrow;
         throw FirebaseAuthException(
           code: 'google-sign-in-failed',
           message: e.toString(),
@@ -163,15 +147,37 @@ class FirebaseAuthService implements AuthService {
     }
   }
 
+  Future<AuthUser> _fromUser(User? user, {required String fallbackEmail}) async {
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Sign-in succeeded but no user was returned.',
+      );
+    }
+    final token = await user.getIdToken();
+    return AuthUser(uid: user.uid, email: user.email ?? fallbackEmail, idToken: token);
+  }
+
   @override
   Future<void> signOut() async {
-    await _auth?.signOut();
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    try {
+      final auth = await _requireAuth();
+      await auth.signOut();
+    } catch (_) {}
   }
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async {
-    final user = _auth?.currentUser;
-    if (user == null) return null;
-    return await user.getIdToken(forceRefresh);
+    try {
+      final auth = await _requireAuth();
+      final user = auth.currentUser;
+      if (user == null) return null;
+      return await user.getIdToken(forceRefresh);
+    } catch (_) {
+      return null;
+    }
   }
 }

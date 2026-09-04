@@ -1,14 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../screens/alerts_screen.dart';
-import '../screens/forecast_screen.dart';
-import '../screens/home_screen.dart';
-import '../screens/insights_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
-import '../screens/profile_screen.dart';
-import '../screens/saved_locations_screen.dart';
 import '../screens/splash_screen.dart';
+import '../theme/mausam_transitions.dart';
+import '../widgets/navigation/app_shell.dart';
 
 GoRouter createRouter({String initialLocation = '/splash'}) {
   return GoRouter(
@@ -17,52 +14,74 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
       GoRoute(
         path: '/splash',
         name: 'splash',
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) => mausamFadePage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+        ),
       ),
       GoRoute(
         path: '/',
         name: 'root',
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) => mausamFadePage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+        ),
       ),
       GoRoute(
         path: '/login',
         name: 'login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => mausamFadePage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+        ),
       ),
       GoRoute(
         path: '/onboarding',
         name: 'onboarding',
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) => mausamFadePage(
+          key: state.pageKey,
+          child: const OnboardingScreen(),
+        ),
       ),
-      GoRoute(
-        path: '/home',
-        name: 'home',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: '/forecast',
-        name: 'forecast',
-        builder: (context, state) => const ForecastScreen(),
-      ),
-      GoRoute(
-        path: '/saved-locations',
-        name: 'saved_locations',
-        builder: (context, state) => const SavedLocationsScreen(),
-      ),
-      GoRoute(
-        path: '/insights',
-        name: 'insights',
-        builder: (context, state) => const InsightsScreen(),
-      ),
-      GoRoute(
-        path: '/alerts',
-        name: 'alerts',
-        builder: (context, state) => const AlertsScreen(),
-      ),
-      GoRoute(
-        path: '/profile',
-        name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+      ShellRoute(
+        pageBuilder: (context, state, child) {
+          return mausamFadePage(
+            key: const ValueKey('mausam-shell'),
+            child: const AppShell(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/home',
+            name: 'home',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/forecast',
+            name: 'forecast',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/saved-locations',
+            name: 'saved_locations',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/insights',
+            name: 'insights',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/alerts',
+            name: 'alerts',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/profile',
+            name: 'profile',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+        ],
       ),
     ],
   );

@@ -10,12 +10,12 @@ class AppearanceState {
   /// Transparency percentage from 0 (0% transparent / fully opaque) to 100 (100% max translucent glass)
   final int transparencyPercent;
 
-  /// Selected home wallpaper theme (Auto, Horizon, Aurora, Clouds, Nightfall)
+  /// Selected home wallpaper. Defaults to Mausam Dynamic.
   final WallpaperTheme wallpaperTheme;
 
   const AppearanceState({
     this.transparencyPercent = 25,
-    this.wallpaperTheme = WallpaperTheme.auto,
+    this.wallpaperTheme = WallpaperTheme.dynamic,
   });
 
   /// Map 0-100% transparency to background surface alpha multiplier (1.0 down to 0.22)
@@ -47,13 +47,7 @@ class AppearanceNotifier extends Notifier<AppearanceState> {
       final savedTransparency = prefs.getInt(_kWidgetTransparency);
       final savedThemeName = prefs.getString(_kWallpaperTheme);
 
-      WallpaperTheme? parsedTheme;
-      if (savedThemeName != null) {
-        parsedTheme = WallpaperTheme.values.firstWhere(
-          (t) => t.name == savedThemeName,
-          orElse: () => WallpaperTheme.auto,
-        );
-      }
+      final parsedTheme = savedThemeName == null ? null : WallpaperTheme.parse(savedThemeName);
 
       state = state.copyWith(
         transparencyPercent: savedTransparency?.clamp(0, 100),

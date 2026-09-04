@@ -11,15 +11,11 @@ import '../theme/environment_theme.dart';
 // A premium, cinematic, time-aware & theme-adaptive background for the Home screen.
 //
 // Features:
-//   • Theme selection (Auto, Horizon, Aurora, Clouds, Nightfall)
-//   • Real local-time tracking (refreshes every 60s, live during session)
-//   • Continuous fractional interpolation — NO abrupt hourly jumps
-//   • Smooth AnimationController-driven crossfade when theme or time updates
-//   • CustomPainter atmospheric rendering: multi-stop gradient + radial glow
-//   • Per-state adaptive readability vignette overlay
-//   • Weather condition modifiers
-//   • RepaintBoundary isolation — content above never triggers bg repaint
-//   • `hourOverride` for visual QA / testing
+//   • Mausam Dynamic (time of day) + fixed wallpapers
+//   • Real local-time tracking for Dynamic (refreshes every 60s)
+//   • Continuous fractional interpolation — no abrupt hourly jumps
+//   • Smooth crossfade when the user changes wallpaper
+//   • Fixed wallpapers ignore time and weather
 // ─────────────────────────────────────────────────────────────────────────────
 
 class WeatherEnvironmentBackground extends StatefulWidget {
@@ -30,7 +26,7 @@ class WeatherEnvironmentBackground extends StatefulWidget {
 
   const WeatherEnvironmentBackground({
     super.key,
-    this.wallpaperTheme = WallpaperTheme.auto,
+    this.wallpaperTheme = WallpaperTheme.dynamic,
     this.condition,
     this.hourOverride,
     required this.child,
@@ -68,26 +64,31 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
     );
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
 
-    // Tick every 60 seconds to re-evaluate time and trigger a new crossfade
+    // Dynamic wallpapers re-evaluate local time every minute.
     _minuteTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      _updateGradient();
+      if (widget.wallpaperTheme.isDynamic) {
+        _updateGradient();
+      }
     });
   }
 
   EnvironmentGradient _resolveGradient() {
     final now = DateTime.now();
-    final effectiveHour = widget.hourOverride;
-    final condition = widget.condition ?? '';
     final theme = widget.wallpaperTheme;
+    final effectiveHour = widget.hourOverride;
 
     if (effectiveHour != null) {
-      return EnvironmentTheme.resolveForHour(effectiveHour, theme: theme, condition: condition);
+      return EnvironmentTheme.resolveForHour(effectiveHour, theme: theme);
     }
-    return EnvironmentTheme.resolve(now: now, theme: theme, condition: condition);
+    return EnvironmentTheme.resolve(now: now, theme: theme);
   }
 
   void _updateGradient() {
     final newGradient = _resolveGradient();
+    if (newGradient.visuallyEquals(_toGradient) && (_controller.status == AnimationStatus.completed || !_controller.isAnimating)) {
+      _toGradient = newGradient;
+      return;
+    }
     setState(() {
       _fromGradient = EnvironmentGradient.lerp(_fromGradient, _toGradient, _animation.value);
       _toGradient = newGradient;
@@ -98,10 +99,7 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
   @override
   void didUpdateWidget(WeatherEnvironmentBackground old) {
     super.didUpdateWidget(old);
-    // React immediately to wallpaperTheme, condition, or hourOverride changes
-    if (old.wallpaperTheme != widget.wallpaperTheme ||
-        old.condition != widget.condition ||
-        old.hourOverride != widget.hourOverride) {
+    if (old.wallpaperTheme != widget.wallpaperTheme || old.hourOverride != widget.hourOverride) {
       _updateGradient();
     }
   }

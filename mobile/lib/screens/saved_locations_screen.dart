@@ -12,6 +12,7 @@ import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../services/geocoding_service.dart';
 import '../theme/weather_palette.dart';
+import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
 class SavedLocationsScreen extends ConsumerStatefulWidget {
@@ -153,36 +154,17 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     final locState = ref.watch(locationProvider);
     final saved = locState.savedLocations;
 
-    return Scaffold(
-      backgroundColor: MausamPalette.bgPrimary,
-      appBar: AppBar(
-        backgroundColor: MausamPalette.bgDeep,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: MausamPalette.textPrimary),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
-            }
-          },
-        ),
-        title: Text(
-          'MY LOCATIONS',
-          style: GoogleFonts.inter(
-            color: MausamPalette.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 72, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ShellSectionTitle('MY LOCATIONS'),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
@@ -382,9 +364,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                       },
                     ),
             ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

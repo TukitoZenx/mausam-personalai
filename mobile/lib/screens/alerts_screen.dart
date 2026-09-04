@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/location_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
+import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
 class AlertsScreen extends ConsumerWidget {
@@ -19,56 +19,17 @@ class AlertsScreen extends ConsumerWidget {
 
     final alerts = _computeActiveAlerts(data);
 
-    return Scaffold(
-      backgroundColor: MausamPalette.bgPrimary,
-      appBar: AppBar(
-        backgroundColor: MausamPalette.bgDeep,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: MausamPalette.textPrimary),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
-            }
-          },
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: MausamPalette.textPrimary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'WEATHER ALERTS',
-              style: GoogleFonts.inter(
-                color: MausamPalette.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: MausamPalette.textPrimary,
-          backgroundColor: MausamPalette.cardSurface,
-          onRefresh: () async {
-            await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-            children: [
+    return RefreshIndicator(
+      color: MausamPalette.textPrimary,
+      backgroundColor: MausamPalette.cardSurface,
+      onRefresh: () async {
+        await ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 72, 16, 32),
+        children: [
+          const ShellSectionTitle('WEATHER ALERTS'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -207,8 +168,6 @@ class AlertsScreen extends ConsumerWidget {
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 

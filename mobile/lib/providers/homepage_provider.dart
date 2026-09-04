@@ -94,7 +94,9 @@ class HomepageNotifier extends Notifier<HomepageState> {
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    if (state.data == null) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
 
     try {
       String? savedLocationId;

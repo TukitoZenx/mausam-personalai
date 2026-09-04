@@ -1,12 +1,10 @@
-import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../providers/auth_provider.dart';
-import '../providers/user_provider.dart';
+import '../providers/bootstrap_provider.dart';
+import '../theme/weather_palette.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -15,241 +13,217 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with TickerProviderStateMixin {
-  late final AnimationController _breathingController;
-  late final Animation<double> _scaleAnimation;
-
-  late final AnimationController _progressController;
-  late final Animation<double> _progressAnimation;
-
-  Timer? _navigationTimer;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    // 1. Logo Breathing Animation 0.96 -> 1.04 loop 2.5s
-    _breathingController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 0.96, end: 1.04).animate(
-      CurvedAnimation(
-        parent: _breathingController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // 2. Progress Controller 0 to 1 over 2500ms linear
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    );
-
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.linear),
-    );
-
-    _progressController.forward();
-
-    // OPTIMIZED: Defer auth check and router navigation until 2.5s splash animation completes
-    _navigationTimer = Timer(const Duration(milliseconds: 2500), _checkAuthAndNavigate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(bootstrapProvider.notifier).run();
+    });
   }
 
-  Future<void> _checkAuthAndNavigate() async {
+  void _maybeNavigate(BootstrapState boot) {
     if (!mounted) return;
-
-    User? user;
-    try {
-      final authService = ref.read(authServiceProvider);
-      user = authService.currentUser ?? FirebaseAuth.instance.currentUser;
-    } catch (_) {
-      // Firebase not initialized or not supported on current desktop platform
+    final path = GoRouterState.of(context).uri.path;
+    final onLaunch = path == '/splash' || path == '/';
+    if (!onLaunch) return;
+    if (boot.destination == LaunchDestination.login) {
+      context.go('/login');
+    } else if (boot.destination == LaunchDestination.home && boot.ready) {
+      context.go('/home');
     }
-
-    if (user != null) {
-      String? idToken;
-      try {
-        idToken = await user.getIdToken();
-      } catch (_) {}
-
-      final userNotifier = ref.read(userProvider.notifier);
-      userNotifier.setAuthenticated(
-        userId: user.uid,
-        email: user.email ?? 'user@mausam.ai',
-        idToken: idToken ?? 'test_token',
-      );
-
-      final userState = ref.read(userProvider);
-      if (userState.selectedPersona == null) {
-        try {
-          final me = await ref.read(apiClientProvider).getMe(idToken: idToken ?? 'test_token');
-          final persona = me['persona'] as String? ?? me['persona_type'] as String? ?? 'Fitness';
-          userNotifier.setPersona(persona);
-        } catch (_) {
-          userNotifier.setPersona('Fitness');
-        }
-      }
-
-      userNotifier.completeOnboarding();
-      if (mounted) {
-        context.go('/home');
-      }
-    } else {
-      // Try to restore a persisted guest session before falling through to /login
-      final userNotifier = ref.read(userProvider.notifier);
-      final guestRestored = await userNotifier.restoreGuestSession();
-      if (guestRestored && mounted) {
-        context.go('/home');
-      } else if (mounted) {
-        context.go('/login');
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _navigationTimer?.cancel();
-    _breathingController.stop();
-    _progressController.stop();
-    _breathingController.dispose();
-    _progressController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // OPTIMIZED: Pre-construct image asset widget to prevent rebuilds on scale animation ticks
-    final Widget logoAsset = Image.asset(
-      'assets/images/logo.png',
-      height: 80,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => const Icon(
-        Icons.cloud_queue,
-        size: 80,
-        color: Color(0xFF3FA9F5),
-      ),
-    );
+    ref.listen<BootstrapState>(bootstrapProvider, (prev, next) {
+      _maybeNavigate(next);
+    });
+    final boot = ref.watch(bootstrapProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000), // Pure black #000000
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // OPTIMIZED: Isolated RepaintBoundary for breathing logo animation to eliminate layout thrashing
-            RepaintBoundary(
-              child: AnimatedBuilder(
-                animation: _scaleAnimation,
-                child: logoAsset,
-                builder: (context, cachedLogo) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF3FA9F5).withValues(alpha: 0.4),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: cachedLogo!,
-                    ),
-                  );
-                },
+      backgroundColor: MausamPalette.bgDeep,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            children: [
+              const Spacer(flex: 3),
+              Text(
+                'MAUSAM',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 4.0,
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                'Your weather, understood.',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: MausamPalette.textTertiary, width: 1.2),
+                ),
+              ),
+              const SizedBox(height: 36),
+              Text(
+                'Preparing your experience…',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textTertiary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 28),
+              _LaunchSteps(state: boot),
+              if (boot.locationPermissionNeeded) ...[
+                const SizedBox(height: 28),
+                Text(
+                  'Location permission needed',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Mausam can use a saved city, or you can search for one.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => ref.read(bootstrapProvider.notifier).continueWithoutGps(),
+                      child: const Text('Continue'),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.read(bootstrapProvider.notifier).continueWithoutGps();
+                        context.go('/saved-locations');
+                      },
+                      child: const Text('Search a city'),
+                    ),
+                  ],
+                ),
+              ],
+              if (boot.errorMessage != null) ...[
+                const SizedBox(height: 28),
+                Text(
+                  'Weather unavailable',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  boot.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.read(bootstrapProvider.notifier).retryWeather(),
+                  child: const Text('Try again'),
+                ),
+              ],
+              const Spacer(flex: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            const SizedBox(height: 16),
+class _LaunchSteps extends StatelessWidget {
+  final BootstrapState state;
+  const _LaunchSteps({required this.state});
 
-            // Title: "Mausam" bold 26 white, "PersonalAI" regular 14 tracking 5px, "AI" color #3FA9F5
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      ('Initializing', state.initializing),
+      ('Restoring session', state.restoringSession),
+      ('Getting location', state.gettingLocation),
+      ('Loading weather', state.loadingWeather),
+    ];
+    return Column(
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
               children: [
-                Text(
-                  'Mausam ',
-                  style: GoogleFonts.inter(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                SizedBox(
+                  width: 22,
+                  child: _StepMark(status: row.$2),
                 ),
+                const SizedBox(width: 10),
                 Text(
-                  'Personal',
+                  row.$1,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                    letterSpacing: 5.0,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'AI',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                    letterSpacing: 5.0,
-                    color: const Color(0xFF3FA9F5),
+                    color: row.$2 == LaunchStepStatus.pending
+                        ? MausamPalette.textMuted
+                        : MausamPalette.textSecondary,
+                    fontSize: 13,
+                    fontWeight: row.$2 == LaunchStepStatus.running ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            // Single Progress loader line
-            Container(
-              width: 110,
-              height: 2,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2A40),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: AnimatedBuilder(
-                animation: _progressAnimation,
-                builder: (context, child) {
-                  return Stack(
-                    children: [
-                      FractionallySizedBox(
-                        widthFactor: _progressAnimation.value.clamp(0.0, 1.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(2),
-                            gradient: const LinearGradient(
-                              colors: [
-                                Colors.white,
-                                Color(0xFF3FA9F5),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            Text(
-              'Loading your sky...',
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: const Color(0xFF5A6A8A).withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
+  }
+}
+
+class _StepMark extends StatelessWidget {
+  final LaunchStepStatus status;
+  const _StepMark({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (status) {
+      case LaunchStepStatus.done:
+        return const Icon(Icons.check, size: 16, color: MausamPalette.textPrimary);
+      case LaunchStepStatus.running:
+        return const SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(strokeWidth: 1.4, color: MausamPalette.textSecondary),
+        );
+      case LaunchStepStatus.blocked:
+      case LaunchStepStatus.failed:
+        return const Icon(Icons.remove, size: 16, color: MausamPalette.textTertiary);
+      case LaunchStepStatus.pending:
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: MausamPalette.textMuted),
+          ),
+        );
+    }
   }
 }

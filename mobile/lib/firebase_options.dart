@@ -7,6 +7,10 @@ class DefaultFirebaseOptions {
     defaultValue: 'AIzaSyDYUBT_3uSGOGJGaLStQ3leffVDBc907po',
   );
 
+  /// Web OAuth client ID — required on Android so Google Sign-In returns an ID token.
+  static const String googleWebClientId =
+      '814019640083-ajua9p9tjqj6q1r2k3tittc3hqo114ra.apps.googleusercontent.com';
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
