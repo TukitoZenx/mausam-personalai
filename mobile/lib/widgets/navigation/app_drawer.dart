@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/location_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../theme/weather_palette.dart';
 import 'drawer_time_header.dart';
 
@@ -19,8 +18,6 @@ class MausamAppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locState = ref.watch(locationProvider);
-    final userState = ref.watch(userProvider);
-    final persona = userState.selectedPersona ?? 'Fitness';
 
     return Drawer(
       backgroundColor: Colors.transparent,
@@ -67,7 +64,7 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Insights ($persona)',
+                      title: 'Insights',
                       icon: Icons.insights_rounded,
                       route: '/insights',
                       isActive: currentRoute == '/insights',

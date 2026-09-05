@@ -253,17 +253,21 @@ class _HomeAlertBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        alert.title,
-                        style: GoogleFonts.inter(
-                          color: MausamPalette.textPrimary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
+                      Expanded(
+                        child: Text(
+                          alert.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: MausamPalette.textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       const Icon(Icons.arrow_forward_ios_rounded, color: MausamPalette.textTertiary, size: 12),
                     ],
                   ),

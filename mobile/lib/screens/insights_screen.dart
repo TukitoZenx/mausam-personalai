@@ -180,6 +180,8 @@ class _MetaStrip extends StatelessWidget {
               Expanded(
                 child: Text(
                   '$persona intelligence',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     color: MausamPalette.textPrimary,
                     fontSize: 16,
@@ -187,9 +189,15 @@ class _MetaStrip extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                location,
-                style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  location,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
@@ -235,13 +243,17 @@ class _InsightPanel extends StatelessWidget {
             children: [
               Icon(icon, color: MausamPalette.textSecondary, size: 16),
               const SizedBox(width: 8),
-              Text(
-                kicker,
-                style: GoogleFonts.inter(
-                  color: MausamPalette.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
+              Expanded(
+                child: Text(
+                  kicker,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
                 ),
               ),
             ],

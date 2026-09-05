@@ -41,11 +41,15 @@ class AlertsScreen extends ConsumerWidget {
                   children: [
                     const Icon(Icons.location_on_outlined, color: MausamPalette.textTertiary, size: 16),
                     const SizedBox(width: 6),
-                    Text(
-                      locState.cityName.isNotEmpty ? locState.cityName : (data?.current.location ?? 'Current Area'),
-                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                    Expanded(
+                      child: Text(
+                        locState.cityName.isNotEmpty ? locState.cityName : (data?.current.location ?? 'Current Area'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
                       '${alerts.length} Active',
                       style: GoogleFonts.inter(
@@ -132,6 +136,8 @@ class AlertsScreen extends ConsumerWidget {
                                     Expanded(
                                       child: Text(
                                         alerts[i].title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.inter(
                                           color: MausamPalette.textPrimary,
                                           fontSize: 15,
@@ -139,6 +145,7 @@ class AlertsScreen extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       alerts[i].severityLabel,
                                       style: GoogleFonts.inter(
