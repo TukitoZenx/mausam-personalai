@@ -27,7 +27,7 @@ class AlertsScreen extends ConsumerWidget {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 72, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 72, 16, 100),
         children: [
           const ShellSectionTitle('WEATHER ALERTS'),
               Container(

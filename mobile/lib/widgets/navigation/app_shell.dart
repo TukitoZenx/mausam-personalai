@@ -16,6 +16,7 @@ import '../weather_environment_background.dart';
 import 'app_drawer.dart';
 import 'fading_indexed_stack.dart';
 import 'floating_navbar.dart';
+import 'mausam_bottom_navbar.dart';
 import 'search_overlay.dart';
 
 const _shellRoutes = [
@@ -129,6 +130,15 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                     locationAnimation: _locationAnim,
                     onLocationTap: () => context.go('/saved-locations'),
                     onSearch: () => showSearchOverlay(context: context, ref: ref),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  left: MediaQuery.sizeOf(context).width < 360 ? 12 : 20,
+                  right: MediaQuery.sizeOf(context).width < 360 ? 12 : 20,
+                  child: MausamBottomNavbar(
+                    currentRoute: path,
+                    onNavigate: (route) => context.go(route),
                   ),
                 ),
               ],

@@ -697,7 +697,56 @@ class TodaysMetricsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = PersonaHome.todayMetrics(persona, dashboard);
+    final c = dashboard.current;
+    final uv = c.uvIndex;
+    final rainMm = (c.rainMm1h != null && c.rainMm1h! > 0)
+        ? c.rainMm1h!
+        : (dashboard.precipNext24hMm ?? 0.0);
+    final rainP = dashboard.daily.firstOrNull?.rainProbabilityPercent ?? 0;
+    final feels = (c.feelsLikeCelsius ?? c.temperatureCelsius).round();
+
+    String uvCat;
+    if (uv < 3) {
+      uvCat = 'LOW';
+    } else if (uv < 6) {
+      uvCat = 'MODERATE';
+    } else if (uv < 8) {
+      uvCat = 'HIGH';
+    } else if (uv < 11) {
+      uvCat = 'VERY HIGH';
+    } else {
+      uvCat = 'EXTREME';
+    }
+
+    final card1 = TodayMetricCard(
+      title: 'UV INDEX',
+      icon: Icons.wb_sunny_rounded,
+      iconColor: const Color(0xFFFBBF24),
+      value: uv.toStringAsFixed(1),
+      subtitle: uvCat,
+    );
+    final card2 = TodayMetricCard(
+      title: 'BEST OUTDOOR TIME',
+      icon: Icons.directions_run_rounded,
+      iconColor: const Color(0xFF34D399),
+      value: (persona != null && persona!.isNotEmpty) ? persona!.toUpperCase() : 'OPTIMAL',
+      subtitle: 'Morning window',
+    );
+    final card3 = TodayMetricCard(
+      title: 'RAINFALL TODAY',
+      icon: Icons.water_drop_rounded,
+      iconColor: const Color(0xFF60A5FA),
+      value: '${rainMm.toStringAsFixed(1)} mm',
+      subtitle: '$rainP% PROB',
+    );
+    final card4 = TodayMetricCard(
+      title: 'HEAT & COMFORT',
+      icon: Icons.thermostat_rounded,
+      iconColor: const Color(0xFFF97316),
+      value: 'Feels $feels°',
+      subtitle: WeatherIntel.heatSupport(c),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -713,51 +762,28 @@ class TodaysMetricsGrid extends StatelessWidget {
             ),
           ),
         ),
-        _metricPair(metrics),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: card1),
+            const SizedBox(width: 12),
+            Expanded(child: card2),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: card3),
+            const SizedBox(width: 12),
+            Expanded(child: card4),
+          ],
+        ),
       ],
     );
   }
 }
 
-Widget _metricPair(List<PersonaMetric> metrics) {
-  if (metrics.isEmpty) return const SizedBox.shrink();
-  if (metrics.length == 1) return _personaMetricCard(metrics.first);
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(child: _personaMetricCard(metrics[0])),
-      const SizedBox(width: 12),
-      Expanded(child: _personaMetricCard(metrics[1])),
-    ],
-  );
-}
-
-Widget _personaMetricCard(PersonaMetric metric) {
-  return TodayMetricCard(
-    title: metric.title,
-    icon: metric.icon,
-    iconColor: _semanticIconColor(metric.semantic),
-    value: metric.value,
-    subtitle: metric.subtitle,
-  );
-}
-
-Color? _semanticIconColor(PersonaSemantic semantic) {
-  switch (semantic) {
-    case PersonaSemantic.sun:
-      return const Color(0xFFFBBF24);
-    case PersonaSemantic.rain:
-      return const Color(0xFF60A5FA);
-    case PersonaSemantic.moon:
-      return const Color(0xFF93C5FD);
-    case PersonaSemantic.warn:
-      return const Color(0xFFFBBF24);
-    case PersonaSemantic.severe:
-      return const Color(0xFFEF4444);
-    case PersonaSemantic.none:
-      return null;
-  }
-}
 
 class StatGrid extends StatelessWidget {
   final WeatherDashboard dashboard;
@@ -934,7 +960,10 @@ class AdditionalConditionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = dashboard.current;
     final today = dashboard.daily.firstOrNull;
-    final extras = PersonaHome.extraConditions(persona, dashboard);
+    final windDir = PersonaHome.windDir(c.windDirectionDeg);
+    final hpa = (c.pressureHpa ?? 1013).round();
+    final vis = c.visibilityKm != null ? '${c.visibilityKm!.toStringAsFixed(1)} km' : '--';
+    final dew = c.dewPointCelsius != null ? 'Dew point ${c.dewPointCelsius!.round()}°' : 'Relative';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -953,7 +982,55 @@ class AdditionalConditionsSection extends StatelessWidget {
         ),
         SunMoonCard(current: c, today: today),
         const SizedBox(height: 12),
-        _metricPair(extras),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TodayMetricCard(
+                title: 'WIND',
+                icon: Icons.air_rounded,
+                iconColor: const Color(0xFF93C5FD),
+                value: '${c.windSpeedKmh.round()} km/h',
+                subtitle: c.windDirectionDeg != null ? '${c.windDirectionDeg!.round()}° $windDir' : 'Calm',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TodayMetricCard(
+                title: 'PRESSURE',
+                icon: Icons.speed_rounded,
+                iconColor: const Color(0xFFFBBF24),
+                value: '$hpa hPa',
+                subtitle: hpa < 1005 ? 'Falling' : (hpa > 1020 ? 'Rising' : 'Steady'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TodayMetricCard(
+                title: 'VISIBILITY',
+                icon: Icons.visibility_rounded,
+                iconColor: const Color(0xFF34D399),
+                value: vis,
+                subtitle: visibilityLine(c.visibilityKm),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TodayMetricCard(
+                title: 'HUMIDITY',
+                icon: Icons.water_drop_outlined,
+                iconColor: const Color(0xFF60A5FA),
+                value: '${c.humidityPercent}%',
+                subtitle: dew,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -968,14 +1045,13 @@ class ConditionsAroundYouSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = dashboard.current;
-    final items = PersonaHome.contextual(persona, dashboard);
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    final commute = items.where((e) => e.wide).toList();
-    final rest = items.where((e) => !e.wide).toList();
     final statusColor = WeatherIntel.commuteIsSevere(c)
         ? const Color(0xFFEF4444)
         : (WeatherIntel.commuteIsCaution(c) ? const Color(0xFFFBBF24) : MausamPalette.textSecondary);
+
+    final locationLabel = (persona != null && persona!.isNotEmpty)
+        ? persona!
+        : (c.location.isNotEmpty ? c.location : 'LOCAL AREA');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -983,7 +1059,7 @@ class ConditionsAroundYouSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 10),
           child: Text(
-            'FOR YOU NOW',
+            'CONDITIONS AROUND YOU',
             style: GoogleFonts.inter(
               color: MausamPalette.textTertiary,
               fontSize: 11,
@@ -992,18 +1068,39 @@ class ConditionsAroundYouSection extends StatelessWidget {
             ),
           ),
         ),
-        if (commute.isNotEmpty) ...[
-          _CommuteStatusCard(
-            location: commute.first.title,
-            status: commute.first.value,
-            statusColor: statusColor,
-            roadSurface: WeatherIntel.isWet(c) ? 'Wet' : 'Dry',
-            sightDist: c.visibilityKm != null ? '${c.visibilityKm!.toStringAsFixed(1)} km' : '--',
-            windSpeed: '${c.windSpeedKmh.round()} km/h',
-          ),
-          if (rest.isNotEmpty) const SizedBox(height: 12),
-        ],
-        if (rest.isNotEmpty) _metricPair(rest),
+        _CommuteStatusCard(
+          location: locationLabel,
+          status: WeatherIntel.commuteStatus(c),
+          statusColor: statusColor,
+          roadSurface: WeatherIntel.isWet(c) ? 'Wet' : 'Dry',
+          sightDist: c.visibilityKm != null ? '${c.visibilityKm!.toStringAsFixed(1)} km' : '--',
+          windSpeed: '${c.windSpeedKmh.round()} km/h',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TodayMetricCard(
+                title: 'OUTDOOR ACTIVITY',
+                icon: Icons.directions_run_rounded,
+                iconColor: const Color(0xFF34D399),
+                value: WeatherIntel.outdoorTitle(c, dashboard.aqi),
+                subtitle: WeatherIntel.outdoorSupport(c, dashboard.aqi),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TodayMetricCard(
+                title: 'ENVIRONMENT & SOIL',
+                icon: Icons.grass_rounded,
+                iconColor: const Color(0xFF60A5FA),
+                value: WeatherIntel.isWet(c) ? 'Wet surface' : 'Stable surface',
+                subtitle: c.humidityPercent > 70 ? 'High ground moisture' : 'Comfortable balance',
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1124,7 +1221,7 @@ class _CommuteStatusCard extends StatelessWidget {
           Icon(icon, size: 15, color: iconColor),
           const SizedBox(height: 4),
           Text(
-            title.toUpperCase(),
+            title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(

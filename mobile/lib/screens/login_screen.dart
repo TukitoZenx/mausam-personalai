@@ -128,18 +128,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501') return;
+      final msg = e.message ?? e.code;
       setState(() {
-        _inlineError = e.message ?? e.code;
+        _inlineError = msg;
       });
-      _showErrorSnackBar(e.message ?? e.code);
+      _showErrorSnackBar(msg);
     } catch (e) {
       final errStr = e.toString();
+      if (errStr.contains('12501') || errStr.contains('CANCELED')) return;
+      final friendlyMsg = errStr.contains('ApiException: 10')
+          ? 'Google Sign-In configuration mismatch. Try Email or Guest Sign In.'
+          : errStr.contains('TimeoutException') || errStr.contains('Timeout')
+              ? 'Connection timed out. Please try again.'
+              : 'Google Sign-In failed ($errStr). Try Email or Guest Sign In.';
       setState(() {
-        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
-            ? 'Connection timed out. Please try again.'
-            : errStr;
+        _inlineError = friendlyMsg;
       });
-      _showErrorSnackBar(e.toString());
+      _showErrorSnackBar(friendlyMsg);
     } finally {
       if (mounted) {
         setState(() {
@@ -435,8 +440,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        _modeTab('Sign in', isSignIn, AuthViewMode.signIn),
-                                        _modeTab('Create account', !isSignIn, AuthViewMode.createAccount),
+                                        _modeTab('Sign In', isSignIn, AuthViewMode.signIn),
+                                        _modeTab('Create Account', !isSignIn, AuthViewMode.createAccount),
                                       ],
                                     ),
                                   ),

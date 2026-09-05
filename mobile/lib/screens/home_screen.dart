@@ -101,7 +101,7 @@ class HomeScreen extends ConsumerWidget {
                 )
               : ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 76, 16, 36),
+                  padding: const EdgeInsets.fromLTRB(16, 76, 16, 100),
                   children: [
                       StaggeredItemWrapper(
                         index: 0,

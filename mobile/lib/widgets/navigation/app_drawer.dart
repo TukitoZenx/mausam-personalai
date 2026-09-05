@@ -57,15 +57,15 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Forecast',
+                      title: 'Extended Forecast',
                       icon: Icons.calendar_today_rounded,
                       route: '/forecast',
                       isActive: currentRoute == '/forecast',
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Insights',
-                      icon: Icons.insights_rounded,
+                      title: 'Health Metrics',
+                      icon: Icons.favorite_border_rounded,
                       route: '/insights',
                       isActive: currentRoute == '/insights',
                     ),
@@ -75,6 +75,13 @@ class MausamAppDrawer extends ConsumerWidget {
                       icon: Icons.warning_amber_rounded,
                       route: '/alerts',
                       isActive: currentRoute == '/alerts',
+                    ),
+                    _drawerItem(
+                      context: context,
+                      title: 'Travel & Commute',
+                      icon: Icons.commute_rounded,
+                      route: '/insights',
+                      isActive: false,
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),

@@ -278,7 +278,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       itemCount: saved.length,
                       itemBuilder: (context, index) {
                         final item = saved[index];

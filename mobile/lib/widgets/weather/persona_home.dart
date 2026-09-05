@@ -130,7 +130,7 @@ class PersonaHome {
   static List<PersonaMetric> extraConditions(String? persona, WeatherDashboard d) {
     final p = normalize(persona);
     final c = d.current;
-    final windDir = _windDir(c.windDirectionDeg);
+    final windDir = PersonaHome.windDir(c.windDirectionDeg);
     PersonaMetric wind() => PersonaMetric(
           title: 'WIND',
           value: '${c.windSpeedKmh.round()} km/h',
@@ -236,7 +236,7 @@ class PersonaHome {
     return items.take(3).toList();
   }
 
-  static String _windDir(double? deg) {
+  static String windDir(double? deg) {
     if (deg == null) return '--';
     const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     return dirs[(((deg + 22.5) % 360) / 45).floor() % 8];
