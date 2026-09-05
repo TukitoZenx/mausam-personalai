@@ -6,43 +6,62 @@ const _kGuestSessionActive = 'guest_session_active';
 const _kOnboardingCompleted = 'onboarding_completed';
 const _kSelectedPersona = 'selected_persona';
 const _kGuestUserId = 'guest_user_id';
+const _kNotifyRain = 'notify_rain';
+const _kNotifyHeat = 'notify_heat';
+const _kNotifyAqi = 'notify_aqi';
 
 class UserState {
   final String? userId;
   final String? email;
+  final String? displayName;
   final String? idToken;
   final String? selectedPersona;
   final bool isAuthenticated;
   final bool onboardingCompleted;
   final bool isGuest;
+  final bool notifyRain;
+  final bool notifyHeat;
+  final bool notifyAqi;
 
   const UserState({
     this.userId,
     this.email,
+    this.displayName,
     this.idToken,
     this.selectedPersona,
     this.isAuthenticated = false,
     this.onboardingCompleted = false,
     this.isGuest = false,
+    this.notifyRain = true,
+    this.notifyHeat = true,
+    this.notifyAqi = true,
   });
 
   UserState copyWith({
     String? userId,
     String? email,
+    String? displayName,
     String? idToken,
     String? selectedPersona,
     bool? isAuthenticated,
     bool? onboardingCompleted,
     bool? isGuest,
+    bool? notifyRain,
+    bool? notifyHeat,
+    bool? notifyAqi,
   }) {
     return UserState(
       userId: userId ?? this.userId,
       email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
       idToken: idToken ?? this.idToken,
       selectedPersona: selectedPersona ?? this.selectedPersona,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       isGuest: isGuest ?? this.isGuest,
+      notifyRain: notifyRain ?? this.notifyRain,
+      notifyHeat: notifyHeat ?? this.notifyHeat,
+      notifyAqi: notifyAqi ?? this.notifyAqi,
     );
   }
 }
@@ -56,11 +75,13 @@ class UserNotifier extends Notifier<UserState> {
   void setAuthenticated({
     required String userId,
     required String email,
+    String? displayName,
     String? idToken,
   }) {
     state = state.copyWith(
       userId: userId,
       email: email,
+      displayName: displayName,
       idToken: idToken,
       isAuthenticated: true,
       isGuest: false,
@@ -75,6 +96,15 @@ class UserNotifier extends Notifier<UserState> {
   void completeOnboarding() {
     state = state.copyWith(onboardingCompleted: true);
     _persistOnboardingCompleted();
+  }
+
+  void setAlertPreferences({
+    required bool rain,
+    required bool heat,
+    required bool aqi,
+  }) {
+    state = state.copyWith(notifyRain: rain, notifyHeat: heat, notifyAqi: aqi);
+    _persistAlertPreferences(rain: rain, heat: heat, aqi: aqi);
   }
 
   /// Mark this session as a guest session and persist to SharedPreferences.
@@ -109,6 +139,9 @@ class UserNotifier extends Notifier<UserState> {
           isGuest: true,
           onboardingCompleted: true,
           selectedPersona: persona,
+          notifyRain: prefs.getBool(_kNotifyRain) ?? true,
+          notifyHeat: prefs.getBool(_kNotifyHeat) ?? true,
+          notifyAqi: prefs.getBool(_kNotifyAqi) ?? true,
         );
         return true;
       }
@@ -146,6 +179,19 @@ class UserNotifier extends Notifier<UserState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kSelectedPersona, persona);
+    } catch (_) {}
+  }
+
+  Future<void> _persistAlertPreferences({
+    required bool rain,
+    required bool heat,
+    required bool aqi,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kNotifyRain, rain);
+      await prefs.setBool(_kNotifyHeat, heat);
+      await prefs.setBool(_kNotifyAqi, aqi);
     } catch (_) {}
   }
 

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,31 +9,51 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/auth_service.dart';
+import '../theme/environment_theme.dart';
+import '../theme/weather_palette.dart';
 import '../widgets/animated_logo_container.dart';
 import '../widgets/google_icon.dart';
-import '../widgets/rain_particles.dart';
+import '../widgets/weather_environment_background.dart';
 
-enum LoginStep { initial, password }
+enum AuthViewMode { signIn, createAccount }
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final AuthViewMode initialMode;
+
+  const LoginScreen({
+    super.key,
+    this.initialMode = AuthViewMode.signIn,
+  });
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  late AuthViewMode _mode;
+
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
-  LoginStep _currentStep = LoginStep.initial;
   bool _isSubmitting = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _inlineError;
 
   @override
+  void initState() {
+    super.initState();
+    _mode = widget.initialMode;
+  }
+
+  @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -43,7 +65,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           message,
           style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
         ),
-        backgroundColor: const Color(0xFFDC2626),
+        backgroundColor: MausamPalette.cardSurfaceLight,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+        ),
+        backgroundColor: MausamPalette.cardSurfaceLight,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -110,22 +149,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _handleEmailContinue() async {
+  Future<void> _handleSignInSubmit() async {
     final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
     if (email.isEmpty || !email.contains('@')) {
       _showErrorSnackBar('Please enter a valid email address.');
       return;
     }
-
-    setState(() {
-      _currentStep = LoginStep.password;
-    });
-  }
-
-  Future<void> _handlePasswordSubmit() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
     if (password.length < 6) {
       _showErrorSnackBar('Password must be at least 6 characters.');
       return;
@@ -199,187 +230,250 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _handleCreateAccountSubmit() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      _showErrorSnackBar('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      _showErrorSnackBar('Password must be at least 6 characters.');
+      return;
+    }
+    if (password != confirmPassword) {
+      _showErrorSnackBar('Passwords do not match.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _inlineError = null;
+    });
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      final user = await authService.registerWithEmail(email: email, password: password);
+      final idToken = user.idToken ?? await authService.getIdToken();
+
+      final apiClient = ref.read(apiClientProvider);
+      if (idToken != null) {
+        try {
+          await apiClient.getMe(idToken: idToken);
+          await apiClient.postUser(
+            idToken: idToken,
+            email: user.email,
+          );
+        } catch (_) {}
+      }
+
+      ref.read(userProvider.notifier).setAuthenticated(
+            userId: user.uid,
+            email: user.email,
+            displayName: name.isNotEmpty ? name : null,
+            idToken: idToken,
+          );
+
+      if (!mounted) return;
+      context.go('/onboarding');
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _inlineError = e.message ?? e.code;
+      });
+      _showErrorSnackBar(e.message ?? e.code);
+    } catch (e) {
+      final errStr = e.toString();
+      setState(() {
+        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
+            ? 'Connection timed out. Please try again.'
+            : errStr;
+      });
+      _showErrorSnackBar(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showErrorSnackBar('Enter your email in the field above to reset your password.');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _showSuccessSnackBar('Password reset link sent to $email');
+    } on FirebaseAuthException catch (e) {
+      _showErrorSnackBar(e.message ?? 'Failed to send reset email.');
+    } catch (e) {
+      _showErrorSnackBar('Error: ${e.toString()}');
+    }
+  }
+
+  InputDecoration _inputDecoration({
+    required String hintText,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: GoogleFonts.inter(
+        color: MausamPalette.textMuted,
+        fontSize: 13,
+      ),
+      filled: true,
+      fillColor: const Color(0xFF141417),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: MausamPalette.textTertiary,
+        size: 18,
+      ),
+      suffixIcon: suffixIcon,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: MausamPalette.cardBorder, width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: MausamPalette.textPrimary, width: 1.2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSignIn = _mode == AuthViewMode.signIn;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1220),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0A1220),
-              Color(0xFF111E35),
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Radial glow top center
-            Positioned(
-              top: -60,
-              left: 0,
-              right: 0,
-              height: 240,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF1E3A5F).withValues(alpha: 0.45),
-                      Colors.transparent,
-                    ],
-                    radius: 0.7,
-                  ),
-                ),
-              ),
-            ),
-
-            // Low-opacity rain dots (0.08)
-            const RainParticlesWidget(particleCount: 30, opacity: 0.08),
-
-            // NO AppBar, NO top navbar title "Mausam PersonalAI". SafeArea top padding 24.
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Stack(
-                  children: [
-                    if (_currentStep == LoginStep.password)
-                      Positioned(
-                        top: 0,
-                        left: 8,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                          onPressed: _isSubmitting
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _currentStep = LoginStep.initial;
-                                  });
-                                },
+      backgroundColor: MausamPalette.bgDeep,
+      body: WeatherEnvironmentBackground(
+        wallpaperTheme: WallpaperTheme.dynamic,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Top Brand Identity
+                        const AnimatedLogoContainer(height: 58),
+                        const SizedBox(height: 12),
+                        Text(
+                          'MAUSAM',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 4.0,
+                            color: MausamPalette.textPrimary,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'PERSONAL WEATHER INTELLIGENCE',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.8,
+                            color: MausamPalette.textTertiary,
+                          ),
+                        ),
 
-                    Center(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 8),
+                        const SizedBox(height: 24),
 
-                            // Center Hero Logo 72px with glow
-                            const AnimatedLogoContainer(height: 72),
-
-                            const SizedBox(height: 14),
-
-                            // Title: "Mausam" 28px extra-bold white, "PersonalAI" 14px letterSpacing 5px, AI blue #3FA9F5
-                            Text(
-                              'Mausam',
-                              style: GoogleFonts.inter(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                height: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Personal',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.normal,
-                                    letterSpacing: 5.0,
-                                    color: Colors.white,
-                                    height: 1.1,
-                                  ),
+                        // Translucent Obsidian Auth Surface
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                            child: Container(
+                              padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                              decoration: BoxDecoration(
+                                color: MausamPalette.cardSurface.withValues(alpha: 0.78),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: MausamPalette.cardBorder.withValues(alpha: 0.8),
+                                  width: 1,
                                 ),
-                                Text(
-                                  'AI',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.normal,
-                                    letterSpacing: 5.0,
-                                    color: const Color(0xFF3FA9F5),
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            // Divider: width 160, Row line 60px #1E3A5F dot 6px blue line 60px, margin vertical 8
-                            Container(
-                              width: 160,
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      height: 1,
-                                      color: const Color(0xFF1E3A5F),
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFF3FA9F5),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Container(
-                                      height: 1,
-                                      color: const Color(0xFF1E3A5F),
-                                    ),
-                                  ),
-                                ],
+                                boxShadow: MausamPalette.heroShadow,
                               ),
-                            ),
-
-                            // Tagline: "Weather That Knows You" 12px #7A8AA8 centered margin 4
-                            Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                'Weather That Knows You',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.normal,
-                                  color: const Color(0xFF7A8AA8),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Bottom Auth Container: maxWidth 320 centered, gap 10
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 320),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  // Section Header
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: MausamPalette.bgDeep.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: MausamPalette.cardBorder),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        _modeTab('Sign in', isSignIn, AuthViewMode.signIn),
+                                        _modeTab('Create account', !isSignIn, AuthViewMode.createAccount),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    isSignIn ? 'Welcome back' : 'Create an account',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: MausamPalette.textPrimary,
+                                      letterSpacing: -0.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isSignIn
+                                        ? 'Continue with email or Google.'
+                                        : 'A few details, then we personalize the day.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: MausamPalette.textSecondary,
+                                    ),
+                                  ),
+
                                   if (_inlineError != null) ...[
+                                    const SizedBox(height: 14),
                                     Container(
                                       width: double.infinity,
-                                      padding: const EdgeInsets.all(10),
-                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF3B1D24),
+                                        color: MausamPalette.cardSurfaceLight,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: const Color(0xFFEF4444), width: 1),
+                                        border: Border.all(color: MausamPalette.cardBorder, width: 1),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                                          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
@@ -387,304 +481,277 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
                                             ),
                                           ),
-                                          TextButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                _inlineError = null;
-                                              });
-                                              if (_currentStep == LoginStep.password) {
-                                                _handlePasswordSubmit();
-                                              } else {
-                                                _handleGoogleAuth();
-                                              }
-                                            },
-                                            child: Text(
-                                              'Retry',
-                                              style: GoogleFonts.inter(
-                                                color: const Color(0xFF3FA9F5),
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
                                         ],
                                       ),
                                     ),
                                   ],
-                                  if (_currentStep == LoginStep.initial) ...[
-                                    // Google Button: height 44, radius 22, white bg, black text 14 medium, Google icon 18px, full width
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 44,
-                                      child: ElevatedButton(
-                                        key: const Key('google_sign_in_button'),
-                                        onPressed: _isSubmitting ? null : _handleGoogleAuth,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black,
-                                          elevation: 0,
-                                          padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                          ),
-                                        ),
-                                        child: _isSubmitting
-                                            ? const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                                                ),
-                                              )
-                                            : Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  const GoogleIconWidget(size: 18),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Continue with Google',
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 14,
-                                                        fontWeight: FontWeight.w500,
-                                                        color: Colors.black,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+
+                                  const SizedBox(height: 18),
+
+                                  // Name Field (Create Account mode only)
+                                  if (!isSignIn) ...[
+                                    TextField(
+                                      controller: _nameController,
+                                      enabled: !_isSubmitting,
+                                      keyboardType: TextInputType.name,
+                                      textCapitalization: TextCapitalization.words,
+                                      style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13),
+                                      decoration: _inputDecoration(
+                                        hintText: 'Full name (optional)',
+                                        prefixIcon: Icons.person_outline_rounded,
                                       ),
                                     ),
-
-                                    // OR Divider: lines 1px #1E2F4F, text "OR" 10px #5A6A8A, gap 12, vertical margin 6
-                                    Container(
-                                      margin: const EdgeInsets.symmetric(vertical: 6),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Container(
-                                              height: 1,
-                                              color: const Color(0xFF1E2F4F),
-                                            ),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                                            child: Text(
-                                              'OR',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 10,
-                                                color: const Color(0xFF5A6A8A),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Container(
-                                              height: 1,
-                                              color: const Color(0xFF1E2F4F),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    // Email Input: height 44, radius 22, bg #151F35, border #1E2F4F 1px, text 13 white, placeholder 13 #5A6A8A, prefix icon mail 16
-                                    SizedBox(
-                                      height: 44,
-                                      child: TextField(
-                                        key: const Key('login_email_field'),
-                                        controller: _emailController,
-                                        enabled: !_isSubmitting,
-                                        keyboardType: TextInputType.emailAddress,
-                                        style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
-                                        decoration: InputDecoration(
-                                          hintText: 'Enter your email',
-                                          hintStyle: GoogleFonts.inter(
-                                            color: const Color(0xFF5A6A8A),
-                                            fontSize: 13,
-                                          ),
-                                          filled: true,
-                                          fillColor: const Color(0xFF151F35),
-                                          prefixIcon: const Icon(
-                                            Icons.mail_outline,
-                                            color: Color(0xFF5A6A8A),
-                                            size: 16,
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                            borderSide: const BorderSide(color: Color(0xFF1E2F4F), width: 1),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                            borderSide: const BorderSide(color: Color(0xFF3FA9F5), width: 1),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 10),
-
-                                    // Email Button: height 44, radius 22, bg #1C2C4E, border #2A3F6A 1px, text 14 medium white "Continue with Email"
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 44,
-                                      child: ElevatedButton(
-                                        key: const Key('continue_with_email_button'),
-                                        onPressed: _isSubmitting ? null : _handleEmailContinue,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF1C2C4E),
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                            side: const BorderSide(color: Color(0xFF2A3F6A), width: 1),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Continue with Email',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    // Step 2: Password Input
-                                    SizedBox(
-                                      height: 44,
-                                      child: TextField(
-                                        key: const Key('login_password_field'),
-                                        controller: _passwordController,
-                                        enabled: !_isSubmitting,
-                                        obscureText: true,
-                                        style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
-                                        decoration: InputDecoration(
-                                          hintText: 'Enter your password',
-                                          hintStyle: GoogleFonts.inter(
-                                            color: const Color(0xFF5A6A8A),
-                                            fontSize: 13,
-                                          ),
-                                          filled: true,
-                                          fillColor: const Color(0xFF151F35),
-                                          prefixIcon: const Icon(
-                                            Icons.lock_outline,
-                                            color: Color(0xFF5A6A8A),
-                                            size: 16,
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                            borderSide: const BorderSide(color: Color(0xFF1E2F4F), width: 1),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                            borderSide: const BorderSide(color: Color(0xFF3FA9F5), width: 1),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 10),
-
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 44,
-                                      child: ElevatedButton(
-                                        key: const Key('sign_in_button'),
-                                        onPressed: _isSubmitting ? null : _handlePasswordSubmit,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF3FA9F5),
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(22),
-                                          ),
-                                        ),
-                                        child: _isSubmitting
-                                            ? const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                                ),
-                                              )
-                                            : Text(
-                                                'Continue',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
+                                    const SizedBox(height: 12),
                                   ],
 
-                                  // Guest access: below the auth buttons,
-                                  // appears regardless of login step
+                                  // Email Field
+                                  TextField(
+                                    key: const Key('login_email_field'),
+                                    controller: _emailController,
+                                    enabled: !_isSubmitting,
+                                    keyboardType: TextInputType.emailAddress,
+                                    style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13),
+                                    decoration: _inputDecoration(
+                                      hintText: 'Enter your email',
+                                      prefixIcon: Icons.mail_outline_rounded,
+                                    ),
+                                  ),
+
                                   const SizedBox(height: 12),
-                                  TextButton(
-                                    key: const Key('continue_as_guest_button'),
-                                    onPressed: _isSubmitting
-                                        ? null
-                                        : () {
-                                            ref.read(userProvider.notifier).setGuestSession();
-                                            context.go('/onboarding');
-                                          },
-                                    child: Text(
-                                      'Continue as Guest',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF5A6A8A),
+
+                                  // Password Field
+                                  TextField(
+                                    key: const Key('login_password_field'),
+                                    controller: _passwordController,
+                                    enabled: !_isSubmitting,
+                                    obscureText: _obscurePassword,
+                                    style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13),
+                                    decoration: _inputDecoration(
+                                      hintText: 'Password',
+                                      prefixIcon: Icons.lock_outline_rounded,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePassword
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
+                                          color: MausamPalette.textTertiary,
+                                          size: 18,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePassword = !_obscurePassword;
+                                          });
+                                        },
                                       ),
                                     ),
                                   ),
 
-                                  // Footer: "By continuing, you agree..." 9px #5A6A8A lineHeight 1.4 maxWidth 280 centered marginTop 12 links blue #3FA9F5 underline
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 280),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(top: 12),
-                                      child: Text.rich(
-                                        TextSpan(
-                                          text: "By continuing, you agree to Mausam's ",
-                                          children: [
-                                            TextSpan(
-                                              text: "Terms of Service",
-                                              style: GoogleFonts.inter(
-                                                color: const Color(0xFF3FA9F5),
-                                                decoration: TextDecoration.underline,
-                                              ),
-                                            ),
-                                            const TextSpan(text: " and "),
-                                            TextSpan(
-                                              text: "Privacy Policy",
-                                              style: GoogleFonts.inter(
-                                                color: const Color(0xFF3FA9F5),
-                                                decoration: TextDecoration.underline,
-                                              ),
-                                            ),
-                                            const TextSpan(text: "."),
-                                          ],
+                                  // Confirm Password Field (Create Account mode only)
+                                  if (!isSignIn) ...[
+                                    const SizedBox(height: 12),
+                                    TextField(
+                                      controller: _confirmPasswordController,
+                                      enabled: !_isSubmitting,
+                                      obscureText: _obscureConfirmPassword,
+                                      style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13),
+                                      decoration: _inputDecoration(
+                                        hintText: 'Confirm password',
+                                        prefixIcon: Icons.lock_reset_rounded,
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscureConfirmPassword
+                                                ? Icons.visibility_outlined
+                                                : Icons.visibility_off_outlined,
+                                            color: MausamPalette.textTertiary,
+                                            size: 18,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                                            });
+                                          },
                                         ),
-                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+
+                                  if (isSignIn) ...[
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: _isSubmitting ? null : _handleForgotPassword,
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: Text(
+                                          'Forgot password?',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: MausamPalette.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ] else
+                                    const SizedBox(height: 16),
+
+                                  // Primary Button
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      key: const Key('continue_with_email_button'),
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : (isSignIn ? _handleSignInSubmit : _handleCreateAccountSubmit),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: MausamPalette.textPrimary,
+                                        foregroundColor: MausamPalette.bgDeep,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isSignIn ? 'Sign In' : 'Create Account',
+                                        key: const Key('sign_in_button'),
                                         style: GoogleFonts.inter(
-                                          fontSize: 9,
-                                          height: 1.4,
-                                          color: const Color(0xFF5A6A8A),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  // Minimal Divider
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          height: 1,
+                                          color: MausamPalette.cardBorder,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        child: Text(
+                                          'or continue with',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            color: MausamPalette.textTertiary,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Container(
+                                          height: 1,
+                                          color: MausamPalette.cardBorder,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 14),
+
+                                  // Google Button
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 46,
+                                    child: OutlinedButton(
+                                      key: const Key('google_sign_in_button'),
+                                      onPressed: _isSubmitting ? null : _handleGoogleAuth,
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF141417),
+                                        foregroundColor: MausamPalette.textPrimary,
+                                        side: const BorderSide(color: MausamPalette.cardBorder, width: 1),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const GoogleIconWidget(size: 18),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            'Google',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: MausamPalette.textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  // Mode Switcher Link
+                                  Center(
+                                    child: Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Text(
+                                          isSignIn
+                                              ? "Don't have an account? "
+                                              : "Already have an account? ",
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: MausamPalette.textSecondary,
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: _isSubmitting
+                                              ? null
+                                              : () {
+                                                  setState(() {
+                                                    _mode = isSignIn
+                                                        ? AuthViewMode.createAccount
+                                                        : AuthViewMode.signIn;
+                                                    _inlineError = null;
+                                                  });
+                                                },
+                                          child: Text(
+                                            isSignIn ? 'Create an account' : 'Sign in',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: MausamPalette.textPrimary,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Continue as Guest Button
+                                  Center(
+                                    child: TextButton(
+                                      key: const Key('continue_as_guest_button'),
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () {
+                                              ref.read(userProvider.notifier).setGuestSession();
+                                              context.go('/onboarding');
+                                            },
+                                      child: Text(
+                                        'Continue as Guest',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: MausamPalette.textTertiary,
                                         ),
                                       ),
                                     ),
@@ -692,64 +759,99 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ],
                               ),
                             ),
-
-                            const SizedBox(height: 8),
-                          ],
+                          ),
                         ),
-                      ),
+
+                        const SizedBox(height: 16),
+
+                        // Subtle Terms and Privacy
+                        Text(
+                          'By continuing, you agree to Mausam Terms of Service and Privacy Policy.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: MausamPalette.textMuted,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            // NEXT LOADING OVERLAY (When user taps Google or Email Continue)
-            if (_isSubmitting)
-              Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: const Color(0xFF0A1220).withValues(alpha: 0.8),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Centered Logo 60px
-                      Image.asset(
-                        'assets/images/logo.png',
-                        height: 60,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
-                          Icons.cloud_queue,
-                          size: 60,
-                          color: Color(0xFF3FA9F5),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // CircularProgressIndicator stroke 2 color #3FA9F5
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF3FA9F5),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Text "Setting up your sky..." 12px
-                      Text(
-                        'Setting up your sky...',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.normal,
-                          color: const Color(0xFF8A9BB5),
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
-          ],
+
+              // Full Screen Submitting Indicator
+              if (_isSubmitting)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      decoration: BoxDecoration(
+                        color: MausamPalette.cardSurface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: MausamPalette.cardBorder),
+                        boxShadow: MausamPalette.heroShadow,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation<Color>(MausamPalette.textPrimary),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            isSignIn ? 'Signing you in...' : 'Creating your account...',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: MausamPalette.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modeTab(String label, bool selected, AuthViewMode mode) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: _isSubmitting
+            ? null
+            : () {
+                setState(() {
+                  _mode = mode;
+                  _inlineError = null;
+                });
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? MausamPalette.cardSurfaceLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? MausamPalette.textPrimary : MausamPalette.textTertiary,
+            ),
+          ),
         ),
       ),
     );

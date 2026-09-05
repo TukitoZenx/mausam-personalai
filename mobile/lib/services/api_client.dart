@@ -326,10 +326,11 @@ class ApiClient {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $idToken',
           },
-        ).timeout(const Duration(seconds: 8));
+        ).timeout(const Duration(seconds: 4));
         if (response.statusCode == 200) {
           return jsonDecode(response.body) as Map<String, dynamic>;
         }
+        lastError = 'HTTP ${response.statusCode}';
       } catch (e) {
         lastError = e;
       }
@@ -352,10 +353,11 @@ class ApiClient {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $idToken',
           },
-        ).timeout(const Duration(seconds: 6));
+        ).timeout(const Duration(seconds: 4));
         if (response.statusCode == 200) {
           return jsonDecode(response.body) as Map<String, dynamic>;
         }
+        lastError = 'HTTP ${response.statusCode}';
       } catch (e) {
         lastError = e;
       }

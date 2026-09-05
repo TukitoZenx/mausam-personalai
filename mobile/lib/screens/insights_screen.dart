@@ -11,6 +11,7 @@ import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
+import '../widgets/weather/weather_intel.dart';
 
 class InsightsScreen extends ConsumerWidget {
   const InsightsScreen({super.key});
@@ -72,7 +73,49 @@ class InsightsScreen extends ConsumerWidget {
                 )
               else
                 _emptyPanel('Live recommendation is updating for this location.'),
-              const SizedBox(height: 20),
+              if (data != null) ...[
+                const SizedBox(height: 20),
+                _sectionLabel('WHAT TO DO'),
+                const SizedBox(height: 10),
+                StaggeredItemWrapper(
+                  index: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _InsightPanel(
+                      kicker: 'COMMUTE',
+                      icon: Icons.commute_rounded,
+                      title: WeatherIntel.commuteStatus(data.current),
+                      body: WeatherIntel.commuteAction(data.current),
+                    ),
+                  ),
+                ),
+                StaggeredItemWrapper(
+                  index: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _InsightPanel(
+                      kicker: 'OUTDOOR',
+                      icon: Icons.directions_run_rounded,
+                      title: WeatherIntel.outdoorTitle(data.current, data.aqi),
+                      body: WeatherIntel.outdoorSupport(data.current, data.aqi),
+                    ),
+                  ),
+                ),
+                if (WeatherIntel.goldenHourWindow(data.current) != null)
+                  StaggeredItemWrapper(
+                    index: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _InsightPanel(
+                        kicker: 'GOLDEN HOUR',
+                        icon: Icons.wb_twilight_rounded,
+                        title: WeatherIntel.goldenHourWindow(data.current)!,
+                        body: 'Soft light before sunset. Better for walks than midday UV.',
+                      ),
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 10),
               _sectionLabel('BEST TIME'),
               const SizedBox(height: 10),
               if (windows.isEmpty)
@@ -347,6 +390,10 @@ class _PersonaLayer extends StatelessWidget {
     final lines = switch (persona) {
       'Health' => _healthLines(),
       'Traveler' => _travelerLines(),
+      'Commuter' => _commuterLines(),
+      'Family' => _familyLines(),
+      'Garden' => _gardenLines(),
+      'Events' => _eventsLines(),
       _ => _fitnessLines(),
     };
 
@@ -455,6 +502,73 @@ class _PersonaLayer extends StatelessWidget {
     return [
       _Line(Icons.directions_transit_rounded, 'Travel guidance', commute),
       _Line(Icons.work_outline_rounded, 'What to carry', packing),
+    ];
+  }
+
+  List<_Line> _commuterLines() {
+    return [
+      _Line(Icons.commute_rounded, WeatherIntel.commuteStatus(current), WeatherIntel.commuteAction(current)),
+      _Line(
+        Icons.visibility_rounded,
+        visibilityLine(current.visibilityKm),
+        'Wind ${current.windSpeedKmh.round()} km/h. Leave extra time if fog or rain is in the next hours.',
+      ),
+    ];
+  }
+
+  List<_Line> _familyLines() {
+    final rain = current.rainMm1h ?? 0;
+    final wet = WeatherIntel.isWet(current);
+    return [
+      _Line(
+        Icons.school_rounded,
+        wet ? 'Wet school run' : 'School run is clear',
+        wet
+            ? 'Rain ${rain.toStringAsFixed(1)} mm. Pack covers and allow extra drop-off time.'
+            : 'Roads look stable. Keep a light layer for the afternoon.',
+      ),
+      _Line(
+        Icons.warning_amber_rounded,
+        current.temperatureCelsius >= 36 ? 'Heat caution for kids' : 'Outdoor play is reasonable',
+        'Air ${current.temperatureCelsius.round()}° · UV ${current.uvIndex.toStringAsFixed(1)}.',
+      ),
+    ];
+  }
+
+  List<_Line> _gardenLines() {
+    final low = current.lowCelsius;
+    final rain = current.rainMm1h ?? 0;
+    return [
+      _Line(
+        Icons.grass_rounded,
+        rain > 0 ? 'Soils are receiving rain' : 'Open, drier air',
+        rain > 0
+            ? '${rain.toStringAsFixed(1)} mm recently. Skip extra watering today.'
+            : 'Humidity ${current.humidityPercent}%. Water only if beds are dry.',
+      ),
+      _Line(
+        Icons.ac_unit_rounded,
+        (low != null && low <= 2) ? 'Frost watch overnight' : 'Frost risk is low',
+        low == null ? 'Overnight low still updating.' : 'Expected low ${low.round()}°.',
+      ),
+    ];
+  }
+
+  List<_Line> _eventsLines() {
+    final rainP = hourly.isEmpty
+        ? 0
+        : hourly.take(8).map((e) => e.rainProbabilityPercent).fold<int>(0, (a, b) => a > b ? a : b);
+    return [
+      _Line(
+        Icons.event_rounded,
+        rainP >= 40 ? 'Cover the outdoor plan' : 'Outdoor event looks viable',
+        '$rainP% rain in the next hours. Comfort around ${(current.feelsLikeCelsius ?? current.temperatureCelsius).round()}°.',
+      ),
+      _Line(
+        Icons.wb_sunny_outlined,
+        'UV ${current.uvIndex.toStringAsFixed(1)}',
+        current.uvIndex >= 6 ? 'Provide shade for midday guests.' : 'Sun load is moderate for an outdoor gathering.',
+      ),
     ];
   }
 }

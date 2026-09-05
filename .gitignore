@@ -18,6 +18,8 @@ mobile/.dart_tool/
 mobile/.packages
 mobile/.pub/
 mobile/build/
+mobile/android/build/
+mobile/android/.gradle/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 

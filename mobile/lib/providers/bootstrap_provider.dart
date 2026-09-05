@@ -101,14 +101,19 @@ class BootstrapNotifier extends Notifier<BootstrapState> {
 
       state = state.copyWith(loadingWeather: LaunchStepStatus.running);
       final weatherOk = await _loadWeather();
-      if (!weatherOk && ref.read(weatherDashboardProvider).data == null) {
+      final hasWeather = ref.read(weatherDashboardProvider).data != null;
+      final hasCoords = ref.read(locationProvider).activeLatitude != 0.0 ||
+          ref.read(locationProvider).activeLongitude != 0.0;
+      if (!weatherOk && !hasWeather && hasCoords) {
         state = state.copyWith(
           loadingWeather: LaunchStepStatus.failed,
           errorMessage: "Mausam couldn't refresh the latest weather.",
         );
         return;
       }
-      state = state.copyWith(loadingWeather: LaunchStepStatus.done);
+      state = state.copyWith(
+        loadingWeather: hasWeather ? LaunchStepStatus.done : LaunchStepStatus.blocked,
+      );
 
       // Insights feed is non-blocking.
       ref.read(homepageProvider.notifier).fetchHomeFeed();
@@ -116,11 +121,14 @@ class BootstrapNotifier extends Notifier<BootstrapState> {
       state = state.copyWith(ready: true, destination: LaunchDestination.home);
     } catch (e) {
       debugPrint('Bootstrap failed: $e');
+      final cached = ref.read(weatherDashboardProvider).data != null;
       state = state.copyWith(
-        errorMessage: "Mausam couldn't refresh the latest weather.",
+        errorMessage: cached ? null : "Mausam couldn't refresh the latest weather.",
         loadingWeather: state.loadingWeather == LaunchStepStatus.running
-            ? LaunchStepStatus.failed
+            ? (cached ? LaunchStepStatus.done : LaunchStepStatus.failed)
             : state.loadingWeather,
+        ready: cached,
+        destination: cached ? LaunchDestination.home : state.destination,
       );
     } finally {
       _running = false;

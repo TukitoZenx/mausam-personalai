@@ -36,6 +36,14 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
         ),
       ),
       GoRoute(
+        path: '/create-account',
+        name: 'create_account',
+        pageBuilder: (context, state) => mausamFadePage(
+          key: state.pageKey,
+          child: const LoginScreen(initialMode: AuthViewMode.createAccount),
+        ),
+      ),
+      GoRoute(
         path: '/onboarding',
         name: 'onboarding',
         pageBuilder: (context, state) => mausamFadePage(

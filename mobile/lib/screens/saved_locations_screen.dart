@@ -140,7 +140,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Failed to delete location'),
             backgroundColor: MausamPalette.cardSurface,
           ),

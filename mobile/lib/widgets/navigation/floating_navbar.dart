@@ -34,8 +34,9 @@ class FloatingNavbar extends StatelessWidget {
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: 0.62),
+              color: MausamPalette.cardSurface.withValues(alpha: 0.65),
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MausamPalette.cardBorder.withValues(alpha: 0.6), width: 1.0),
             ),
             child: Row(
               children: [

@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/homepage_provider.dart';
+import '../providers/location_provider.dart';
+import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
 import '../services/notification_service.dart';
+import '../widgets/cards/personalized_context_card.dart';
 import '../widgets/cards/recommended_section_widget.dart';
 import '../widgets/staggered_item_wrapper.dart';
 import '../widgets/weather/weather_sections.dart';
@@ -18,10 +21,17 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dash = ref.watch(weatherDashboardProvider);
+    final locState = ref.watch(locationProvider);
+    final userState = ref.watch(userProvider);
     final homeState = ref.watch(homepageProvider);
     final data = dash.data;
     final topCard = homeState.data?.cards.firstOrNull;
     final alert = _computeHomeAlert(data);
+    final persona = userState.selectedPersona;
+
+    final locationName = locState.cityName.isNotEmpty
+        ? locState.cityName
+        : (data?.current.location ?? 'Active Location');
 
     return RefreshIndicator(
       color: MausamPalette.textPrimary,
@@ -32,7 +42,7 @@ class HomeScreen extends ConsumerWidget {
       },
       child: dash.isLoading && data == null
           ? const WeatherSkeletonLoader()
-          : dash.errorMessage != null && data == null
+          : data == null
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(24, 78, 24, 24),
@@ -41,7 +51,9 @@ class HomeScreen extends ConsumerWidget {
                     const Icon(Icons.cloud_off_rounded, color: MausamPalette.textSecondary, size: 44),
                     const SizedBox(height: 16),
                     Text(
-                      'Weather Unavailable',
+                      locState.activeLatitude == 0 && locState.activeLongitude == 0
+                          ? 'Choose a location'
+                          : 'Weather Unavailable',
                       style: GoogleFonts.inter(
                         color: MausamPalette.textPrimary,
                         fontSize: 18,
@@ -51,7 +63,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Mausam couldn't refresh the latest weather.",
+                      locState.activeLatitude == 0 && locState.activeLongitude == 0
+                          ? 'Search a city to load live conditions.'
+                          : "Mausam couldn't refresh the latest weather.",
                       style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
@@ -63,63 +77,115 @@ class HomeScreen extends ConsumerWidget {
                           foregroundColor: MausamPalette.bgDeep,
                         ),
                         onPressed: () {
+                          if (locState.activeLatitude == 0 && locState.activeLongitude == 0) {
+                            context.go('/saved-locations');
+                            return;
+                          }
                           ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
                           ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
                         },
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Try Again'),
+                        icon: Icon(
+                          locState.activeLatitude == 0 && locState.activeLongitude == 0
+                              ? Icons.search_rounded
+                              : Icons.refresh_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          locState.activeLatitude == 0 && locState.activeLongitude == 0
+                              ? 'Search city'
+                              : 'Try Again',
+                        ),
                       ),
                     ),
                   ],
                 )
               : ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(14, 72, 14, 28),
+                  padding: const EdgeInsets.fromLTRB(16, 76, 16, 36),
                   children: [
-                    if (data != null) ...[
                       StaggeredItemWrapper(
                         index: 0,
+                        child: PersonalizedContextCard(
+                          locationName: locationName,
+                          dashboard: data,
+                          userStateOverride: userState,
+                          onTap: () => context.go('/insights'),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      StaggeredItemWrapper(
+                        index: 1,
                         child: HeroCurrentCard(
                           current: data.current,
                           hourly: data.hourly,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (topCard != null)
+                      const SizedBox(height: 18),
+                      if (topCard != null) ...[
                         StaggeredItemWrapper(
-                          index: 1,
+                          index: 2,
                           child: RecommendedSectionWidget(
                             card: topCard,
                             onTap: () => context.go('/insights'),
                           ),
                         ),
+                        const SizedBox(height: 18),
+                      ],
                       StaggeredItemWrapper(
-                        index: 2,
+                        index: 3,
                         child: HourlyForecastStrip(
                           hourly: data.hourly,
                           onMore: () => context.go('/forecast'),
                         ),
                       ),
-                      if (data.aqi != null)
-                        StaggeredItemWrapper(
-                          index: 3,
-                          child: AqiGaugeCard(aqi: data.aqi!),
-                        ),
-                      if (alert != null) ...[
+                      if (data.daily.isNotEmpty) ...[
+                        const SizedBox(height: 18),
                         StaggeredItemWrapper(
                           index: 4,
+                          child: DailyForecastPanel(days: data.daily),
+                        ),
+                      ],
+                      if (data.aqi != null) ...[
+                        const SizedBox(height: 18),
+                        StaggeredItemWrapper(
+                          index: 5,
+                          child: AqiGaugeCard(aqi: data.aqi!),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      StaggeredItemWrapper(
+                        index: 6,
+                        child: TodaysMetricsGrid(
+                          dashboard: data,
+                          persona: persona,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      StaggeredItemWrapper(
+                        index: 7,
+                        child: AdditionalConditionsSection(
+                          dashboard: data,
+                          persona: persona,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      StaggeredItemWrapper(
+                        index: 8,
+                        child: ConditionsAroundYouSection(
+                          dashboard: data,
+                          persona: persona,
+                        ),
+                      ),
+                      if (alert != null) ...[
+                        const SizedBox(height: 12),
+                        StaggeredItemWrapper(
+                          index: 9,
                           child: _HomeAlertBanner(
                             alert: alert,
                             onTap: () => context.go('/alerts'),
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
-                      StaggeredItemWrapper(
-                        index: 5,
-                        child: StatGrid(dashboard: data),
-                      ),
-                    ],
                   ],
                 ),
     );
@@ -245,7 +311,11 @@ class _HomeAlertBanner extends StatelessWidget {
                 color: MausamPalette.cardSurfaceLight,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(alert.icon, color: MausamPalette.textPrimary, size: 20),
+              child: Icon(
+                alert.icon,
+                color: alert.isSevere ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

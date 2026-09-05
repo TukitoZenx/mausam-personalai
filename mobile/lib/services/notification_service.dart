@@ -124,7 +124,7 @@ class NotificationService {
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
+          side: const BorderSide(
             color: MausamPalette.cardBorder,
           ),
         ),
@@ -134,7 +134,7 @@ class NotificationService {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: MausamPalette.cardSurfaceLight,
                 shape: BoxShape.circle,
               ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/weather_dashboard.dart';
+import '../services/open_meteo_weather_service.dart';
 import 'auth_provider.dart';
 import 'location_provider.dart';
 import 'user_provider.dart';
@@ -93,8 +94,13 @@ class WeatherDashboardNotifier extends Notifier<WeatherDashboardState> {
     final userState = ref.read(userProvider);
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
-    final lat = locationState.activeLatitude;
-    final lon = locationState.activeLongitude;
+    var lat = locationState.activeLatitude;
+    var lon = locationState.activeLongitude;
+    if (lat == 0.0 && lon == 0.0) {
+      await ref.read(locationProvider.notifier).restorePersisted();
+      lat = ref.read(locationProvider).activeLatitude;
+      lon = ref.read(locationProvider).activeLongitude;
+    }
     if (lat == 0.0 && lon == 0.0) {
       return;
     }
@@ -105,15 +111,32 @@ class WeatherDashboardNotifier extends Notifier<WeatherDashboardState> {
     }
     try {
       Map<String, dynamic>? aqiJson;
-      final forecastJson = await apiClient.fetchWeatherForecast(
-        lat: lat,
-        lon: lon,
-        idToken: idToken,
-      );
+      Map<String, dynamic> forecastJson;
       try {
-        aqiJson = await apiClient.fetchCurrentAqi(lat: lat, lon: lon, idToken: idToken);
+        forecastJson = await apiClient.fetchWeatherForecast(
+          lat: lat,
+          lon: lon,
+          idToken: idToken,
+        );
+        try {
+          aqiJson = await apiClient.fetchCurrentAqi(lat: lat, lon: lon, idToken: idToken);
+        } catch (_) {
+          aqiJson = null;
+        }
       } catch (_) {
-        aqiJson = null;
+        final remote = OpenMeteoWeatherService();
+        final name = ref.read(locationProvider).cityName;
+        forecastJson = await remote.fetchForecast(
+          lat: lat,
+          lon: lon,
+          locationName: name.isNotEmpty ? name : 'Active Location',
+        );
+        aqiJson = await remote.fetchAqi(lat: lat, lon: lon);
+      }
+      if (aqiJson == null) {
+        try {
+          aqiJson = await OpenMeteoWeatherService().fetchAqi(lat: lat, lon: lon);
+        } catch (_) {}
       }
       state = WeatherDashboardState(
         isLoading: false,

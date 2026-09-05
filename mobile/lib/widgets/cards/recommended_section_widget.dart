@@ -21,7 +21,6 @@ class RecommendedSectionWidget extends ConsumerWidget {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(16),
@@ -93,74 +92,38 @@ class RecommendedSectionWidget extends ConsumerWidget {
                     ),
                   ),
                   if (card.subtitle != null && card.subtitle!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       card.subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: MausamPalette.textSecondary,
                         fontWeight: FontWeight.w400,
+                        height: 1.35,
                       ),
                     ),
                   ],
                   const SizedBox(height: 12),
-                  if (card.effectiveReason.isNotEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: MausamPalette.bgDeep.withValues(alpha: surfaceOpacity * 0.7),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: MausamPalette.cardBorderSubtle),
+                  Row(
+                    children: [
+                      Text(
+                        card.actionLabel?.isNotEmpty == true ? card.actionLabel! : 'Why this matters',
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.lightbulb_outline_rounded,
-                            color: MausamPalette.textTertiary,
-                            size: 15,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              card.effectiveReason,
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: MausamPalette.textSecondary,
+                        size: 13,
                       ),
-                    ),
-                  if (card.actionLabel != null && card.actionLabel!.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            card.actionLabel!,
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: MausamPalette.textSecondary,
-                            size: 13,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
             ),
