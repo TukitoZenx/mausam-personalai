@@ -112,8 +112,7 @@ void main() {
       expect(find.text('My Locations'), findsOneWidget);
       expect(find.text('Extended Forecast'), findsOneWidget);
       expect(find.text('Health Metrics'), findsOneWidget);
-      expect(find.text('Alerts'), findsOneWidget);
-      expect(find.text('Travel & Commute'), findsOneWidget);
+      expect(find.text('Alerts & Travel'), findsOneWidget);
       expect(find.text('Profile & Settings'), findsOneWidget);
       expect(find.textContaining('MAUSAM'), findsWidgets);
     });

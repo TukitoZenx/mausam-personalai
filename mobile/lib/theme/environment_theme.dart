@@ -143,202 +143,162 @@ class WallpaperCatalog {
     return all.firstWhere((s) => s.id == theme, orElse: () => _dynamic);
   }
 
-  // ── Dynamic: brighter daytime, premium grayscale, smooth period lerp ──
+  // ── Unified Luxury Obsidian Night Atmosphere (Single Night Theme) ──
 
-  static const _dynamicDawn = EnvironmentGradient(
+  static const _obsidianNight = EnvironmentGradient(
     linearColors: [
-      Color(0xFF2A2A30),
-      Color(0xFF3C3C44),
-      Color(0xFF55555E),
-      Color(0xFF6E6E76),
-      Color(0xFF7A7A82),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.5,
-    glowY: 0.90,
-    glowRadius: 0.72,
-    glowColor: Color(0xFFE4E4E7),
-    glowOpacity: 0.28,
-    overlayAlphas: [0.14, 0.04, 0.0, 0.12, 0.26],
-  );
-
-  static const _dynamicMorning = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF4A4A52),
-      Color(0xFF63636C),
-      Color(0xFF7C7C86),
-      Color(0xFF95959E),
-      Color(0xFF82828A),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.78,
-    glowY: 0.16,
-    glowRadius: 0.62,
-    glowColor: Color(0xFFF4F4F5),
-    glowOpacity: 0.32,
-    overlayAlphas: [0.08, 0.02, 0.0, 0.10, 0.22],
-  );
-
-  static const _dynamicAfternoon = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF5A5A62),
-      Color(0xFF73737C),
-      Color(0xFF8C8C94),
-      Color(0xFFA3A3AA),
-      Color(0xFF8A8A92),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.70,
-    glowY: 0.12,
-    glowRadius: 0.68,
-    glowColor: Color(0xFFFAFAFA),
-    glowOpacity: 0.34,
-    overlayAlphas: [0.06, 0.0, 0.0, 0.08, 0.20],
-  );
-
-  static const _dynamicEvening = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF222226),
-      Color(0xFF2E2E32),
-      Color(0xFF3C3C42),
-      Color(0xFF4E4E54),
-      Color(0xFF3A3A40),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.82,
-    glowY: 0.80,
-    glowRadius: 0.70,
-    glowColor: Color(0xFFD4D4D8),
-    glowOpacity: 0.22,
-    overlayAlphas: [0.16, 0.06, 0.02, 0.16, 0.32],
-  );
-
-  static const _dynamicDusk = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF121214),
-      Color(0xFF18181B),
-      Color(0xFF202024),
-      Color(0xFF2A2A30),
-      Color(0xFF1C1C20),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.65,
-    glowY: 0.88,
-    glowRadius: 0.55,
-    glowColor: Color(0xFFA1A1AA),
-    glowOpacity: 0.14,
-    overlayAlphas: [0.22, 0.10, 0.04, 0.20, 0.38],
-  );
-
-  static const _dynamicNight = EnvironmentGradient(
-    linearColors: [
+      Color(0xFF030304),
       Color(0xFF050506),
-      Color(0xFF09090B),
-      Color(0xFF0E0E10),
-      Color(0xFF121214),
+      Color(0xFF070709),
       Color(0xFF0A0A0C),
+      Color(0xFF050506),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.32,
+    glowX: 0.45,
+    glowY: 0.14,
+    glowRadius: 0.60,
+    glowColor: Color(0xFFA1A1AA),
+    glowOpacity: 0.08,
+    overlayAlphas: [0.28, 0.14, 0.08, 0.24, 0.44],
+  );
+
+  static const _obsidianDawn = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF050507),
+      Color(0xFF07070A),
+      Color(0xFF09090D),
+      Color(0xFF0D0D12),
+      Color(0xFF060609),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.40,
     glowY: 0.12,
-    glowRadius: 0.55,
+    glowRadius: 0.62,
+    glowColor: Color(0xFFC4C4CD),
+    glowOpacity: 0.09,
+    overlayAlphas: [0.26, 0.12, 0.06, 0.22, 0.42],
+  );
+
+  static const _obsidianMorning = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF07070A),
+      Color(0xFF0A0A0E),
+      Color(0xFF0E0E14),
+      Color(0xFF13131A),
+      Color(0xFF08080C),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.35,
+    glowY: 0.10,
+    glowRadius: 0.65,
     glowColor: Color(0xFFD4D4D8),
     glowOpacity: 0.10,
-    overlayAlphas: [0.28, 0.12, 0.06, 0.24, 0.44],
+    overlayAlphas: [0.24, 0.10, 0.05, 0.20, 0.40],
+  );
+
+  static const _obsidianAfternoon = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF09090D),
+      Color(0xFF0D0D13),
+      Color(0xFF12121A),
+      Color(0xFF171722),
+      Color(0xFF0B0B10),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.35,
+    glowY: 0.08,
+    glowRadius: 0.68,
+    glowColor: Color(0xFFE4E4E7),
+    glowOpacity: 0.11,
+    overlayAlphas: [0.22, 0.08, 0.04, 0.18, 0.38],
+  );
+
+  static const _obsidianGoldenHour = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF08080B),
+      Color(0xFF0B0B0F),
+      Color(0xFF101016),
+      Color(0xFF14141D),
+      Color(0xFF09090D),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.40,
+    glowY: 0.12,
+    glowRadius: 0.64,
+    glowColor: Color(0xFFD4D4D8),
+    glowOpacity: 0.10,
+    overlayAlphas: [0.25, 0.11, 0.06, 0.21, 0.41],
+  );
+
+  static const _obsidianDusk = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF050507),
+      Color(0xFF07070A),
+      Color(0xFF0A0A0D),
+      Color(0xFF0E0E13),
+      Color(0xFF060608),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.45,
+    glowY: 0.15,
+    glowRadius: 0.60,
+    glowColor: Color(0xFFA1A1AA),
+    glowOpacity: 0.08,
+    overlayAlphas: [0.27, 0.13, 0.07, 0.23, 0.43],
   );
 
   static const WallpaperSpec _dynamic = WallpaperSpec(
     id: WallpaperTheme.dynamic,
-    title: 'Mausam Dynamic',
-    subtitle: 'Changes with the time of day',
+    title: 'Mausam Obsidian Night',
+    subtitle: 'Deep luxury night atmosphere',
     isDynamic: true,
     isDefault: true,
     previewColors: [
-      Color(0xFFA3A3AA),
-      Color(0xFF7C7C86),
-      Color(0xFF3C3C42),
-      Color(0xFF09090B),
+      Color(0xFF050506),
+      Color(0xFF0C0C0E),
+      Color(0xFF101013),
+      Color(0xFF18181B),
     ],
     periods: {
-      TimeOfDayPeriod.dawn: _dynamicDawn,
-      TimeOfDayPeriod.morning: _dynamicMorning,
-      TimeOfDayPeriod.afternoon: _dynamicAfternoon,
-      TimeOfDayPeriod.goldenHour: _dynamicEvening,
-      TimeOfDayPeriod.dusk: _dynamicDusk,
-      TimeOfDayPeriod.night: _dynamicNight,
+      TimeOfDayPeriod.dawn: _obsidianDawn,
+      TimeOfDayPeriod.morning: _obsidianMorning,
+      TimeOfDayPeriod.afternoon: _obsidianAfternoon,
+      TimeOfDayPeriod.goldenHour: _obsidianGoldenHour,
+      TimeOfDayPeriod.dusk: _obsidianDusk,
+      TimeOfDayPeriod.night: _obsidianNight,
     },
-  );
-
-  // ── Wallpaper 2: fixed mid-slate. Independent of hour and weather. ──
-
-  static const _fixed2 = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF2A2A30),
-      Color(0xFF34343A),
-      Color(0xFF3E3E44),
-      Color(0xFF48484E),
-      Color(0xFF38383E),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.5,
-    glowY: 0.18,
-    glowRadius: 0.70,
-    glowColor: Color(0xFFD4D4D8),
-    glowOpacity: 0.12,
-    overlayAlphas: [0.16, 0.06, 0.02, 0.16, 0.30],
   );
 
   static const WallpaperSpec _wallpaper2 = WallpaperSpec(
     id: WallpaperTheme.wallpaper2,
-    title: 'Wallpaper 2',
-    subtitle: 'Fixed wallpaper',
+    title: 'Obsidian Pure',
+    subtitle: 'High-contrast pure OLED black',
     isDynamic: false,
     previewColors: [
-      Color(0xFF2A2A30),
-      Color(0xFF3E3E44),
-      Color(0xFF48484E),
+      Color(0xFF030304),
+      Color(0xFF060607),
+      Color(0xFF0A0A0C),
     ],
-    fixed: _fixed2,
-  );
-
-  // ── Wallpaper 3: fixed deep obsidian. Independent of hour and weather. ──
-
-  static const _fixed3 = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF070708),
-      Color(0xFF0C0C0E),
-      Color(0xFF121214),
-      Color(0xFF18181B),
-      Color(0xFF0E0E10),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.28,
-    glowY: 0.10,
-    glowRadius: 0.50,
-    glowColor: Color(0xFFA1A1AA),
-    glowOpacity: 0.08,
-    overlayAlphas: [0.30, 0.14, 0.08, 0.26, 0.46],
+    fixed: _obsidianNight,
   );
 
   static const WallpaperSpec _wallpaper3 = WallpaperSpec(
     id: WallpaperTheme.wallpaper3,
-    title: 'Wallpaper 3',
-    subtitle: 'Fixed wallpaper',
+    title: 'Obsidian Nebula',
+    subtitle: 'Subtle celestial radiance',
     isDynamic: false,
     previewColors: [
-      Color(0xFF070708),
-      Color(0xFF121214),
-      Color(0xFF18181B),
+      Color(0xFF070709),
+      Color(0xFF0E0E12),
+      Color(0xFF141418),
     ],
-    fixed: _fixed3,
+    fixed: _obsidianAfternoon,
   );
 }
 

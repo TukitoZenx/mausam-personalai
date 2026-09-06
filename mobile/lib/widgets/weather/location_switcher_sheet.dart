@@ -79,7 +79,9 @@ Future<void> showLocationSwitcherSheet({
                             ),
                           ),
                           subtitle: Text(
-                            locState.deviceCityName ?? 'Live GPS Location',
+                            (locState.deviceCityName != null && locState.deviceCityName != 'Locating...')
+                                ? locState.deviceCityName!
+                                : 'Live GPS Location',
                             style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
                           ),
                           trailing: !locState.isCustomSelected

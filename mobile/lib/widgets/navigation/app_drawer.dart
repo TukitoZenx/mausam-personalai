@@ -71,17 +71,10 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Alerts',
-                      icon: Icons.warning_amber_rounded,
+                      title: 'Alerts & Travel',
+                      icon: Icons.travel_explore_rounded,
                       route: '/alerts',
                       isActive: currentRoute == '/alerts',
-                    ),
-                    _drawerItem(
-                      context: context,
-                      title: 'Travel & Commute',
-                      icon: Icons.commute_rounded,
-                      route: '/insights',
-                      isActive: false,
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
@@ -98,14 +91,48 @@ class MausamAppDrawer extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'Mausam AI v1.0 • SIH MVP',
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Mausam PersonalAI',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'v1.0 • Weather Intelligence',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textTertiary,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -125,12 +152,13 @@ class MausamAppDrawer extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isActive ? MausamPalette.cardSurface : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         border: isActive ? Border.all(color: MausamPalette.cardBorder) : null,
       ),
       child: Material(
-        color: Colors.transparent,
+        color: isActive ? MausamPalette.cardSurface : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
         child: ListTile(
           dense: true,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

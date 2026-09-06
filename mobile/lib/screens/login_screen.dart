@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
         ),
         backgroundColor: MausamPalette.cardSurfaceLight,
         behavior: SnackBarBehavior.floating,
@@ -80,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
         ),
         backgroundColor: MausamPalette.cardSurfaceLight,
         behavior: SnackBarBehavior.floating,
@@ -332,34 +332,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       hintText: hintText,
       hintStyle: GoogleFonts.inter(
         color: MausamPalette.textMuted,
-        fontSize: 13,
+        fontSize: 12.5,
       ),
       filled: true,
       fillColor: const Color(0xFF141417),
       prefixIcon: Icon(
         prefixIcon,
         color: MausamPalette.textTertiary,
-        size: 18,
+        size: 16,
       ),
       suffixIcon: suffixIcon,
+      isDense: true,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
+        horizontal: 14,
+        vertical: 11,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: MausamPalette.cardBorder, width: 1),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF27272A), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: MausamPalette.textPrimary, width: 1.2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFFAFAFA), width: 1.2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.2),
       ),
     );
@@ -379,21 +380,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Center(
                 child: SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+                    constraints: const BoxConstraints(maxWidth: 380),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Top Brand Identity
-                        const AnimatedLogoContainer(height: 58),
-                        const SizedBox(height: 12),
+                        // Top Brand Identity (Spacious, airy feel)
+                        const SizedBox(height: 6),
+                        const AnimatedLogoContainer(height: 52),
+                        const SizedBox(height: 10),
                         Text(
                           'MAUSAM',
                           style: GoogleFonts.inter(
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 4.0,
+                            letterSpacing: 4.5,
                             color: MausamPalette.textPrimary,
                           ),
                         ),
@@ -401,42 +403,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Text(
                           'PERSONAL WEATHER INTELLIGENCE',
                           style: GoogleFonts.inter(
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w600,
-                            letterSpacing: 1.8,
+                            letterSpacing: 2.0,
                             color: MausamPalette.textTertiary,
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
-                        // Translucent Obsidian Auth Surface
+                        // Sleek, Minimalist Auth Surface (< 45% screen height)
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(20),
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                             child: Container(
-                              padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                              padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
-                                color: MausamPalette.cardSurface.withValues(alpha: 0.78),
-                                borderRadius: BorderRadius.circular(22),
+                                color: const Color(0xAA0E0E12),
+                                borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: MausamPalette.cardBorder.withValues(alpha: 0.8),
+                                  color: Colors.white.withValues(alpha: 0.08),
                                   width: 1,
                                 ),
-                                boxShadow: MausamPalette.heroShadow,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Section Header
+                                  // Compact Mode Pill Switcher
                                   Container(
-                                    padding: const EdgeInsets.all(3),
+                                    height: 36,
+                                    padding: const EdgeInsets.all(2.5),
                                     decoration: BoxDecoration(
-                                      color: MausamPalette.bgDeep.withValues(alpha: 0.55),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: MausamPalette.cardBorder),
+                                      color: const Color(0xFF141417),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFF27272A),
+                                        width: 1,
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
@@ -445,45 +450,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 18),
+                                  const SizedBox(height: 14),
+
                                   Text(
                                     isSignIn ? 'Welcome back' : 'Create an account',
                                     style: GoogleFonts.inter(
-                                      fontSize: 22,
+                                      fontSize: 17,
                                       fontWeight: FontWeight.w700,
                                       color: MausamPalette.textPrimary,
-                                      letterSpacing: -0.4,
+                                      letterSpacing: -0.3,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                   Text(
                                     isSignIn
                                         ? 'Continue with email or Google.'
                                         : 'A few details, then we personalize the day.',
                                     style: GoogleFonts.inter(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       color: MausamPalette.textSecondary,
                                     ),
                                   ),
 
                                   if (_inlineError != null) ...[
-                                    const SizedBox(height: 14),
+                                    const SizedBox(height: 10),
                                     Container(
                                       width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: MausamPalette.cardSurfaceLight,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(color: MausamPalette.cardBorder, width: 1),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                                          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 15),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               _inlineError!,
-                                              style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
+                                              style: GoogleFonts.inter(color: Colors.white, fontSize: 11.5),
                                             ),
                                           ),
                                         ],
@@ -491,7 +497,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ],
 
-                                  const SizedBox(height: 18),
+                                  const SizedBox(height: 14),
 
                                   // Name Field (Create Account mode only)
                                   if (!isSignIn) ...[
@@ -506,7 +512,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         prefixIcon: Icons.person_outline_rounded,
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 10),
                                   ],
 
                                   // Email Field
@@ -522,7 +528,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
 
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
 
                                   // Password Field
                                   TextField(
@@ -535,12 +541,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       hintText: 'Password',
                                       prefixIcon: Icons.lock_outline_rounded,
                                       suffixIcon: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                         icon: Icon(
                                           _obscurePassword
                                               ? Icons.visibility_outlined
                                               : Icons.visibility_off_outlined,
                                           color: MausamPalette.textTertiary,
-                                          size: 18,
+                                          size: 16,
                                         ),
                                         onPressed: () {
                                           setState(() {
@@ -553,7 +561,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                                   // Confirm Password Field (Create Account mode only)
                                   if (!isSignIn) ...[
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 10),
                                     TextField(
                                       controller: _confirmPasswordController,
                                       enabled: !_isSubmitting,
@@ -563,12 +571,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         hintText: 'Confirm password',
                                         prefixIcon: Icons.lock_reset_rounded,
                                         suffixIcon: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
                                           icon: Icon(
                                             _obscureConfirmPassword
                                                 ? Icons.visibility_outlined
                                                 : Icons.visibility_off_outlined,
                                             color: MausamPalette.textTertiary,
-                                            size: 18,
+                                            size: 16,
                                           ),
                                           onPressed: () {
                                             setState(() {
@@ -586,45 +596,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       child: TextButton(
                                         onPressed: _isSubmitting ? null : _handleForgotPassword,
                                         style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                           minimumSize: Size.zero,
                                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                         ),
                                         child: Text(
                                           'Forgot password?',
                                           style: GoogleFonts.inter(
-                                            fontSize: 12,
+                                            fontSize: 11.5,
                                             color: MausamPalette.textSecondary,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6),
                                   ] else
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 12),
 
-                                  // Primary Button
+                                  // Primary Action Button (42px compact)
                                   SizedBox(
                                     width: double.infinity,
-                                    height: 48,
+                                    height: 42,
                                     child: ElevatedButton(
                                       key: const Key('continue_with_email_button'),
                                       onPressed: _isSubmitting
                                           ? null
                                           : (isSignIn ? _handleSignInSubmit : _handleCreateAccountSubmit),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: MausamPalette.textPrimary,
-                                        foregroundColor: MausamPalette.bgDeep,
+                                        backgroundColor: const Color(0xFFFAFAFA),
+                                        foregroundColor: const Color(0xFF09090B),
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
                                       ),
                                       child: Text(
                                         isSignIn ? 'Sign In' : 'Create Account',
                                         key: const Key('sign_in_button'),
                                         style: GoogleFonts.inter(
-                                          fontSize: 14,
+                                          fontSize: 13.5,
                                           fontWeight: FontWeight.w600,
                                           letterSpacing: 0.2,
                                         ),
@@ -632,23 +642,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
 
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
 
-                                  // Minimal Divider
+                                  // Hairline Divider
                                   Row(
                                     children: [
                                       Expanded(
                                         child: Container(
                                           height: 1,
-                                          color: MausamPalette.cardBorder,
+                                          color: const Color(0xFF27272A),
                                         ),
                                       ),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
                                         child: Text(
                                           'or continue with',
                                           style: GoogleFonts.inter(
-                                            fontSize: 11,
+                                            fontSize: 10.5,
                                             color: MausamPalette.textTertiary,
                                           ),
                                         ),
@@ -656,35 +666,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       Expanded(
                                         child: Container(
                                           height: 1,
-                                          color: MausamPalette.cardBorder,
+                                          color: const Color(0xFF27272A),
                                         ),
                                       ),
                                     ],
                                   ),
 
-                                  const SizedBox(height: 14),
+                                  const SizedBox(height: 12),
 
-                                  // Google Button
+                                  // Google Button (42px compact)
                                   SizedBox(
                                     width: double.infinity,
-                                    height: 46,
+                                    height: 42,
                                     child: OutlinedButton(
                                       key: const Key('google_sign_in_button'),
                                       onPressed: _isSubmitting ? null : _handleGoogleAuth,
                                       style: OutlinedButton.styleFrom(
                                         backgroundColor: const Color(0xFF141417),
                                         foregroundColor: MausamPalette.textPrimary,
-                                        side: const BorderSide(color: MausamPalette.cardBorder, width: 1),
+                                        side: const BorderSide(color: Color(0xFF27272A), width: 1),
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
                                       ),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          const GoogleIconWidget(size: 18),
-                                          const SizedBox(width: 10),
+                                          const GoogleIconWidget(size: 16),
+                                          const SizedBox(width: 8),
                                           Text(
                                             'Google',
                                             style: GoogleFonts.inter(
@@ -698,7 +708,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
 
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
 
                                   // Mode Switcher Link
                                   Center(
@@ -711,7 +721,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               ? "Don't have an account? "
                                               : "Already have an account? ",
                                           style: GoogleFonts.inter(
-                                            fontSize: 12,
+                                            fontSize: 11.5,
                                             color: MausamPalette.textSecondary,
                                           ),
                                         ),
@@ -729,7 +739,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           child: Text(
                                             isSignIn ? 'Create an account' : 'Sign in',
                                             style: GoogleFonts.inter(
-                                              fontSize: 12,
+                                              fontSize: 11.5,
                                               fontWeight: FontWeight.w600,
                                               color: MausamPalette.textPrimary,
                                               decoration: TextDecoration.underline,
@@ -740,7 +750,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
 
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 4),
 
                                   // Continue as Guest Button
                                   Center(
@@ -755,7 +765,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       child: Text(
                                         'Continue as Guest',
                                         style: GoogleFonts.inter(
-                                          fontSize: 12,
+                                          fontSize: 11.5,
                                           color: MausamPalette.textTertiary,
                                         ),
                                       ),
@@ -767,16 +777,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
                         // Subtle Terms and Privacy
                         Text(
                           'By continuing, you agree to Mausam Terms of Service and Privacy Policy.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
-                            fontSize: 10,
+                            fontSize: 9.5,
                             color: MausamPalette.textMuted,
-                            height: 1.4,
+                            height: 1.3,
                           ),
                         ),
                       ],
@@ -788,13 +798,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Full Screen Submitting Indicator
               if (_isSubmitting)
                 Container(
-                  color: Colors.black.withValues(alpha: 0.55),
+                  color: Colors.black.withValues(alpha: 0.6),
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       decoration: BoxDecoration(
                         color: MausamPalette.cardSurface,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: MausamPalette.cardBorder),
                         boxShadow: MausamPalette.heroShadow,
                       ),
@@ -802,18 +812,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(
-                            width: 24,
-                            height: 24,
+                            width: 22,
+                            height: 22,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
+                              strokeWidth: 2.0,
                               valueColor: AlwaysStoppedAnimation<Color>(MausamPalette.textPrimary),
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
                           Text(
                             isSignIn ? 'Signing you in...' : 'Creating your account...',
                             style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w500,
                               color: MausamPalette.textPrimary,
                             ),
@@ -842,18 +852,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 });
               },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          duration: const Duration(milliseconds: 160),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? MausamPalette.cardSurfaceLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
+            color: selected ? const Color(0xFF27272A) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? MausamPalette.textPrimary : MausamPalette.textTertiary,
             ),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/providers/user_provider.dart';
 import 'package:mobile/screens/login_screen.dart';
 import 'package:mobile/screens/onboarding_screen.dart';
 import 'package:mobile/widgets/navigation/floating_navbar.dart';
@@ -99,10 +100,213 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Choose Your Persona'), findsOneWidget);
+        expect(find.text('About You'), findsOneWidget);
         expect(tester.takeException(), isNull, reason: 'Zero layout overflow at ${width}px');
       });
     }
+
+    testWidgets('renders About You slide with interactive sliders, 2x2 gender pills, and buttons', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('STEP 1 / YOUR BASICS'), findsOneWidget);
+      expect(find.textContaining('A little context'), findsOneWidget);
+      expect(find.text('About You'), findsOneWidget);
+      expect(find.byKey(const Key('about_you_age_slider')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_gender_female')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_gender_male')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_gender_non_binary')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_gender_prefer_not')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_height_slider')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_weight_slider')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_continue_button')), findsOneWidget);
+      expect(find.byKey(const Key('about_you_skip_button')), findsOneWidget);
+    });
+
+    testWidgets('allows selecting gender from 2x2 grid', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Tap Male
+      await tester.tap(find.byKey(const Key('about_you_gender_male')));
+      await tester.pump();
+
+      expect(find.text('Male'), findsOneWidget);
+    });
+
+    testWidgets('transitions to Choose Your Persona on Skip for now', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('about_you_skip_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose Your Persona'), findsOneWidget);
+    });
+
+    testWidgets('transitions to Choose Your Persona on Save & continue', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('about_you_gender_female')));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('about_you_continue_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose Your Persona'), findsOneWidget);
+    });
+
+    testWidgets('allows selecting multiple personas and advancing to Smart Alerts', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Skip slide 0 to reach slide 1
+      await tester.tap(find.byKey(const Key('about_you_skip_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose Your Persona'), findsOneWidget);
+
+      // Tap Traveler as second persona
+      await tester.tap(find.text('Traveler'));
+      await tester.pump();
+
+      // Tap Commuter as third persona
+      await tester.tap(find.text('Commuter'));
+      await tester.pump();
+
+      // Tap Continue to reach Slide 2 (Smart Alerts)
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('What does the'), findsOneWidget);
+      expect(find.text('WEATHER & AIR TRIGGERS'), findsOneWidget);
+      expect(find.text('HEALTH CONCERNS'), findsOneWidget);
+      expect(find.text('Tune my alerts'), findsOneWidget);
+    });
+
+    testWidgets('toggles triggers and concerns, configures rhythm, and completes to Location Access', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Skip slide 0
+      await tester.tap(find.byKey(const Key('about_you_skip_button')));
+      await tester.pumpAndSettle();
+
+      // Continue slide 1
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Toggle Humidity trigger
+      await tester.tap(find.text('Humidity'));
+      await tester.pump();
+
+      // Toggle Asthma health concern
+      await tester.tap(find.text('Asthma'));
+      await tester.pump();
+
+      // Tap Tune my alerts to reach Slide 3 (Your Rhythm)
+      await tester.tap(find.byKey(const Key('tune_my_alerts_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('What should'), findsOneWidget);
+      expect(find.text('WHAT MATTERS MOST'), findsOneWidget);
+      expect(find.text('YOUR USUAL ACTIVITY'), findsOneWidget);
+      expect(find.text('Your first insight'), findsOneWidget);
+      expect(find.text('See my plan'), findsOneWidget);
+
+      // Tap See my plan to reach Slide 4 (Location Access)
+      await tester.tap(find.byKey(const Key('see_my_plan_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Location Access'), findsOneWidget);
+    });
+
+    testWidgets('interacts with rhythm preferences (matters most & activity level) and persists state', (tester) async {
+      late final ProviderContainer container;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: Consumer(
+            builder: (context, ref, child) {
+              container = ProviderScope.containerOf(context);
+              return const MaterialApp(
+                home: OnboardingScreen(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Skip slide 0
+      await tester.tap(find.byKey(const Key('about_you_skip_button')));
+      await tester.pumpAndSettle();
+
+      // Continue slide 1
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Continue slide 2
+      await tester.tap(find.byKey(const Key('tune_my_alerts_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('What should'), findsOneWidget);
+
+      // Select 'Fitness' in What matters most
+      await tester.tap(find.byKey(const Key('matter_Fitness')));
+      await tester.pump();
+
+      // Select 'Moderate' in Activity level
+      await tester.tap(find.byKey(const Key('activity_Moderate')));
+      await tester.pump();
+
+      // Tap See my plan
+      await tester.tap(find.byKey(const Key('see_my_plan_button')));
+      await tester.pumpAndSettle();
+
+      // Verify UserState updated
+      final userState = container.read(userProvider);
+      expect(userState.whatMattersMost, containsAll(['Daily energy', 'Fitness']));
+      expect(userState.activityLevel, equals('Moderate'));
+
+      expect(find.text('Location Access'), findsOneWidget);
+    });
   });
 
   group('FloatingNavbar Polish Tests', () {

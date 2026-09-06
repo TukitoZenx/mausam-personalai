@@ -12,6 +12,7 @@ import '../theme/weather_palette.dart';
 import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
 import '../widgets/weather/weather_intel.dart';
+import '../widgets/weather/weather_sections.dart';
 
 class InsightsScreen extends ConsumerWidget {
   const InsightsScreen({super.key});
@@ -114,6 +115,29 @@ class InsightsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                const SizedBox(height: 14),
+                _sectionLabel('HEALTH METRICS'),
+                const SizedBox(height: 10),
+                if (data.aqi != null)
+                  StaggeredItemWrapper(
+                    index: 5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: AqiGaugeCard(aqi: data.aqi!),
+                    ),
+                  ),
+                StaggeredItemWrapper(
+                  index: 6,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _HealthPrecautionsCard(
+                      aqi: data.aqi,
+                      current: data.current,
+                      triggers: userState.weatherTriggers,
+                      concerns: userState.healthConcerns,
+                    ),
+                  ),
+                ),
               ],
               const SizedBox(height: 10),
               _sectionLabel('BEST TIME'),
@@ -667,3 +691,146 @@ List<_BestWindow> _computeBestWindows({
       ),
   ];
 }
+
+class _HealthPrecautionsCard extends StatelessWidget {
+  final AqiSnapshot? aqi;
+  final CurrentConditions current;
+  final List<String> triggers;
+  final List<String> concerns;
+
+  const _HealthPrecautionsCard({
+    required this.aqi,
+    required this.current,
+    required this.triggers,
+    required this.concerns,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final aqiVal = aqi?.aqiValue ?? 0;
+    final cat = aqi?.category ?? 'Good';
+    final temp = current.temperatureCelsius.round();
+    final humidity = current.humidityPercent;
+    final uv = current.uvIndex;
+
+    final precautions = <Map<String, dynamic>>[];
+
+    // AQI / Respiratory check
+    if (aqiVal >= 150 || concerns.contains('Asthma')) {
+      precautions.add({
+        'icon': Icons.air_rounded,
+        'title': 'Air Quality: $cat (AQI $aqiVal)',
+        'detail': 'High particle load. Asthmatics and sensitive groups should limit strenuous outdoor efforts.',
+        'isWarn': aqiVal >= 100,
+      });
+    } else {
+      precautions.add({
+        'icon': Icons.air_rounded,
+        'title': 'Air Quality: $cat (AQI $aqiVal)',
+        'detail': 'Normal outdoor breathing conditions. Low risk for healthy individuals.',
+        'isWarn': false,
+      });
+    }
+
+    // Thermal / Heat check
+    if (temp >= 33 || triggers.contains('Heat')) {
+      precautions.add({
+        'icon': Icons.thermostat_rounded,
+        'title': 'Thermal Load: $temp°C · Feels ${(current.feelsLikeCelsius ?? temp).round()}°C',
+        'detail': 'Heat stress risk elevated. Stay hydrated and avoid sustained direct sunlight.',
+        'isWarn': temp >= 33,
+      });
+    }
+
+    // Humidity / Allergies / Dust
+    if (humidity >= 75 || triggers.contains('Humidity') || triggers.contains('Dust')) {
+      precautions.add({
+        'icon': Icons.water_drop_outlined,
+        'title': 'Humidity & Allergens: $humidity%',
+        'detail': 'Damp air slows perspiration. Dust & mold spores may linger in still air.',
+        'isWarn': humidity >= 80,
+      });
+    }
+
+    // UV Index check
+    if (uv >= 6 || triggers.contains('UV / sun') || concerns.contains('Skin sensitivity')) {
+      precautions.add({
+        'icon': Icons.wb_sunny_outlined,
+        'title': 'UV Radiation: ${uv.toStringAsFixed(1)} (High Exposure)',
+        'detail': 'Apply SPF 30+ sunscreen and wear sunglasses between 11 AM and 4 PM.',
+        'isWarn': uv >= 7,
+      });
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: MausamPalette.cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MausamPalette.cardBorder),
+        boxShadow: MausamPalette.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.health_and_safety_rounded, color: MausamPalette.textPrimary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Personalized Health Guard',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (int i = 0; i < precautions.length; i++) ...[
+            if (i > 0) const Divider(color: MausamPalette.cardBorderSubtle, height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  precautions[i]['icon'] as IconData,
+                  size: 16,
+                  color: (precautions[i]['isWarn'] as bool)
+                      ? const Color(0xFFFBBF24)
+                      : MausamPalette.textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        precautions[i]['title'] as String,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textPrimary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        precautions[i]['detail'] as String,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textSecondary,
+                          fontSize: 11.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

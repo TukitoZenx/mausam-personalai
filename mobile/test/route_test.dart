@@ -90,7 +90,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Choose Your Persona'), findsOneWidget);
+    expect(find.text('About You'), findsOneWidget);
   });
 
   testWidgets('App renders ForecastScreen at /forecast', (WidgetTester tester) async {

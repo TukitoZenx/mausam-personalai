@@ -247,24 +247,26 @@ class PersonalizedContextCard extends ConsumerWidget {
                         children: [
                           Text(
                             '$greeting, $userName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: MausamPalette.textPrimary,
-                              fontSize: 15,
+                              fontSize: 14.5,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.2,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Personalised for $cleanLocation',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: MausamPalette.textSecondary,
-                              fontSize: 12,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w400,
                               letterSpacing: -0.1,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),

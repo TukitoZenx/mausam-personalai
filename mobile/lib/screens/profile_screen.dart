@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
-import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
@@ -19,8 +19,72 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _notifications = true;
+  final bool _notifications = true;
   bool _locationAccess = true;
+  bool _tempIsCelsius = true;
+  bool _windIsKmh = true;
+  bool _offlineCacheEnabled = true;
+  bool _notifyRain = true;
+  bool _notifyAqi = true;
+  bool _morningBrief = true;
+  String _cacheSize = '1.4 MB';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalPrefs();
+  }
+
+  Future<void> _loadLocalPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _tempIsCelsius = prefs.getBool('pref_temp_celsius') ?? true;
+        _windIsKmh = prefs.getBool('pref_wind_kmh') ?? true;
+        _offlineCacheEnabled = prefs.getBool('pref_offline_cache') ?? true;
+        _notifyRain = prefs.getBool('notify_rain') ?? true;
+        _notifyAqi = prefs.getBool('notify_aqi') ?? true;
+        _morningBrief = prefs.getBool('pref_morning_brief') ?? true;
+        final raw = prefs.getString('weather_dashboard_cache_v1');
+        if (raw == null || raw.isEmpty) {
+          _cacheSize = '0 KB';
+        } else {
+          final kb = (raw.length / 1024).toStringAsFixed(1);
+          _cacheSize = '$kb KB';
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveBoolPref(String key, bool val) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(key, val);
+    } catch (_) {}
+  }
+
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('weather_dashboard_cache_v1');
+      if (!mounted) return;
+      setState(() {
+        _cacheSize = '0 KB';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Weather cache cleared successfully (0 KB).',
+            style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+          ),
+          backgroundColor: MausamPalette.cardSurface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } catch (_) {}
+  }
 
   Future<void> _updatePersona(String persona) async {
     final userNotifier = ref.read(userProvider.notifier);
@@ -180,8 +244,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             const SizedBox(height: 24),
 
+            // Units of Measure
             Text(
-              'HOME WALLPAPER',
+              'UNITS OF MEASURE',
               style: GoogleFonts.inter(
                 color: MausamPalette.textTertiary,
                 fontSize: 11,
@@ -194,32 +259,116 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             StaggeredItemWrapper(
               index: 2,
-              child: Consumer(
-                builder: (context, ref, child) {
-                  final selected = ref.watch(appearanceProvider).wallpaperTheme;
-                  return Column(
-                    children: [
-                      for (int i = 0; i < WallpaperCatalog.all.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 10),
-                        _wallpaperRow(
-                          spec: WallpaperCatalog.all[i],
-                          isSelected: selected == WallpaperCatalog.all[i].id,
-                          onTap: () => ref
-                              .read(appearanceProvider.notifier)
-                              .setWallpaperTheme(WallpaperCatalog.all[i].id),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Temperature',
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textPrimary,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _tempIsCelsius ? 'Metric (°Celsius)' : 'Imperial (°Fahrenheit)',
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textSecondary,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141417),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF27272A)),
+                          ),
+                          child: Row(
+                            children: [
+                              _unitButton('°C', _tempIsCelsius, () {
+                                setState(() => _tempIsCelsius = true);
+                                _saveBoolPref('pref_temp_celsius', true);
+                              }),
+                              _unitButton('°F', !_tempIsCelsius, () {
+                                setState(() => _tempIsCelsius = false);
+                                _saveBoolPref('pref_temp_celsius', false);
+                              }),
+                            ],
+                          ),
                         ),
                       ],
-                    ],
-                  );
-                },
+                    ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Wind & Speed',
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textPrimary,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _windIsKmh ? 'Kilometers/hour (km/h)' : 'Miles/hour (mph)',
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textSecondary,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141417),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF27272A)),
+                          ),
+                          child: Row(
+                            children: [
+                              _unitButton('km/h', _windIsKmh, () {
+                                setState(() => _windIsKmh = true);
+                                _saveBoolPref('pref_wind_kmh', true);
+                              }),
+                              _unitButton('mph', !_windIsKmh, () {
+                                setState(() => _windIsKmh = false);
+                                _saveBoolPref('pref_wind_kmh', false);
+                              }),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Appearance & Widget Transparency
+            // Appearance: Single Obsidian Night Theme
             Text(
-              'WIDGET TRANSPARENCY',
+              'APPEARANCE & ATMOSPHERE',
               style: GoogleFonts.inter(
                 color: MausamPalette.textTertiary,
                 fontSize: 11,
@@ -231,7 +380,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 12),
 
             StaggeredItemWrapper(
-              index: 2,
+              index: 3,
               child: Consumer(
                 builder: (context, ref, child) {
                   final appearance = ref.watch(appearanceProvider);
@@ -247,14 +396,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Single Theme Indicator
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141417),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF27272A)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF09090B),
+                                ),
+                                child: const Icon(Icons.nightlight_round, color: Color(0xFFD4D4D8), size: 16),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mausam Obsidian Night',
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.textPrimary,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Ultra-dark OLED palette • Single luxury theme',
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF222226),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'ACTIVE',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textPrimary,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Widget Transparency',
+                              'Card Glassmorphism & Opacity',
                               style: GoogleFonts.inter(
                                 color: MausamPalette.textPrimary,
-                                fontSize: 14,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -280,8 +493,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Opaque', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
-                            Text('Transparent', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
+                            Text('Solid (OLED)', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
+                            Text('Glass (Translucent)', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
                           ],
                         ),
                         SliderTheme(
@@ -302,47 +515,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
 
                         // Live Preview Widget
-                        Text(
-                          'LIVE PREVIEW WIDGET',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textTertiary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: MausamPalette.cardSurface.withValues(alpha: opacity),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: MausamPalette.cardBorder),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.wb_sunny_rounded, color: MausamPalette.textPrimary, size: 28),
+                              const Icon(Icons.cloud_queue_rounded, color: MausamPalette.textPrimary, size: 24),
                               const SizedBox(width: 12),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '28°C • Clear Sky',
+                                    '28°C • Clear Obsidian Night',
                                     style: GoogleFonts.inter(
                                       color: MausamPalette.textPrimary,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
-                                      fontFeatures: MausamTypography.tabularFeatures,
                                     ),
                                   ),
                                   Text(
-                                    'Surface opacity ${(opacity * 100).round()}%',
+                                    'Surface opacity ${(opacity * 100).round()}% preview',
                                     style: GoogleFonts.inter(
                                       color: MausamPalette.textSecondary,
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
@@ -359,9 +561,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             const SizedBox(height: 24),
 
-            // App Preferences
+            // Performance & Cache Management
             Text(
-              'PREFERENCES',
+              'PERFORMANCE & CACHE',
               style: GoogleFonts.inter(
                 color: MausamPalette.textTertiary,
                 fontSize: 11,
@@ -373,42 +575,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 12),
 
             StaggeredItemWrapper(
-              index: 3,
+              index: 4,
               child: Container(
                 decoration: BoxDecoration(
-                  color: MausamPalette.cardSurface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: MausamPalette.cardBorder),
                 ),
                 child: Material(
-                  color: Colors.transparent,
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       SwitchListTile(
-                        value: _notifications,
-                        onChanged: (val) => setState(() => _notifications = val),
+                        value: _offlineCacheEnabled,
+                        onChanged: (val) {
+                          setState(() => _offlineCacheEnabled = val);
+                          _saveBoolPref('pref_offline_cache', val);
+                        },
                         activeThumbColor: MausamPalette.textPrimary,
                         title: Text(
-                          'Weather Notifications',
-                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                          'Fast Launch & Offline Cache',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
-                          'Receive severe rain and high AQI advisories',
-                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                          'Instantly render last known weather conditions on app startup',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
                         ),
                       ),
                       const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
-                      SwitchListTile(
-                        value: _locationAccess,
-                        onChanged: (val) => setState(() => _locationAccess = val),
-                        activeThumbColor: MausamPalette.textPrimary,
-                        title: Text(
-                          'GPS Location Access',
-                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          'Automatically detect local weather for current coordinates',
-                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Weather Data Storage',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textPrimary,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Local offline cache: $_cacheSize',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textSecondary,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _clearCache,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: MausamPalette.textPrimary,
+                                side: const BorderSide(color: Color(0xFF27272A)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                              label: Text(
+                                'Clear Cache',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -417,11 +652,165 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
 
+            const SizedBox(height: 24),
+
+            // Smart Alerts & Notifications
+            Text(
+              'SMART WEATHER & HEALTH ALERTS',
+              style: GoogleFonts.inter(
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            StaggeredItemWrapper(
+              index: 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Material(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        value: _notifyRain,
+                        onChanged: (val) {
+                          setState(() => _notifyRain = val);
+                          _saveBoolPref('notify_rain', val);
+                        },
+                        activeThumbColor: MausamPalette.textPrimary,
+                        title: Text(
+                          'Severe Rain & Monsoon Alerts',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Instant push when rain chance exceeds 70% or thunderstorm forms',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
+                        ),
+                      ),
+                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                      SwitchListTile(
+                        value: _notifyAqi,
+                        onChanged: (val) {
+                          setState(() => _notifyAqi = val);
+                          _saveBoolPref('notify_aqi', val);
+                        },
+                        activeThumbColor: MausamPalette.textPrimary,
+                        title: Text(
+                          'High CPCB Pollution Alert',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Notifies when Indian AQI exceeds Moderate threshold (>150)',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
+                        ),
+                      ),
+                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                      SwitchListTile(
+                        value: _morningBrief,
+                        onChanged: (val) {
+                          setState(() => _morningBrief = val);
+                          _saveBoolPref('pref_morning_brief', val);
+                        },
+                        activeThumbColor: MausamPalette.textPrimary,
+                        title: Text(
+                          'Morning Daily Briefing',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Daily 7:00 AM summary of temperature, rain probability & packing tips',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
+                        ),
+                      ),
+                      const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                      SwitchListTile(
+                        value: _locationAccess,
+                        onChanged: (val) => setState(() => _locationAccess = val),
+                        activeThumbColor: MausamPalette.textPrimary,
+                        title: Text(
+                          'Continuous GPS Auto-Detection',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'Automatically resolves nearest weather station as you travel',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Data Sources & About
+            Text(
+              'DATA SOURCES & TRANSPARENCY',
+              style: GoogleFonts.inter(
+                color: MausamPalette.textTertiary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            StaggeredItemWrapper(
+              index: 6,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    _sourceRow(
+                      'Indian Central Pollution Control Board',
+                      'Official Indian National AQI station network (PM2.5, PM10, NO2, SO2, CO, O3)',
+                      Icons.account_balance_rounded,
+                    ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
+                    _sourceRow(
+                      'Open-Meteo Weather APIs',
+                      'High-resolution ECMWF / GFS ensemble global meteorological forecast',
+                      Icons.cloud_sync_rounded,
+                    ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Mausam PersonalAI Version',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          'v1.2.0 • Production Release',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 32),
 
             // Logout Button
             StaggeredItemWrapper(
-              index: 3,
+              index: 7,
               child: Center(
                 child: TextButton.icon(
                   onPressed: _logout,
@@ -437,6 +826,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+          ],
+        );
+  }
+
+  Widget _unitButton(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF27272A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: isSelected ? MausamPalette.textPrimary : MausamPalette.textTertiary,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sourceRow(String title, String subtitle, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: MausamPalette.cardSurfaceLight,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: MausamPalette.cardBorderSubtle),
+          ),
+          child: Icon(icon, color: MausamPalette.textPrimary, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textSecondary,
+                  fontSize: 11.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -495,99 +948,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _wallpaperRow({
-    required WallpaperSpec spec,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? MausamPalette.cardSurfaceLight : MausamPalette.cardSurface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? MausamPalette.textSecondary : MausamPalette.cardBorder,
-            width: isSelected ? 1.5 : 1.0,
-          ),
-          boxShadow: isSelected ? MausamPalette.cardShadow : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? MausamPalette.textPrimary : MausamPalette.textTertiary,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          spec.title,
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (spec.isDefault) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: MausamPalette.bgDeep,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: MausamPalette.cardBorder),
-                          ),
-                          child: Text(
-                            'DEFAULT',
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textSecondary,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.7,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    spec.subtitle,
-                    style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 72,
-              height: 52,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: spec.previewColors,
-                ),
-                border: Border.all(color: MausamPalette.cardBorder),
-              ),
-            ),
-          ],
         ),
       ),
     );

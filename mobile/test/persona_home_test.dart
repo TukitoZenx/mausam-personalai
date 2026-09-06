@@ -30,10 +30,10 @@ WeatherDashboard _dash() {
 }
 
 void main() {
-  test('Health persona prefers UV and humidity, not commute', () {
+  test('Health persona prefers Air Quality and UV, not commute', () {
     final d = _dash();
     final today = PersonaHome.todayMetrics('Health', d);
-    expect(today.map((e) => e.title), ['UV INDEX', 'HUMIDITY']);
+    expect(today.map((e) => e.title), ['AIR QUALITY', 'UV INDEX']);
     expect(PersonaHome.showCommute('Health'), isFalse);
     expect(PersonaHome.contextual('Health', d).length, lessThanOrEqualTo(3));
   });

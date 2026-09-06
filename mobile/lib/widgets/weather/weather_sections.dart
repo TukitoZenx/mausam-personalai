@@ -7,6 +7,7 @@ import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
 import '../../theme/weather_palette.dart';
 import 'persona_home.dart';
+import 'weather_card_atmosphere.dart';
 import 'weather_glyphs.dart';
 import 'weather_intel.dart';
 
@@ -26,6 +27,7 @@ class HeroCurrentCard extends ConsumerStatefulWidget {
 
 class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
   bool _bannerDismissed = false;
+  bool _isYellowFunMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -38,121 +40,222 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
 
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: MausamPalette.cardBorder),
-        boxShadow: MausamPalette.heroShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            current.condition.toUpperCase(),
-            style: GoogleFonts.inter(
-              color: MausamPalette.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
+    final detectedType = resolveAtmosphereType(current.condition, icon: current.conditionIcon);
+    final effectiveType = _isYellowFunMode ? WeatherAtmosphereType.sun : detectedType;
+    final isYellow = _isYellowFunMode || effectiveType == WeatherAtmosphereType.sun;
+    final isRain = effectiveType == WeatherAtmosphereType.rain;
+    final isThunder = effectiveType == WeatherAtmosphereType.thunder;
 
-          // Main Temp & Icon
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$temp°',
-                style: MausamTypography.largeTitle,
-              ),
-              const SizedBox(width: 16),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (high != null)
-                      Text(
-                        'H: $high°',
-                        style: GoogleFonts.inter(
-                          color: MausamPalette.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          fontFeatures: MausamTypography.tabularFeatures,
-                        ),
-                      ),
-                    if (low != null)
-                      Text(
-                        'L: $low°',
-                        style: GoogleFonts.inter(
-                          color: MausamPalette.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          fontFeatures: MausamTypography.tabularFeatures,
-                        ),
-                      ),
-                  ],
+    return WeatherCardAtmosphere(
+      type: effectiveType,
+      isYellowTheme: isYellow,
+      surfaceOpacity: surfaceOpacity,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row: Condition Pill + Interactive Fun Yellow Toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isYellow
+                        ? const Color(0x33F59E0B)
+                        : (isRain
+                            ? const Color(0x223B82F6)
+                            : (isThunder ? const Color(0x26FACC15) : MausamPalette.cardSurfaceLight)),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isYellow
+                          ? const Color(0x88F59E0B)
+                          : (isRain
+                              ? const Color(0x4460A5FA)
+                              : (isThunder ? const Color(0x55FACC15) : MausamPalette.cardBorderSubtle)),
+                    ),
+                  ),
+                  child: Text(
+                    isYellow
+                        ? '☀️ SUNNY • SOLAR GOLD'
+                        : (isRain
+                            ? '🌧️ RAINING NOW'
+                            : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
+                    style: GoogleFonts.inter(
+                      color: isYellow
+                          ? const Color(0xFFFDE047)
+                          : (isRain
+                              ? const Color(0xFF93C5FD)
+                              : (isThunder ? const Color(0xFFFDE047) : MausamPalette.textSecondary)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Icon(
-                weatherGlyph(current.condition, icon: current.conditionIcon),
-                color: weatherGlyphColor(current.condition),
-                size: 52,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Stat Chips: Feels like | Humidity | Wind
-          Row(
-            children: [
-              _statChip('FEELS LIKE', feels == null ? '--' : '$feels°'),
-              _statChip('HUMIDITY', '${current.humidityPercent}%'),
-              _statChip('WIND', '${current.windSpeedKmh.round()} km/h'),
-            ],
-          ),
-
-          if (!_bannerDismissed) ...[
-            const SizedBox(height: 12),
-            Dismissible(
-              key: const Key('precip_banner'),
-              direction: DismissDirection.endToStart,
-              onDismissed: (_) => setState(() => _bannerDismissed = true),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: MausamPalette.bgDeep,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: MausamPalette.cardBorderSubtle),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.water_drop_outlined, color: MausamPalette.textSecondary, size: 14),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        banner,
-                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isYellowFunMode = !_isYellowFunMode;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _isYellowFunMode ? const Color(0xFFF59E0B) : MausamPalette.cardSurfaceLight,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _isYellowFunMode ? const Color(0xFFFDE047) : MausamPalette.cardBorderSubtle,
                       ),
                     ),
-                    const Icon(Icons.close_rounded, color: MausamPalette.textTertiary, size: 14),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isYellowFunMode ? Icons.wb_sunny_rounded : Icons.palette_outlined,
+                          color: _isYellowFunMode ? Colors.black : MausamPalette.textTertiary,
+                          size: 11,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isYellowFunMode ? 'YELLOW: ON' : 'FUN THEME',
+                          style: GoogleFonts.inter(
+                            color: _isYellowFunMode ? Colors.black : MausamPalette.textSecondary,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Main Temp & Animated Weather Icon
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$temp°',
+                  style: MausamTypography.largeTitle.copyWith(
+                    color: isYellow ? const Color(0xFFFFFBEB) : MausamPalette.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (high != null)
+                        Text(
+                          'H: $high°',
+                          style: GoogleFonts.inter(
+                            color: isYellow ? const Color(0xFFFDE047) : MausamPalette.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: MausamTypography.tabularFeatures,
+                          ),
+                        ),
+                      if (low != null)
+                        Text(
+                          'L: $low°',
+                          style: GoogleFonts.inter(
+                            color: isYellow ? const Color(0xFFFCD34D).withValues(alpha: 0.8) : MausamPalette.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            fontFeatures: MausamTypography.tabularFeatures,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isYellow
+                        ? const Color(0x33F59E0B)
+                        : (isRain ? const Color(0x1F3B82F6) : Colors.transparent),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isYellow ? Icons.wb_sunny_rounded : weatherGlyph(current.condition, icon: current.conditionIcon),
+                    color: isYellow ? const Color(0xFFFBBF24) : weatherGlyphColor(current.condition),
+                    size: 48,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Stat Chips: Feels like | Humidity | Wind
+            Row(
+              children: [
+                _statChip('FEELS LIKE', feels == null ? '--' : '$feels°', isYellow: isYellow),
+                _statChip('HUMIDITY', '${current.humidityPercent}%', isYellow: isYellow),
+                _statChip('WIND', '${current.windSpeedKmh.round()} km/h', isYellow: isYellow),
+              ],
+            ),
+
+            if (!_bannerDismissed) ...[
+              const SizedBox(height: 12),
+              Dismissible(
+                key: const Key('precip_banner'),
+                direction: DismissDirection.endToStart,
+                onDismissed: (_) => setState(() => _bannerDismissed = true),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isYellow
+                        ? const Color(0x33261C04)
+                        : MausamPalette.bgDeep,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isYellow
+                          ? const Color(0x66F59E0B)
+                          : MausamPalette.cardBorderSubtle,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isYellow ? Icons.wb_sunny_outlined : Icons.water_drop_outlined,
+                        color: isYellow ? const Color(0xFFFBBF24) : MausamPalette.textSecondary,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isYellow ? 'Sunny solar conditions · Warm bright weather' : banner,
+                          style: GoogleFonts.inter(
+                            color: isYellow ? const Color(0xFFFEF08A) : MausamPalette.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.close_rounded,
+                        color: isYellow ? const Color(0xFFFBBF24) : MausamPalette.textTertiary,
+                        size: 14,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _statChip(String label, String value) {
+  Widget _statChip(String label, String value, {bool isYellow = false}) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +263,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
           Text(
             label,
             style: GoogleFonts.inter(
-              color: MausamPalette.textTertiary,
+              color: isYellow ? const Color(0xFFFBBF24) : MausamPalette.textTertiary,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
@@ -658,7 +761,7 @@ class TodayMetricCard extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
@@ -666,20 +769,22 @@ class TodayMetricCard extends ConsumerWidget {
             style: GoogleFonts.inter(
               color: MausamPalette.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: 24,
-              height: 1.05,
-              letterSpacing: -0.4,
+              fontSize: 21,
+              height: 1.1,
+              letterSpacing: -0.3,
               fontFeatures: MausamTypography.tabularFeatures,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            maxLines: 1,
+            maxLines: 2,
+            softWrap: true,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
               color: MausamPalette.textSecondary,
-              fontSize: 12,
+              fontSize: 11,
+              height: 1.25,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -725,13 +830,22 @@ class TodaysMetricsGrid extends StatelessWidget {
       value: uv.toStringAsFixed(1),
       subtitle: uvCat,
     );
-    final card2 = TodayMetricCard(
-      title: 'BEST OUTDOOR TIME',
-      icon: Icons.directions_run_rounded,
-      iconColor: const Color(0xFF34D399),
-      value: (persona != null && persona!.isNotEmpty) ? persona!.toUpperCase() : 'OPTIMAL',
-      subtitle: 'Morning window',
-    );
+    final isHealth = persona != null && persona!.toLowerCase().contains('health');
+    final card2 = (isHealth && dashboard.aqi != null)
+        ? TodayMetricCard(
+            title: 'AIR QUALITY',
+            icon: Icons.air_rounded,
+            iconColor: const Color(0xFF34D399),
+            value: 'AQI ${dashboard.aqi!.aqiValue}',
+            subtitle: dashboard.aqi!.category.toUpperCase(),
+          )
+        : TodayMetricCard(
+            title: 'BEST OUTDOOR TIME',
+            icon: Icons.directions_run_rounded,
+            iconColor: const Color(0xFF34D399),
+            value: (persona != null && persona!.isNotEmpty) ? persona!.toUpperCase() : 'OPTIMAL',
+            subtitle: 'Morning window',
+          );
     final card3 = TodayMetricCard(
       title: 'RAINFALL TODAY',
       icon: Icons.water_drop_rounded,

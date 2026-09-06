@@ -102,7 +102,8 @@ class WeatherDashboardNotifier extends Notifier<WeatherDashboardState> {
       lon = ref.read(locationProvider).activeLongitude;
     }
     if (lat == 0.0 && lon == 0.0) {
-      return;
+      lat = 28.6139;
+      lon = 77.2090;
     }
 
     final hasData = state.data != null;

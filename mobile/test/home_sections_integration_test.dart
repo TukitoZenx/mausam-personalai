@@ -122,6 +122,28 @@ void main() {
       expect(find.text('HEAT & COMFORT'), findsOneWidget);
       expect(find.text('Feels 31°'), findsOneWidget);
     });
+
+    testWidgets('renders AIR QUALITY card when persona is Health', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: TodaysMetricsGrid(
+                  dashboard: sampleDashboard,
+                  persona: 'Health',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('AIR QUALITY'), findsOneWidget);
+      expect(find.text('AQI 85'), findsOneWidget);
+      expect(find.text('MODERATE'), findsOneWidget);
+    });
   });
 
   group('AdditionalConditionsSection Widget Tests', () {

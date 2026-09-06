@@ -90,18 +90,20 @@ class PersonaHome {
           subtitle: WeatherIntel.outdoorSupport(c, d.aqi),
           icon: Icons.directions_run_rounded,
         );
-    PersonaMetric humidityCard() => PersonaMetric(
-          title: 'HUMIDITY',
-          value: '${c.humidityPercent}%',
-          subtitle: c.dewPointCelsius != null ? 'Dew ${c.dewPointCelsius!.round()}°' : 'Relative',
-          icon: Icons.water_drop_outlined,
-          semantic: PersonaSemantic.rain,
-        );
     PersonaMetric visCard() => PersonaMetric(
           title: 'VISIBILITY',
           value: '${c.visibilityKm?.toStringAsFixed(1) ?? '--'} km',
           subtitle: visibilityLine(c.visibilityKm),
           icon: Icons.visibility_rounded,
+        );
+    PersonaMetric aqiCard() => PersonaMetric(
+          title: 'AIR QUALITY',
+          value: d.aqi != null ? 'AQI ${d.aqi!.aqiValue}' : '--',
+          subtitle: d.aqi != null ? d.aqi!.category : 'Air quality index',
+          icon: Icons.air_rounded,
+          semantic: (d.aqi != null && d.aqi!.aqiValue >= 100)
+              ? PersonaSemantic.warn
+              : PersonaSemantic.none,
         );
     PersonaMetric frostCard() => PersonaMetric(
           title: 'FROST RISK',
@@ -112,7 +114,7 @@ class PersonaHome {
 
     switch (p) {
       case health:
-        return [uvCard(), humidityCard()];
+        return [aqiCard(), uvCard()];
       case traveler:
       case commuter:
         return [visCard(), rainCard()];
@@ -157,7 +159,7 @@ class PersonaHome {
 
     switch (p) {
       case health:
-        return [pressure(), wind()];
+        return [humidity(), pressure()];
       case commuter:
       case traveler:
       case family:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// Staggered Entrance animation wrapper providing sequential fade + slight slide-up.
@@ -20,6 +21,7 @@ class _StaggeredItemWrapperState extends State<StaggeredItemWrapper>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  Timer? _staggerTimer;
 
   @override
   void initState() {
@@ -43,15 +45,20 @@ class _StaggeredItemWrapperState extends State<StaggeredItemWrapper>
     ));
 
     // Stagger delay based on section index (~70ms per section)
-    Future.delayed(Duration(milliseconds: widget.index * 70), () {
-      if (mounted) {
-        _controller.forward();
-      }
-    });
+    if (widget.index <= 0) {
+      _controller.forward();
+    } else {
+      _staggerTimer = Timer(Duration(milliseconds: widget.index * 70), () {
+        if (mounted) {
+          _controller.forward();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _staggerTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

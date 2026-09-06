@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +13,8 @@ import '../theme/weather_palette.dart';
 import '../widgets/weather_environment_background.dart';
 
 /// OnboardingScreen featuring a swipeable PageView carousel
-/// with persona selection, smart notification preferences, and location permission onboarding.
+/// with About You profile setup, persona selection, smart notification preferences,
+/// and location permission onboarding.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -28,16 +27,65 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   late final PageController _pageController;
   int _currentPage = 0;
 
-  // Slide 1 state
-  String? _selectedPersona;
+  // Slide 0: About You state (matching interactive sliders & 2x2 gender pills)
+  double _ageValue = 29.0;
+  String? _selectedGender;
+  double _heightValue = 168.0;
+  double _weightValue = 64.0;
 
-  // Slide 2 state
-  bool _notificationsEnabled = true;
+  // Slide 1 state (supports multiple personas)
+  final Set<String> _selectedPersonas = {'Fitness'};
+  String? get _selectedPersona => _selectedPersonas.isNotEmpty ? _selectedPersonas.first : null;
+
+  // Slide 2 state: Triggers & Concerns (matching reference layout)
+  final Set<String> _selectedTriggers = {'Dust', 'AQI / smoke'};
+  final Set<String> _selectedConcerns = {};
+
+  static const List<String> _weatherTriggersList = [
+    'Dust',
+    'Pollen',
+    'AQI / smoke',
+    'Humidity',
+    'Heat',
+    'Monsoon damp',
+    'Cold',
+    'UV / sun',
+  ];
+
+  static const List<String> _healthConcernsList = [
+    'Asthma',
+    'Allergies',
+    'Migraine',
+    'Skin sensitivity',
+    'Heart health',
+    'None of these',
+  ];
+
+  // Slide 3 state: Your Rhythm
+  final Set<String> _selectedMattersMost = {'Daily energy'};
+  String _selectedActivityLevel = 'Low';
+
+  static const List<String> _mattersMostList = [
+    'Daily energy',
+    'Outdoor plans',
+    'Fitness',
+    'Sleep',
+    'Travel',
+    'Family care',
+  ];
+
+  static const List<String> _activityLevels = [
+    'Low',
+    'Moderate',
+    'High',
+  ];
+
+  final bool _notificationsEnabled = true;
   bool _notifyRain = true;
   bool _notifyHeat = true;
   bool _notifyAqi = true;
 
-  // Slide 3 state
+  // Slide 4 state
   bool _isSubmitting = false;
 
   static const List<Map<String, dynamic>> _personas = [
@@ -98,12 +146,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   void _nextPage() {
-    if (_currentPage < 2) {
+    if (_currentPage < 4) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  void _onSeeMyPlanContinue() {
+    ref.read(userProvider.notifier).setRhythmPreferences(
+      whatMattersMost: _selectedMattersMost.toList(),
+      activityLevel: _selectedActivityLevel,
+    );
+    _nextPage();
   }
 
   void _previousPage() {
@@ -113,6 +169,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  void _onAboutYouContinue() {
+    ref.read(userProvider.notifier).setUserProfileDetails(
+      age: _ageValue.round(),
+      gender: _selectedGender,
+      height: _heightValue.roundToDouble(),
+      weight: _weightValue.roundToDouble(),
+      heightUnit: 'cm',
+      weightUnit: 'kg',
+    );
+    _nextPage();
+  }
+
+  void _onAboutYouSkip() {
+    _nextPage();
   }
 
   Future<void> _completeOnboarding(bool locationAllowed) async {
@@ -210,7 +282,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Top Bar with Back button & 3 Progress Dots Indicator
+              // Top Bar with Back button & 4 Progress Dots Indicator
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -227,7 +299,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     Expanded(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(3, (index) {
+                        children: List.generate(5, (index) {
                           final isCurrent = index == _currentPage;
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
@@ -253,7 +325,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               Expanded(
                 child: PageView(
                   controller: _pageController,
-                  physics: _selectedPersona == null && _currentPage == 0
+                  physics: _currentPage == 1 && _selectedPersona == null
                       ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
                   onPageChanged: (page) {
@@ -262,9 +334,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     });
                   },
                   children: [
+                    _buildSlide0AboutYou(),
                     _buildSlide1Persona(),
                     _buildSlide2Notifications(),
-                    _buildSlide3Location(),
+                    _buildSlide3Rhythm(),
+                    _buildSlide4Location(),
                   ],
                 ),
               ),
@@ -275,80 +349,500 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     );
   }
 
-  // SLIDE 1: Persona Type
-  Widget _buildSlide1Persona() {
+  // SLIDE 0: About You (matching interactive sliders & 2x2 gender pills in obsidian monochrome)
+  Widget _buildSlide0AboutYou() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
-          Text(
-            'Choose Your Persona',
-            style: GoogleFonts.inter(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: MausamPalette.textPrimary,
-              letterSpacing: -0.4,
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'STEP 1 / YOUR BASICS',
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                            color: MausamPalette.textTertiary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'About You',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: MausamPalette.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'A little context\ngoes a long way.',
+                    style: GoogleFonts.inter(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: MausamPalette.textPrimary,
+                      letterSpacing: -0.6,
+                      height: 1.18,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'These numbers help us make hydration, heat and activity guidance more personal.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: MausamPalette.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Age Slider
+                  _buildMetricSlider(
+                    key: const Key('about_you_age_slider'),
+                    label: 'Age',
+                    value: _ageValue,
+                    min: 0,
+                    max: 100,
+                    unit: 'yrs',
+                    minLabel: '0 yrs',
+                    maxLabel: '100 yrs',
+                    onChanged: (v) => setState(() => _ageValue = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Gender 2x2 Grid
+                  _buildGenderSection(),
+                  const SizedBox(height: 16),
+
+                  // Height Slider
+                  _buildMetricSlider(
+                    key: const Key('about_you_height_slider'),
+                    label: 'Height',
+                    value: _heightValue,
+                    min: 120,
+                    max: 220,
+                    unit: 'cm',
+                    minLabel: '120 cm',
+                    maxLabel: '220 cm',
+                    onChanged: (v) => setState(() => _heightValue = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Weight Slider
+                  _buildMetricSlider(
+                    key: const Key('about_you_weight_slider'),
+                    label: 'Weight',
+                    value: _weightValue,
+                    min: 35,
+                    max: 150,
+                    unit: 'kg',
+                    minLabel: '35 kg',
+                    maxLabel: '150 kg',
+                    onChanged: (v) => setState(() => _weightValue = v),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton(
+              key: const Key('about_you_continue_button'),
+              onPressed: _onAboutYouContinue,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MausamPalette.textPrimary,
+                foregroundColor: MausamPalette.bgDeep,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Save & continue',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.arrow_forward_rounded, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            height: 32,
+            child: TextButton(
+              key: const Key('about_you_skip_button'),
+              onPressed: _onAboutYouSkip,
+              style: TextButton.styleFrom(
+                foregroundColor: MausamPalette.textSecondary,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'Skip for now',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: MausamPalette.textTertiary,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricSlider({
+    required Key key,
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required String unit,
+    required String minLabel,
+    required String maxLabel,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: MausamPalette.textSecondary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MausamPalette.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '${value.round()}',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: MausamPalette.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  unit,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: MausamPalette.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(
+                  11,
+                  (i) => Container(
+                    width: 1.2,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2.5,
+                activeTrackColor: MausamPalette.textPrimary,
+                inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
+                thumbShape: _MausamRulerSliderThumbShape(
+                  radius: 7.5,
+                  label: '${value.round()}',
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                overlayColor: Colors.white.withValues(alpha: 0.06),
+              ),
+              child: Slider(
+                key: key,
+                value: value,
+                min: min,
+                max: max,
+                onChanged: onChanged,
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                minLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: MausamPalette.textSecondary,
+                ),
+              ),
+              Text(
+                maxLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: MausamPalette.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'GENDER',
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: MausamPalette.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildGenderPill('Female', key: const Key('about_you_gender_female'))),
+            const SizedBox(width: 8),
+            Expanded(child: _buildGenderPill('Male', key: const Key('about_you_gender_male'))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildGenderPill('Non-binary', key: const Key('about_you_gender_non_binary'))),
+            const SizedBox(width: 8),
+            Expanded(child: _buildGenderPill('Prefer not to say', key: const Key('about_you_gender_prefer_not'))),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderPill(String option, {required Key key}) {
+    final isSelected = _selectedGender == option;
+    return GestureDetector(
+      key: key,
+      onTap: () {
+        setState(() {
+          _selectedGender = isSelected ? null : option;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? MausamPalette.textPrimary
+              : const Color(0xFF18181B),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? MausamPalette.textPrimary
+                : const Color(0xFF3F3F46),
+            width: 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            option,
+            maxLines: 1,
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              color: isSelected ? MausamPalette.bgDeep : MausamPalette.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // SLIDE 1: Persona Type
+  Widget _buildSlide1Persona() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(
+            'Choose Your Persona',
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: MausamPalette.textPrimary,
+              letterSpacing: -0.5,
+              height: 1.18,
+            ),
+          ),
+          const SizedBox(height: 5),
           Text(
             'Who is this for? Mausam will rank the day around this.',
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: 12,
               color: MausamPalette.textSecondary,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Expanded(
             child: ListView.separated(
+              physics: const BouncingScrollPhysics(),
               itemCount: _personas.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final item = _personas[index];
-                final isSelected = _selectedPersona == item['id'];
+                final isSelected = _selectedPersonas.contains(item['id']);
 
                 return GestureDetector(
                   onTap: () {
                     setState(() {
-                      _selectedPersona = item['id'] as String;
+                      final id = item['id'] as String;
+                      if (_selectedPersonas.contains(id)) {
+                        if (_selectedPersonas.length > 1) {
+                          _selectedPersonas.remove(id);
+                        }
+                      } else {
+                        _selectedPersonas.add(id);
+                      }
                     });
                   },
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    padding: const EdgeInsets.all(16),
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? MausamPalette.cardSurfaceLight
-                          : MausamPalette.cardSurface.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(16),
+                          ? const Color(0xFF1E1E24)
+                          : const Color(0xFF141416).withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? MausamPalette.textPrimary
-                            : MausamPalette.cardBorder,
-                        width: isSelected ? 1.5 : 1.0,
+                            : const Color(0xFF27272A),
+                        width: isSelected ? 1.4 : 1.0,
                       ),
-                      boxShadow: isSelected ? MausamPalette.cardShadow : null,
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.10),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
+                        // Compact Icon Circle
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 34,
+                          height: 34,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isSelected
                                 ? MausamPalette.textPrimary
-                                : const Color(0xFF202024),
+                                : const Color(0xFF1C1C20),
                           ),
                           child: Icon(
                             item['icon'] as IconData,
-                            color: isSelected ? MausamPalette.bgDeep : MausamPalette.textPrimary,
-                            size: 22,
+                            color: isSelected ? MausamPalette.bgDeep : const Color(0xFFA1A1AA),
+                            size: 17,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
+                        // Titles
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,32 +850,53 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               Text(
                                 item['title'] as String,
                                 style: GoogleFonts.inter(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: MausamPalette.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                  color: isSelected
+                                      ? MausamPalette.textPrimary
+                                      : const Color(0xFFE4E4E7),
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 item['subtitle'] as String,
                                 style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: MausamPalette.textSecondary,
-                                  height: 1.3,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: isSelected
+                                      ? const Color(0xFFA1A1AA)
+                                      : MausamPalette.textTertiary,
+                                  height: 1.25,
                                 ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(
-                          isSelected
-                              ? Icons.radio_button_checked_rounded
-                              : Icons.radio_button_off_rounded,
-                          color: isSelected
-                              ? MausamPalette.textPrimary
-                              : MausamPalette.textTertiary,
-                          size: 20,
+                        // Active / Inactive Radio Indicator
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected ? MausamPalette.textPrimary : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? MausamPalette.textPrimary
+                                  : const Color(0xFF3F3F46),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: isSelected
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.check_rounded,
+                                    size: 12,
+                                    color: MausamPalette.bgDeep,
+                                  ),
+                                )
+                              : null,
                         ),
                       ],
                     ),
@@ -390,205 +905,644 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               },
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 42,
             child: ElevatedButton(
-              onPressed: _selectedPersona != null ? _nextPage : null,
+              onPressed: _selectedPersonas.isNotEmpty
+                  ? () {
+                      ref.read(userProvider.notifier).setPersonas(_selectedPersonas.toList());
+                      _nextPage();
+                    }
+                  : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: MausamPalette.textPrimary,
-                disabledBackgroundColor: MausamPalette.textPrimary.withValues(alpha: 0.25),
+                disabledBackgroundColor: MausamPalette.textPrimary.withValues(alpha: 0.15),
                 foregroundColor: MausamPalette.bgDeep,
+                disabledForegroundColor: MausamPalette.bgDeep.withValues(alpha: 0.4),
                 elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(
-                'Continue',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-        ],
-      ),
-    );
-  }
-
-  // SLIDE 2: Notifications
-  Widget _buildSlide2Notifications() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-          Text(
-            'Smart Alerts',
-            style: GoogleFonts.inter(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: MausamPalette.textPrimary,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'What should Mausam notify you about?',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: MausamPalette.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 28),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: MausamPalette.cardSurface.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: MausamPalette.cardBorder),
-                  boxShadow: MausamPalette.cardShadow,
-                ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF202024),
-                      ),
-                      child: const Icon(
-                        Icons.notifications_active_outlined,
-                        color: MausamPalette.textPrimary,
-                        size: 22,
+                    Text(
+                      'Continue',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Weather Alerts & AI Tips',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: MausamPalette.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Timely updates tailored to your persona.',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: MausamPalette.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _notificationsEnabled,
-                      activeThumbColor: MausamPalette.textPrimary,
-                      activeTrackColor: MausamPalette.cardSurfaceLight,
-                      inactiveThumbColor: MausamPalette.textTertiary,
-                      inactiveTrackColor: MausamPalette.cardSurface,
-                      onChanged: (val) {
-                        setState(() {
-                          _notificationsEnabled = val;
-                        });
-                      },
-                    ),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.arrow_forward_rounded, size: 14),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Opacity(
-            opacity: _notificationsEnabled ? 1 : 0.4,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _alertChip('Rain', _notifyRain, (v) => setState(() => _notifyRain = v)),
-                _alertChip('Heat', _notifyHeat, (v) => setState(() => _notifyHeat = v)),
-                _alertChip('Air quality', _notifyAqi, (v) => setState(() => _notifyAqi = v)),
-              ],
-            ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _nextPage,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MausamPalette.textPrimary,
-                foregroundColor: MausamPalette.bgDeep,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                'Continue',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
         ],
       ),
     );
   }
 
-  // SLIDE 3: Location Access
-  Widget _buildSlide3Location() {
+  void _onTuneAlertsContinue() {
+    final notifyRain = _selectedTriggers.contains('Monsoon damp');
+    final notifyHeat = _selectedTriggers.contains('Heat') || _selectedTriggers.contains('UV / sun');
+    final notifyAqi = _selectedTriggers.contains('AQI / smoke') ||
+        _selectedTriggers.contains('Dust') ||
+        _selectedTriggers.contains('Pollen');
+
+    setState(() {
+      _notifyRain = notifyRain;
+      _notifyHeat = notifyHeat;
+      _notifyAqi = notifyAqi;
+    });
+
+    ref.read(userProvider.notifier).setAlertPreferences(
+          rain: notifyRain,
+          heat: notifyHeat,
+          aqi: notifyAqi,
+        );
+    ref.read(userProvider.notifier).setTriggersAndConcerns(
+          triggers: _selectedTriggers.toList(),
+          concerns: _selectedConcerns.toList(),
+        );
+
+    _nextPage();
+  }
+
+  // SLIDE 2: What does the weather stir up? (matching reference layout)
+  Widget _buildSlide2Notifications() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
-          Text(
-            'Location Access',
-            style: GoogleFonts.inter(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: MausamPalette.textPrimary,
-              letterSpacing: -0.4,
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '03 / YOUR RESPONSE',
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                            color: MausamPalette.textTertiary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Smart Alerts',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: MausamPalette.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'What does the\nweather stir up?',
+                    style: GoogleFonts.inter(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: MausamPalette.textPrimary,
+                      letterSpacing: -0.5,
+                      height: 1.18,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Select everything that affects you. We\'ll surface the risk before it becomes a bad day.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: MausamPalette.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Section 1: Weather & Air Triggers
+                  Text(
+                    'WEATHER & AIR TRIGGERS',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: MausamPalette.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _weatherTriggersList.map((trigger) {
+                      final isSelected = _selectedTriggers.contains(trigger);
+                      return _buildTriggerChip(
+                        key: Key('trigger_${trigger.replaceAll(' ', '_').replaceAll('/', '_')}'),
+                        label: trigger,
+                        isSelected: isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (_selectedTriggers.contains(trigger)) {
+                              _selectedTriggers.remove(trigger);
+                            } else {
+                              _selectedTriggers.add(trigger);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Section 2: Health Concerns
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'HEALTH CONCERNS',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: MausamPalette.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        'OPTIONAL',
+                        style: GoogleFonts.inter(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.0,
+                          color: MausamPalette.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _healthConcernsList.map((concern) {
+                      final isSelected = _selectedConcerns.contains(concern);
+                      return _buildTriggerChip(
+                        key: Key('concern_${concern.replaceAll(' ', '_')}'),
+                        label: concern,
+                        isSelected: isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (concern == 'None of these') {
+                              if (_selectedConcerns.contains('None of these')) {
+                                _selectedConcerns.remove('None of these');
+                              } else {
+                                _selectedConcerns.clear();
+                                _selectedConcerns.add('None of these');
+                              }
+                            } else {
+                              _selectedConcerns.remove('None of these');
+                              if (_selectedConcerns.contains(concern)) {
+                                _selectedConcerns.remove(concern);
+                              } else {
+                                _selectedConcerns.add(concern);
+                              }
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton(
+              key: const Key('tune_my_alerts_button'),
+              onPressed: _onTuneAlertsContinue,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MausamPalette.textPrimary,
+                foregroundColor: MausamPalette.bgDeep,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Tune my alerts',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.arrow_forward_rounded, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTriggerChip({
+    Key? key,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? MausamPalette.textPrimary
+              : const Color(0xFF18181B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? MausamPalette.textPrimary
+                : const Color(0xFF3F3F46),
+            width: 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_rounded : Icons.add_rounded,
+              size: 13,
+              color: isSelected ? MausamPalette.bgDeep : MausamPalette.textSecondary,
+            ),
+            const SizedBox(width: 4.5),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? MausamPalette.bgDeep : MausamPalette.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // SLIDE 3: What should your day feel like? (matching reference layout)
+  Widget _buildSlide3Rhythm() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '04 / YOUR RHYTHM',
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                            color: MausamPalette.textTertiary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Your Rhythm',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: MausamPalette.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'What should\nyour day feel like?',
+                    style: GoogleFonts.inter(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: MausamPalette.textPrimary,
+                      letterSpacing: -0.5,
+                      height: 1.18,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'We\'ll turn conditions into useful nudges for the way you actually live.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: MausamPalette.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Section 1: What Matters Most
+                  Text(
+                    'WHAT MATTERS MOST',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: MausamPalette.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _mattersMostList.map((item) {
+                      final isSelected = _selectedMattersMost.contains(item);
+                      return _buildTriggerChip(
+                        key: Key('matter_${item.replaceAll(' ', '_')}'),
+                        label: item,
+                        isSelected: isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (_selectedMattersMost.contains(item)) {
+                              if (_selectedMattersMost.length > 1) {
+                                _selectedMattersMost.remove(item);
+                              }
+                            } else {
+                              _selectedMattersMost.add(item);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Section 2: Your Usual Activity
+                  Text(
+                    'YOUR USUAL ACTIVITY',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: MausamPalette.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141417),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF27272A), width: 1),
+                    ),
+                    child: Row(
+                      children: _activityLevels.map((level) {
+                        final isSelected = _selectedActivityLevel == level;
+                        return Expanded(
+                          child: GestureDetector(
+                            key: Key('activity_$level'),
+                            onTap: () {
+                              setState(() {
+                                _selectedActivityLevel = level;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: isSelected ? MausamPalette.textPrimary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(
+                                level,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? MausamPalette.bgDeep : MausamPalette.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Section 3: Your First Insight Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141417),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF27272A), width: 1),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 15,
+                              color: Color(0xFFE4D090),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Your first insight',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: MausamPalette.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Bright & Sunny · 31°C · 89% humidity. We\'ll suggest your best outdoor window and daily guidance.',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w400,
+                            color: MausamPalette.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton(
+              key: const Key('see_my_plan_button'),
+              onPressed: _onSeeMyPlanContinue,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MausamPalette.textPrimary,
+                foregroundColor: MausamPalette.bgDeep,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'See my plan',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.arrow_forward_rounded, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlide4Location() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  '05 / LOCATION ACCESS',
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                    color: MausamPalette.textTertiary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Location Access',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: MausamPalette.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Text(
-            'Where are you? Local forecasts need a place to start.',
+            'Where are you?',
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: MausamPalette.textPrimary,
+              letterSpacing: -0.5,
+              height: 1.18,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Local forecasts need a place to start.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
               color: MausamPalette.textSecondary,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 32),
           Center(
             child: Container(
-              width: 90,
-              height: 90,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: MausamPalette.cardSurfaceLight,
@@ -598,7 +1552,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               child: const Icon(
                 Icons.location_on_rounded,
                 color: MausamPalette.textPrimary,
-                size: 40,
+                size: 36,
               ),
             ),
           ),
@@ -617,43 +1571,56 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           else ...[
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 42,
               child: ElevatedButton(
                 onPressed: () => _completeOnboarding(true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: MausamPalette.textPrimary,
                   foregroundColor: MausamPalette.bgDeep,
                   elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text(
-                  'Allow Location Access',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Allow Location Access',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      const Icon(Icons.arrow_forward_rounded, size: 14),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
-              height: 44,
+              height: 34,
               child: TextButton(
                 onPressed: () => _completeOnboarding(false),
                 style: TextButton.styleFrom(
                   foregroundColor: MausamPalette.textSecondary,
+                  padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: Text(
                   'Not Now',
                   style: GoogleFonts.inter(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: MausamPalette.textTertiary,
                   ),
@@ -661,30 +1628,100 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               ),
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
         ],
       ),
     );
   }
+}
 
-  Widget _alertChip(String label, bool selected, ValueChanged<bool> onChanged) {
-    return FilterChip(
-      label: Text(
-        label,
+/// Custom slider thumb shape rendering a monochrome outer ring, dark core,
+/// and a floating badge bubble directly above the thumb showing current value.
+class _MausamRulerSliderThumbShape extends SliderComponentShape {
+  final double radius;
+  final String label;
+
+  const _MausamRulerSliderThumbShape({
+    this.radius = 7.5,
+    required this.label,
+  });
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => Size.fromRadius(radius);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+
+    // Outer thumb ring (High-contrast white)
+    final outerPaint = Paint()
+      ..color = MausamPalette.textPrimary
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, outerPaint);
+
+    // Inner thumb core (Obsidian deep dark)
+    final innerPaint = Paint()
+      ..color = MausamPalette.bgDeep
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius * 0.45, innerPaint);
+
+    // Floating Tooltip Bubble above thumb (compact sleek badge)
+    const badgeWidth = 28.0;
+    const badgeHeight = 18.0;
+    final badgeCenter = Offset(center.dx, center.dy - radius - 11);
+    final badgeRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: badgeCenter, width: badgeWidth, height: badgeHeight),
+      const Radius.circular(5),
+    );
+
+    // Subtle pointer triangle under badge
+    final pointerPath = Path()
+      ..moveTo(center.dx - 3, badgeCenter.dy + badgeHeight / 2)
+      ..lineTo(center.dx + 3, badgeCenter.dy + badgeHeight / 2)
+      ..lineTo(center.dx, badgeCenter.dy + badgeHeight / 2 + 2.5)
+      ..close();
+
+    final badgePaint = Paint()
+      ..color = const Color(0xFF1E1E22)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(badgeRect, badgePaint);
+    canvas.drawPath(pointerPath, badgePaint);
+
+    final borderPaint = Paint()
+      ..color = MausamPalette.cardBorder
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    canvas.drawRRect(badgeRect, borderPaint);
+
+    // Text in badge
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
         style: GoogleFonts.inter(
-          fontSize: 12,
+          color: MausamPalette.textPrimary,
+          fontSize: 9.5,
           fontWeight: FontWeight.w600,
-          color: selected ? MausamPalette.bgDeep : MausamPalette.textSecondary,
         ),
       ),
-      selected: selected,
-      showCheckmark: false,
-      selectedColor: MausamPalette.textPrimary,
-      backgroundColor: MausamPalette.cardSurface,
-      side: BorderSide(
-        color: selected ? MausamPalette.textPrimary : MausamPalette.cardBorder,
-      ),
-      onSelected: _notificationsEnabled ? onChanged : null,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(badgeCenter.dx - textPainter.width / 2, badgeCenter.dy - textPainter.height / 2),
     );
   }
 }
