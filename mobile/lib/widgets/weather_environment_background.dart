@@ -22,6 +22,7 @@ class WeatherEnvironmentBackground extends StatefulWidget {
   final WallpaperTheme wallpaperTheme;
   final String? condition;
   final int? hourOverride;
+  final bool showCelestialDisc;
   final Widget child;
 
   const WeatherEnvironmentBackground({
@@ -29,6 +30,7 @@ class WeatherEnvironmentBackground extends StatefulWidget {
     this.wallpaperTheme = WallpaperTheme.dynamic,
     this.condition,
     this.hourOverride,
+    this.showCelestialDisc = true,
     required this.child,
   });
 
@@ -154,6 +156,7 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
                   gradient: current,
                   isDynamic: widget.wallpaperTheme.isDynamic,
                   ambientProgress: _ambientAnimation.value,
+                  showCelestialDisc: widget.showCelestialDisc,
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -183,11 +186,13 @@ class _EnvironmentPainter extends CustomPainter {
   final EnvironmentGradient gradient;
   final bool isDynamic;
   final double ambientProgress;
+  final bool showCelestialDisc;
 
   const _EnvironmentPainter({
     required this.gradient,
     this.isDynamic = true,
     this.ambientProgress = 0.0,
+    this.showCelestialDisc = true,
   });
 
   @override
@@ -244,29 +249,31 @@ class _EnvironmentPainter extends CustomPainter {
     );
 
     // Tight celestial disc (sun / moon).
-    final discR = body * gradient.discRadius;
-    canvas.drawCircle(
-      center,
-      discR * 2.4,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            gradient.glowColor.withValues(alpha: 0.55),
-            gradient.glowColor.withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: discR * 2.4))
-        ..blendMode = BlendMode.plus,
-    );
-    canvas.drawCircle(
-      center,
-      discR,
-      Paint()..color = gradient.glowColor.withValues(alpha: gradient.starfield ? 0.72 : 0.88),
-    );
-    canvas.drawCircle(
-      center,
-      discR * 0.42,
-      Paint()..color = Colors.white.withValues(alpha: gradient.starfield ? 0.55 : 0.92),
-    );
+    if (showCelestialDisc) {
+      final discR = body * gradient.discRadius;
+      canvas.drawCircle(
+        center,
+        discR * 2.4,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              gradient.glowColor.withValues(alpha: 0.55),
+              gradient.glowColor.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: center, radius: discR * 2.4))
+          ..blendMode = BlendMode.plus,
+      );
+      canvas.drawCircle(
+        center,
+        discR,
+        Paint()..color = gradient.glowColor.withValues(alpha: gradient.starfield ? 0.72 : 0.88),
+      );
+      canvas.drawCircle(
+        center,
+        discR * 0.42,
+        Paint()..color = Colors.white.withValues(alpha: gradient.starfield ? 0.55 : 0.92),
+      );
+    }
 
     if (!isDynamic) return;
 
@@ -289,6 +296,7 @@ class _EnvironmentPainter extends CustomPainter {
         old.gradient.glowOpacity != gradient.glowOpacity ||
         old.gradient.glowX != gradient.glowX ||
         old.gradient.starfield != gradient.starfield ||
+        old.showCelestialDisc != showCelestialDisc ||
         (isDynamic && (old.ambientProgress - ambientProgress).abs() > 0.008);
   }
 }

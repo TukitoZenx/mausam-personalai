@@ -573,6 +573,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: MausamPalette.bgDeep,
       body: WeatherEnvironmentBackground(
         wallpaperTheme: WallpaperTheme.dynamic,
+        showCelestialDisc: false,
         child: SafeArea(
           child: Stack(
             children: [

@@ -279,6 +279,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       backgroundColor: MausamPalette.bgDeep,
       body: WeatherEnvironmentBackground(
         wallpaperTheme: WallpaperTheme.dynamic,
+        showCelestialDisc: false,
         child: SafeArea(
           child: Column(
             children: [
