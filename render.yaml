@@ -6,8 +6,8 @@ services:
     rootDir: backend
     plan: free
     region: oregon
-    buildCommand: pip install -r requirements.txt && alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: sh start.sh
     healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT

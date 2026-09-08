@@ -16,6 +16,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Ensure PostGIS extension is loaded for Geography data type
+    op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+
     op.create_table(
         'saved_locations',
         sa.Column('id', sa.String(), nullable=False, primary_key=True),
