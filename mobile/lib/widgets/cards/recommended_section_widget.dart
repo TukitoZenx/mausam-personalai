@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/home_card.dart';
 import '../../providers/appearance_provider.dart';
 import '../../theme/weather_palette.dart';
+import '../glass_surface.dart';
 
 class RecommendedSectionWidget extends ConsumerWidget {
   final RankedHomeCard card;
@@ -21,33 +21,20 @@ class RecommendedSectionWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: MausamPalette.cardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: surfaceOpacity < 0.95
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : MausamPalette.cardBorder,
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-            onTap: onTap,
-            splashColor: Colors.white.withValues(alpha: 0.04),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+    final blur = ref.watch(glassBlurProvider);
+
+    return GlassSurface(
+      opacity: surfaceOpacity,
+      radius: 16,
+      blur: blur,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: Colors.white.withValues(alpha: 0.04),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -140,9 +127,6 @@ class RecommendedSectionWidget extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    ),
-  ),
-);
+    );
   }
 }

@@ -70,7 +70,7 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
     // Continuous ambient breathing controller for live dynamic wallpaper
     _ambientController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 16),
     );
     _ambientAnimation = CurvedAnimation(parent: _ambientController, curve: Curves.easeInOut);
 
@@ -194,75 +194,91 @@ class _EnvironmentPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // 1. Linear atmospheric gradient (rich color when dynamic, pure OLED black when fixed)
-    final linearPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: gradient.linearColors,
-        stops: gradient.linearStops,
-      ).createShader(rect);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: gradient.linearColors,
+          stops: gradient.linearStops,
+        ).createShader(rect),
+    );
 
-    canvas.drawRect(rect, linearPaint);
+    if (!gradient.hasGlow || gradient.glowOpacity <= 0.002) return;
 
-    // 2. Celestial radial glow (sun / moon / horizon warmth)
-    if (gradient.hasGlow && gradient.glowOpacity > 0.002) {
-      final double driftY = isDynamic ? math.sin(ambientProgress * 2 * math.pi) * 8.0 : 0.0;
-      final double driftX = isDynamic ? math.cos(ambientProgress * 2 * math.pi) * 4.0 : 0.0;
-      final double radiusPulse = isDynamic ? (1.0 + 0.035 * math.sin(ambientProgress * 2 * math.pi)) : 1.0;
+    final body = math.min(size.width, size.height);
+    final center = Offset(size.width * gradient.glowX, size.height * gradient.glowY);
 
-      final glowCenter = Offset(
-        size.width * gradient.glowX + driftX,
-        size.height * gradient.glowY + driftY,
-      );
-      final glowRadius = math.max(size.width, size.height) * gradient.glowRadius * radiusPulse;
-
-      final glowPaint = Paint()
-        ..shader = RadialGradient(
-          center: Alignment.center,
-          radius: 1.0,
+    // Horizon wash — warmth pooled near the sun, fading into the ground.
+    final horizonY = size.height * (gradient.glowY + 0.22).clamp(0.35, 0.72);
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizonY, size.width, size.height - horizonY),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.70),
-            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.32),
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.18),
+            Colors.black.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, horizonY, size.width, size.height - horizonY))
+        ..blendMode = BlendMode.softLight,
+    );
+
+    // Wide atmospheric bloom.
+    final bloomR = math.max(size.width, size.height) * gradient.glowRadius;
+    canvas.drawCircle(
+      center,
+      bloomR,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.55),
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.18),
             gradient.glowColor.withValues(alpha: 0.0),
           ],
-          stops: const [0.0, 0.45, 1.0],
-        ).createShader(Rect.fromCircle(center: glowCenter, radius: glowRadius))
-        ..blendMode = BlendMode.screen;
+          stops: const [0.0, 0.38, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: bloomR))
+        ..blendMode = BlendMode.screen,
+    );
 
-      canvas.drawCircle(glowCenter, glowRadius, glowPaint);
-    }
+    // Tight celestial disc (sun / moon).
+    final discR = body * gradient.discRadius;
+    canvas.drawCircle(
+      center,
+      discR * 2.4,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            gradient.glowColor.withValues(alpha: 0.55),
+            gradient.glowColor.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromCircle(center: center, radius: discR * 2.4))
+        ..blendMode = BlendMode.plus,
+    );
+    canvas.drawCircle(
+      center,
+      discR,
+      Paint()..color = gradient.glowColor.withValues(alpha: gradient.starfield ? 0.72 : 0.88),
+    );
+    canvas.drawCircle(
+      center,
+      discR * 0.42,
+      Paint()..color = Colors.white.withValues(alpha: gradient.starfield ? 0.55 : 0.92),
+    );
 
-    // 3. Live Atmospheric Particles (Stars at night, floating solar motes during day)
-    if (isDynamic) {
-      final bool isNightAtmosphere = gradient.glowColor == const Color(0xFF93C5FD);
+    if (!isDynamic) return;
 
-      if (isNightAtmosphere) {
-        // Celestial starry cosmos: soft twinkling stars
-        final starPaint = Paint()..style = PaintingStyle.fill;
-        for (int i = 0; i < 32; i++) {
-          final double sx = ((i * 47 + 13) % 100) / 100.0 * size.width;
-          final double sy = ((i * 73 + 29) % 75) / 100.0 * size.height;
-          final double starPhase = ambientProgress * 2 * math.pi + (i * 0.75);
-          final double twinkle = (0.20 + 0.55 * (0.5 + 0.5 * math.sin(starPhase))).clamp(0.0, 1.0);
-          final double starRadius = (i % 5 == 0) ? 1.4 : ((i % 2 == 0) ? 1.0 : 0.7);
-
-          starPaint.color = Colors.white.withValues(alpha: twinkle);
-          canvas.drawCircle(Offset(sx, sy), starRadius, starPaint);
-        }
-      } else {
-        // Daylight / Sunset / Morning: subtle drifting solar warmth motes
-        final motePaint = Paint()..style = PaintingStyle.fill;
-        for (int i = 0; i < 18; i++) {
-          final double baseX = ((i * 61 + 17) % 100) / 100.0 * size.width;
-          final double baseY = ((i * 89 + 31) % 85) / 100.0 * size.height;
-          final double moteOffset = math.sin(ambientProgress * 2 * math.pi + i) * 10.0;
-          final double pulse = (0.06 + 0.12 * (0.5 + 0.5 * math.cos(ambientProgress * 2 * math.pi + i * 0.5))).clamp(0.0, 0.22);
-          final double moteRadius = 1.2 + (i % 4) * 0.4;
-
-          motePaint.color = gradient.glowColor.withValues(alpha: pulse);
-          canvas.drawCircle(Offset(baseX, baseY + moteOffset), moteRadius, motePaint);
-        }
+    if (gradient.starfield) {
+      final starPaint = Paint()..style = PaintingStyle.fill;
+      for (int i = 0; i < 42; i++) {
+        final sx = ((i * 47 + 13) % 100) / 100.0 * size.width;
+        final sy = ((i * 73 + 29) % 62) / 100.0 * size.height;
+        final phase = ambientProgress * 2 * math.pi + i * 0.37;
+        final twinkle = 0.12 + 0.28 * (0.5 + 0.5 * math.sin(phase));
+        starPaint.color = Colors.white.withValues(alpha: twinkle);
+        canvas.drawCircle(Offset(sx, sy), i % 7 == 0 ? 1.15 : 0.55, starPaint);
       }
     }
   }
@@ -271,7 +287,9 @@ class _EnvironmentPainter extends CustomPainter {
   bool shouldRepaint(_EnvironmentPainter old) {
     return old.gradient.linearColors != gradient.linearColors ||
         old.gradient.glowOpacity != gradient.glowOpacity ||
-        (isDynamic && (old.ambientProgress - ambientProgress).abs() > 0.005);
+        old.gradient.glowX != gradient.glowX ||
+        old.gradient.starfield != gradient.starfield ||
+        (isDynamic && (old.ambientProgress - ambientProgress).abs() > 0.008);
   }
 }
 

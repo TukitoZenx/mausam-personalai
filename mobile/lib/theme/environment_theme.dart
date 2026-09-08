@@ -9,8 +9,8 @@ import 'package:flutter/material.dart' show Color, Colors;
 //   • wallpaper3  — Fixed. Never changes with time or weather.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Six distinct atmospheric time-of-day states.
-enum TimeOfDayPeriod { dawn, morning, afternoon, goldenHour, dusk, night }
+/// Live wallpaper periods. Dynamic wallpaper follows local time.
+enum TimeOfDayPeriod { morning, afternoon, evening, night }
 
 /// User-selectable home wallpapers.
 /// Add a value here + a [WallpaperCatalog] entry to introduce a new wallpaper.
@@ -62,6 +62,8 @@ class EnvironmentGradient {
   final Color glowColor;
   final double glowOpacity;
   final List<double> overlayAlphas;
+  final bool starfield;
+  final double discRadius;
 
   const EnvironmentGradient({
     required this.linearColors,
@@ -73,6 +75,8 @@ class EnvironmentGradient {
     this.glowColor = Colors.white,
     this.glowOpacity = 0.0,
     required this.overlayAlphas,
+    this.starfield = false,
+    this.discRadius = 0.038,
   });
 
   static EnvironmentGradient lerp(EnvironmentGradient a, EnvironmentGradient b, double t) {
@@ -98,6 +102,8 @@ class EnvironmentGradient {
       glowColor: Color.lerp(a.glowColor, b.glowColor, t)!,
       glowOpacity: a.glowOpacity + (b.glowOpacity - a.glowOpacity) * t,
       overlayAlphas: overlays,
+      starfield: t < 0.5 ? a.starfield : b.starfield,
+      discRadius: a.discRadius + (b.discRadius - a.discRadius) * t,
     );
   }
 
@@ -186,140 +192,105 @@ class WallpaperCatalog {
     overlayAlphas: [0.24, 0.10, 0.05, 0.20, 0.40],
   );
 
-  // ── Dynamic Live Wallpaper Atmospheres (Dawn, Morning, Afternoon, Golden Hour, Dusk, Night) ──
+  // ── Dynamic live wallpaper: cinematic dark sky, sun path by period ──
 
-  /// Dawn (05:00 - 06:59): Deep cosmic obsidian zenith with subtle rose-gold/apricot horizon glow
-  static const _liveDawn = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF080B14),
-      Color(0xFF0E121E),
-      Color(0xFF171526),
-      Color(0xFF241824),
-      Color(0xFF352026),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.42,
-    glowY: 0.14,
-    glowRadius: 0.65,
-    glowColor: Color(0xFFF59E0B),
-    glowOpacity: 0.10,
-    overlayAlphas: [0.26, 0.12, 0.06, 0.20, 0.40],
-  );
-
-  /// Morning (07:00 - 10:59): Pristine deep navy-obsidian charcoal with quiet daylight solar halo
+  /// Morning 05:00–11:59 — cool ink sky, sun rising left.
   static const _liveMorning = EnvironmentGradient(
     linearColors: [
-      Color(0xFF090E18),
-      Color(0xFF0E1726),
-      Color(0xFF142034),
-      Color(0xFF1A2B45),
-      Color(0xFF223758),
+      Color(0xFF0C121C),
+      Color(0xFF141C28),
+      Color(0xFF1C2634),
+      Color(0xFF161E2A),
+      Color(0xFF0E141C),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.38,
-    glowY: 0.10,
-    glowRadius: 0.70,
-    glowColor: Color(0xFFFDE68A),
-    glowOpacity: 0.12,
-    overlayAlphas: [0.28, 0.14, 0.08, 0.22, 0.42],
+    glowX: 0.20,
+    glowY: 0.18,
+    glowRadius: 0.72,
+    glowColor: Color(0xFFE8E2D6),
+    glowOpacity: 0.20,
+    overlayAlphas: [0.16, 0.02, 0.0, 0.08, 0.30],
+    discRadius: 0.042,
   );
 
-  /// Afternoon (11:00 - 15:59): Crisp obsidian sapphire-slate with pure solar daylight radiance
+  /// Afternoon 12:00–16:59 — cleaner navy, sun high.
   static const _liveAfternoon = EnvironmentGradient(
     linearColors: [
-      Color(0xFF0A101C),
-      Color(0xFF101B2E),
-      Color(0xFF172640),
-      Color(0xFF1E3254),
-      Color(0xFF263F68),
+      Color(0xFF101820),
+      Color(0xFF1A2430),
+      Color(0xFF243040),
+      Color(0xFF1C2836),
+      Color(0xFF121820),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.35,
-    glowY: 0.08,
-    glowRadius: 0.72,
-    glowColor: Color(0xFFFFFFFF),
-    glowOpacity: 0.14,
-    overlayAlphas: [0.28, 0.14, 0.08, 0.22, 0.42],
+    glowX: 0.50,
+    glowY: 0.10,
+    glowRadius: 0.80,
+    glowColor: Color(0xFFF4F1EA),
+    glowOpacity: 0.24,
+    overlayAlphas: [0.12, 0.0, 0.0, 0.08, 0.28],
+    discRadius: 0.050,
   );
 
-  /// Golden Hour (16:00 - 18:59): Velvety obsidian dusk with warm burnished bronze/copper horizon whisper
-  static const _liveGoldenHour = EnvironmentGradient(
+  /// Evening 17:00–20:59 — warm low sun, cool zenith.
+  static const _liveEvening = EnvironmentGradient(
     linearColors: [
-      Color(0xFF0A0912),
-      Color(0xFF120E1C),
-      Color(0xFF1C1324),
-      Color(0xFF271724),
-      Color(0xFF361F26),
+      Color(0xFF0A090F),
+      Color(0xFF141018),
+      Color(0xFF1C161C),
+      Color(0xFF241C1A),
+      Color(0xFF120E10),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.42,
-    glowY: 0.12,
+    glowX: 0.82,
+    glowY: 0.32,
     glowRadius: 0.68,
-    glowColor: Color(0xFFF59E0B),
-    glowOpacity: 0.12,
-    overlayAlphas: [0.26, 0.12, 0.06, 0.20, 0.40],
+    glowColor: Color(0xFFD9C2AE),
+    glowOpacity: 0.22,
+    overlayAlphas: [0.20, 0.04, 0.0, 0.10, 0.34],
+    discRadius: 0.040,
   );
 
-  /// Dusk (19:00 - 20:59): Royal obsidian-indigo with quiet twilight violet horizon
-  static const _liveDusk = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF060710),
-      Color(0xFF0A0B18),
-      Color(0xFF0F1022),
-      Color(0xFF15152C),
-      Color(0xFF1B1834),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.45,
-    glowY: 0.15,
-    glowRadius: 0.62,
-    glowColor: Color(0xFFA855F7),
-    glowOpacity: 0.08,
-    overlayAlphas: [0.24, 0.10, 0.05, 0.18, 0.38],
-  );
-
-  /// Night (21:00 - 04:59): Abyssal obsidian midnight cosmos with delicate silver-blue lunar starlight
+  /// Night 21:00–04:59 — abyss, moon, stars.
   static const _liveNight = EnvironmentGradient(
     linearColors: [
-      Color(0xFF030408),
-      Color(0xFF05070E),
-      Color(0xFF070A14),
-      Color(0xFF0A0D1B),
-      Color(0xFF070A14),
+      Color(0xFF020204),
+      Color(0xFF040508),
+      Color(0xFF07080E),
+      Color(0xFF090B12),
+      Color(0xFF030406),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.46,
-    glowY: 0.13,
-    glowRadius: 0.60,
-    glowColor: Color(0xFF93C5FD),
-    glowOpacity: 0.08,
-    overlayAlphas: [0.22, 0.08, 0.04, 0.16, 0.36],
+    glowX: 0.78,
+    glowY: 0.14,
+    glowRadius: 0.48,
+    glowColor: Color(0xFFC5CDD8),
+    glowOpacity: 0.14,
+    overlayAlphas: [0.10, 0.0, 0.0, 0.10, 0.36],
+    starfield: true,
+    discRadius: 0.026,
   );
 
   static const WallpaperSpec _dynamic = WallpaperSpec(
     id: WallpaperTheme.dynamic,
     title: 'Dynamic Live Wallpaper',
-    subtitle: 'Changes live across Morning, Afternoon, Evening & Night',
+    subtitle: 'Sky follows morning, afternoon, evening, and night',
     isDynamic: true,
     isDefault: true,
     previewColors: [
-      Color(0xFF0E1726),
-      Color(0xFF172640),
-      Color(0xFF271724),
-      Color(0xFF05070E),
+      Color(0xFF1C2634),
+      Color(0xFF243040),
+      Color(0xFF241C1A),
+      Color(0xFF040508),
     ],
     periods: {
-      TimeOfDayPeriod.dawn: _liveDawn,
       TimeOfDayPeriod.morning: _liveMorning,
       TimeOfDayPeriod.afternoon: _liveAfternoon,
-      TimeOfDayPeriod.goldenHour: _liveGoldenHour,
-      TimeOfDayPeriod.dusk: _liveDusk,
+      TimeOfDayPeriod.evening: _liveEvening,
       TimeOfDayPeriod.night: _liveNight,
     },
   );
@@ -356,43 +327,33 @@ class EnvironmentTheme {
   EnvironmentTheme._();
 
   static TimeOfDayPeriod periodForHour(int hour) {
-    if (hour >= 5 && hour < 7) return TimeOfDayPeriod.dawn;
-    if (hour >= 7 && hour < 11) return TimeOfDayPeriod.morning;
-    if (hour >= 11 && hour < 16) return TimeOfDayPeriod.afternoon;
-    if (hour >= 16 && hour < 19) return TimeOfDayPeriod.goldenHour;
-    if (hour >= 19 && hour < 21) return TimeOfDayPeriod.dusk;
+    if (hour >= 5 && hour < 12) return TimeOfDayPeriod.morning;
+    if (hour >= 12 && hour < 17) return TimeOfDayPeriod.afternoon;
+    if (hour >= 17 && hour < 21) return TimeOfDayPeriod.evening;
     return TimeOfDayPeriod.night;
   }
 
   static TimeOfDayPeriod nextPeriod(TimeOfDayPeriod period) {
     switch (period) {
-      case TimeOfDayPeriod.dawn:
-        return TimeOfDayPeriod.morning;
       case TimeOfDayPeriod.morning:
         return TimeOfDayPeriod.afternoon;
       case TimeOfDayPeriod.afternoon:
-        return TimeOfDayPeriod.goldenHour;
-      case TimeOfDayPeriod.goldenHour:
-        return TimeOfDayPeriod.dusk;
-      case TimeOfDayPeriod.dusk:
+        return TimeOfDayPeriod.evening;
+      case TimeOfDayPeriod.evening:
         return TimeOfDayPeriod.night;
       case TimeOfDayPeriod.night:
-        return TimeOfDayPeriod.dawn;
+        return TimeOfDayPeriod.morning;
     }
   }
 
   static int _startHour(TimeOfDayPeriod period) {
     switch (period) {
-      case TimeOfDayPeriod.dawn:
-        return 5;
       case TimeOfDayPeriod.morning:
-        return 7;
+        return 5;
       case TimeOfDayPeriod.afternoon:
-        return 11;
-      case TimeOfDayPeriod.goldenHour:
-        return 16;
-      case TimeOfDayPeriod.dusk:
-        return 19;
+        return 12;
+      case TimeOfDayPeriod.evening:
+        return 17;
       case TimeOfDayPeriod.night:
         return 21;
     }
@@ -400,15 +361,11 @@ class EnvironmentTheme {
 
   static int _endHour(TimeOfDayPeriod period) {
     switch (period) {
-      case TimeOfDayPeriod.dawn:
-        return 7;
       case TimeOfDayPeriod.morning:
-        return 11;
+        return 12;
       case TimeOfDayPeriod.afternoon:
-        return 16;
-      case TimeOfDayPeriod.goldenHour:
-        return 19;
-      case TimeOfDayPeriod.dusk:
+        return 17;
+      case TimeOfDayPeriod.evening:
         return 21;
       case TimeOfDayPeriod.night:
         return 29;

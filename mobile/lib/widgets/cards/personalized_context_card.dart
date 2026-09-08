@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/weather_palette.dart';
+import '../glass_surface.dart';
 
 /// Compact, personalized context card placed directly below the top navbar
 /// on the Home screen before the main Weather Hero.
@@ -200,29 +200,13 @@ class PersonalizedContextCard extends ConsumerWidget {
       hour: hour,
     );
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: MausamPalette.cardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: surfaceOpacity < 0.95
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : MausamPalette.cardBorder,
-                width: 1.0,
-              ),
-            ),
-            child: Material(
+    final blur = ref.watch(glassBlurProvider);
+
+    return GlassSurface(
+      opacity: surfaceOpacity,
+      radius: 16,
+      blur: blur,
+      child: Material(
               color: Colors.transparent,
               child: InkWell(
           onTap: onTap,
@@ -373,9 +357,6 @@ class PersonalizedContextCard extends ConsumerWidget {
           ),
         ),
       ),
-    ),
-  ),
-),
-);
+    );
   }
 }

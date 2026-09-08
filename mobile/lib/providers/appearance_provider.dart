@@ -17,14 +17,18 @@ class AppearanceState {
   final int? previewHour;
 
   const AppearanceState({
-    this.transparencyPercent = 25,
+    this.transparencyPercent = 38,
     this.wallpaperTheme = WallpaperTheme.dynamic,
     this.previewHour,
   });
 
-  /// Map 0-100% transparency to background surface alpha multiplier (1.0 down to 0.22)
+  /// Glass fill. 0% still frosted; 100% is more see-through.
   double get cardOpacity {
-    return (1.0 - (transparencyPercent / 100.0) * 0.78).clamp(0.22, 1.0);
+    return (0.58 - (transparencyPercent / 100.0) * 0.26).clamp(0.30, 0.58);
+  }
+
+  double get glassBlur {
+    return (18.0 + (transparencyPercent / 100.0) * 10.0).clamp(18.0, 28.0);
   }
 
   AppearanceState copyWith({
@@ -100,4 +104,8 @@ final appearanceProvider = NotifierProvider<AppearanceNotifier, AppearanceState>
 /// Convenience provider for widget card surface opacity
 final cardSurfaceOpacityProvider = Provider<double>((ref) {
   return ref.watch(appearanceProvider).cardOpacity;
+});
+
+final glassBlurProvider = Provider<double>((ref) {
+  return ref.watch(appearanceProvider).glassBlur;
 });

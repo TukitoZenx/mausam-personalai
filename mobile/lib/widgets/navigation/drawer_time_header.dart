@@ -150,13 +150,6 @@ class _TimeVisual {
 
 _TimeVisual _visualFor(TimeOfDayPeriod period) {
   switch (period) {
-    case TimeOfDayPeriod.dawn:
-      return const _TimeVisual(
-        label: 'Dawn',
-        icon: Icons.wb_twilight_rounded,
-        iconColor: Color(0xFFE4E4E7),
-        gradient: [Color(0xFF1C1C1F), Color(0xFF2A2A2E), Color(0xFF3F3F46)],
-      );
     case TimeOfDayPeriod.morning:
       return const _TimeVisual(
         label: 'Morning',
@@ -173,19 +166,12 @@ _TimeVisual _visualFor(TimeOfDayPeriod period) {
         iconSize: 34,
         gradient: [Color(0xFF3F3F46), Color(0xFF52525B), Color(0xFF71717A)],
       );
-    case TimeOfDayPeriod.goldenHour:
+    case TimeOfDayPeriod.evening:
       return const _TimeVisual(
         label: 'Evening',
         icon: Icons.wb_twilight_rounded,
         iconColor: Color(0xFFD4D4D8),
         gradient: [Color(0xFF18181B), Color(0xFF27272A), Color(0xFF3F3F46)],
-      );
-    case TimeOfDayPeriod.dusk:
-      return const _TimeVisual(
-        label: 'Dusk',
-        icon: Icons.brightness_4_rounded,
-        iconColor: Color(0xFFA1A1AA),
-        gradient: [Color(0xFF0C0C0E), Color(0xFF141417), Color(0xFF1F1F23)],
       );
     case TimeOfDayPeriod.night:
       return const _TimeVisual(

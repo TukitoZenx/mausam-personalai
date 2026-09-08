@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
 import '../../theme/weather_palette.dart';
+import '../glass_surface.dart';
 import '../navigation/search_overlay.dart';
 import 'persona_home.dart';
 import 'weather_card_atmosphere.dart';
@@ -733,30 +734,14 @@ class TodayMetricCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
+    final blur = ref.watch(glassBlurProvider);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: MausamPalette.cardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: surfaceOpacity < 0.95
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : MausamPalette.cardBorder,
-              ),
-            ),
-            child: Column(
+    return GlassSurface(
+      opacity: surfaceOpacity,
+      radius: 16,
+      blur: blur,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -822,9 +807,6 @@ class TodayMetricCard extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1369,30 +1351,14 @@ class SectionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
+    final blur = ref.watch(glassBlurProvider);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: MausamPalette.cardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: surfaceOpacity < 0.95
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : MausamPalette.cardBorder,
-              ),
-            ),
-            child: Column(
+    return GlassSurface(
+      opacity: surfaceOpacity,
+      radius: 16,
+      blur: blur,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -1423,9 +1389,6 @@ class SectionCard extends ConsumerWidget {
                 child,
               ],
             ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1457,45 +1420,28 @@ class MiniCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
+    final blur = ref.watch(glassBlurProvider);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: MausamPalette.cardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: surfaceOpacity < 0.95
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : MausamPalette.cardBorder,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textTertiary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                child,
-              ],
+    return GlassSurface(
+      opacity: surfaceOpacity,
+      radius: 14,
+      blur: blur,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              color: MausamPalette.textTertiary,
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+              letterSpacing: 0.5,
             ),
           ),
-        ),
+          const SizedBox(height: 6),
+          child,
+        ],
       ),
     );
   }

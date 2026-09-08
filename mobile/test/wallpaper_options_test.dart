@@ -97,10 +97,10 @@ void main() {
       expect(find.text('Fixed Obsidian Black'), findsOneWidget);
 
       // Verify 4 Time stage chips
-      expect(find.text('Morning 🌅'), findsOneWidget);
-      expect(find.text('Afternoon ☀️'), findsOneWidget);
-      expect(find.text('Evening 🌇'), findsOneWidget);
-      expect(find.text('Night 🌙'), findsOneWidget);
+      expect(find.text('Morning'), findsWidgets);
+      expect(find.text('Afternoon'), findsWidgets);
+      expect(find.text('Evening'), findsWidgets);
+      expect(find.text('Night'), findsWidgets);
 
       // Verify Time previewer buttons
       expect(find.byKey(const Key('preview_time_live')), findsOneWidget);

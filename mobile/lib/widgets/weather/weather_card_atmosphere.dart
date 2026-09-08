@@ -231,7 +231,7 @@ class _WeatherCardAtmosphereState extends State<WeatherCardAtmosphere>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: double.infinity,

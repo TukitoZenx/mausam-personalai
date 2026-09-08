@@ -11,16 +11,15 @@ double _meanLuma(EnvironmentGradient g) {
 
 void main() {
   group('EnvironmentTheme — periodForHour', () {
-    test('Hour 5 → dawn', () => expect(EnvironmentTheme.periodForHour(5), TimeOfDayPeriod.dawn));
-    test('Hour 6 → dawn', () => expect(EnvironmentTheme.periodForHour(6), TimeOfDayPeriod.dawn));
-    test('Hour 7 → morning', () => expect(EnvironmentTheme.periodForHour(7), TimeOfDayPeriod.morning));
-    test('Hour 10 → morning', () => expect(EnvironmentTheme.periodForHour(10), TimeOfDayPeriod.morning));
-    test('Hour 11 → afternoon', () => expect(EnvironmentTheme.periodForHour(11), TimeOfDayPeriod.afternoon));
+    test('Hour 5 → morning', () => expect(EnvironmentTheme.periodForHour(5), TimeOfDayPeriod.morning));
+    test('Hour 9 → morning', () => expect(EnvironmentTheme.periodForHour(9), TimeOfDayPeriod.morning));
+    test('Hour 11 → morning', () => expect(EnvironmentTheme.periodForHour(11), TimeOfDayPeriod.morning));
+    test('Hour 12 → afternoon', () => expect(EnvironmentTheme.periodForHour(12), TimeOfDayPeriod.afternoon));
     test('Hour 15 → afternoon', () => expect(EnvironmentTheme.periodForHour(15), TimeOfDayPeriod.afternoon));
-    test('Hour 16 → goldenHour', () => expect(EnvironmentTheme.periodForHour(16), TimeOfDayPeriod.goldenHour));
-    test('Hour 18 → goldenHour', () => expect(EnvironmentTheme.periodForHour(18), TimeOfDayPeriod.goldenHour));
-    test('Hour 19 → dusk', () => expect(EnvironmentTheme.periodForHour(19), TimeOfDayPeriod.dusk));
-    test('Hour 20 → dusk', () => expect(EnvironmentTheme.periodForHour(20), TimeOfDayPeriod.dusk));
+    test('Hour 16 → afternoon', () => expect(EnvironmentTheme.periodForHour(16), TimeOfDayPeriod.afternoon));
+    test('Hour 17 → evening', () => expect(EnvironmentTheme.periodForHour(17), TimeOfDayPeriod.evening));
+    test('Hour 19 → evening', () => expect(EnvironmentTheme.periodForHour(19), TimeOfDayPeriod.evening));
+    test('Hour 20 → evening', () => expect(EnvironmentTheme.periodForHour(20), TimeOfDayPeriod.evening));
     test('Hour 21 → night', () => expect(EnvironmentTheme.periodForHour(21), TimeOfDayPeriod.night));
     test('Hour 0 → night', () => expect(EnvironmentTheme.periodForHour(0), TimeOfDayPeriod.night));
     test('Hour 4 → night', () => expect(EnvironmentTheme.periodForHour(4), TimeOfDayPeriod.night));

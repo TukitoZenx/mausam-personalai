@@ -34,11 +34,11 @@ void main() {
 
   group('Time-of-day drawer states', () {
     test('maps local hours onto Dawn → Night including Evening', () {
-      expect(EnvironmentTheme.periodForHour(6), TimeOfDayPeriod.dawn);
+      expect(EnvironmentTheme.periodForHour(6), TimeOfDayPeriod.morning);
       expect(EnvironmentTheme.periodForHour(9), TimeOfDayPeriod.morning);
       expect(EnvironmentTheme.periodForHour(13), TimeOfDayPeriod.afternoon);
-      expect(EnvironmentTheme.periodForHour(17), TimeOfDayPeriod.goldenHour);
-      expect(EnvironmentTheme.periodForHour(20), TimeOfDayPeriod.dusk);
+      expect(EnvironmentTheme.periodForHour(17), TimeOfDayPeriod.evening);
+      expect(EnvironmentTheme.periodForHour(20), TimeOfDayPeriod.evening);
       expect(EnvironmentTheme.periodForHour(23), TimeOfDayPeriod.night);
     });
   });
