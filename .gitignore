@@ -33,3 +33,8 @@ mobile/.flutter-plugins-dependencies
 *.swp
 *.swo
 .DS_Store
+
+# Landing Web Application
+landing/node_modules/
+landing/dist/
+node_modules/
