@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/routine_reminder.dart';
-import '../services/routine_reminder_scheduler.dart';
+import '../services/notification_service.dart';
 
 const _kRoutineRemindersKey = 'mausam_routine_reminders_v1';
 
@@ -22,10 +23,31 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
       if (!_isHydrated && jsonStr != null && jsonStr.isNotEmpty) {
         final list = RoutineReminder.listFromJsonString(jsonStr);
         state = list;
+        _isHydrated = true;
+        // Re-synchronize OS alarms on startup
+        _rescheduleActiveReminders(list);
+        return;
       }
       _isHydrated = true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[RoutineReminderNotifier] Error loading reminders: $e');
       _isHydrated = true;
+    }
+  }
+
+  Future<void> _rescheduleActiveReminders(List<RoutineReminder> list) async {
+    try {
+      for (final reminder in list) {
+        if (reminder.isActive) {
+          final body = "Tomorrow's best ${reminder.activity} window is ready based on live weather.";
+          await NotificationService.scheduleDailyRoutineReminder(
+            reminder,
+            bodyText: body,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[RoutineReminderNotifier] Reschedule error: $e');
     }
   }
 
@@ -34,8 +56,8 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = RoutineReminder.listToJsonString(list);
       await prefs.setString(_kRoutineRemindersKey, jsonStr);
-    } catch (_) {
-      // Graceful fallback
+    } catch (e) {
+      debugPrint('[RoutineReminderNotifier] Error saving to prefs: $e');
     }
   }
 
@@ -48,16 +70,25 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
     String? notificationBody,
   }) async {
     _isHydrated = true;
+    final currentTz = NotificationService.currentTimeZone;
+
     // Check if an existing reminder exists for this activity
-    final index = state.indexWhere((r) => r.activity.toLowerCase() == activity.toLowerCase());
+    final index = state.indexWhere(
+      (r) => r.activity.toLowerCase() == activity.toLowerCase(),
+    );
 
     RoutineReminder reminder;
     if (index != -1) {
+      // Cancel previous notification schedule to prevent duplicates
+      await NotificationService.cancelReminder(state[index].id);
+
       reminder = state[index].copyWith(
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         targetPeriod: targetPeriod,
+        timezone: currentTz,
         isActive: true,
+        updatedAt: DateTime.now(),
       );
       final updatedList = List<RoutineReminder>.from(state);
       updatedList[index] = reminder;
@@ -69,21 +100,67 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         targetPeriod: targetPeriod,
+        timezone: currentTz,
         isDaily: true,
         isActive: true,
         createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
       state = [reminder, ...state];
     }
 
     await _saveToPrefs(state);
 
-    // Schedule notification
+    // Schedule real OS device notification
     final body = notificationBody ??
-        "Tomorrow's best $activity window has been calculated from the latest weather radar.";
-    await RoutineReminderScheduler.scheduleDailyReminder(reminder, bodyText: body);
+        "Tomorrow's best $activity window is ready. Open Mausam for your dynamic forecast.";
+    await NotificationService.scheduleDailyRoutineReminder(
+      reminder,
+      bodyText: body,
+    );
 
     return reminder;
+  }
+
+  /// Edits reminder schedule time and cancels/reschedules the OS alarm.
+  Future<RoutineReminder?> editReminderTime(
+    String id, {
+    required int newHour,
+    required int newMinute,
+    String? notificationBody,
+  }) async {
+    _isHydrated = true;
+    final index = state.indexWhere((r) => r.id == id);
+    if (index == -1) return null;
+
+    final current = state[index];
+    // 1. Cancel previous schedule
+    await NotificationService.cancelReminder(id);
+
+    // 2. Update model
+    final updated = current.copyWith(
+      reminderHour: newHour,
+      reminderMinute: newMinute,
+      timezone: NotificationService.currentTimeZone,
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedList = List<RoutineReminder>.from(state);
+    updatedList[index] = updated;
+    state = updatedList;
+    await _saveToPrefs(state);
+
+    // 3. Schedule fresh notification if active
+    if (updated.isActive) {
+      final body = notificationBody ??
+          "Tomorrow's best ${updated.activity} window is ready based on live weather.";
+      await NotificationService.scheduleDailyRoutineReminder(
+        updated,
+        bodyText: body,
+      );
+    }
+
+    return updated;
   }
 
   /// Toggles the active status of a reminder (Pause / Resume).
@@ -93,7 +170,12 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
     if (index == -1) return;
 
     final current = state[index];
-    final updated = current.copyWith(isActive: !current.isActive);
+    final willBeActive = !current.isActive;
+
+    final updated = current.copyWith(
+      isActive: willBeActive,
+      updatedAt: DateTime.now(),
+    );
 
     final updatedList = List<RoutineReminder>.from(state);
     updatedList[index] = updated;
@@ -101,19 +183,22 @@ class RoutineReminderNotifier extends Notifier<List<RoutineReminder>> {
 
     await _saveToPrefs(state);
 
-    if (updated.isActive) {
+    if (willBeActive) {
       final body = notificationBody ??
-          "Tomorrow's best ${updated.activity} window has been calculated from the latest weather radar.";
-      await RoutineReminderScheduler.scheduleDailyReminder(updated, bodyText: body);
+          "Tomorrow's best ${updated.activity} window is ready based on live weather.";
+      await NotificationService.scheduleDailyRoutineReminder(
+        updated,
+        bodyText: body,
+      );
     } else {
-      await RoutineReminderScheduler.cancelReminder(id);
+      await NotificationService.cancelReminder(id);
     }
   }
 
   /// Deletes a reminder and cancels its scheduled alarm.
   Future<void> deleteReminder(String id) async {
     _isHydrated = true;
-    await RoutineReminderScheduler.cancelReminder(id);
+    await NotificationService.cancelReminder(id);
     final updatedList = state.where((r) => r.id != id).toList();
     state = updatedList;
     await _saveToPrefs(state);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
+import '../services/notification_service.dart';
 import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
@@ -29,6 +33,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _notifyAqi = true;
   bool _morningBrief = true;
   String _cacheSize = '1.4 MB';
+  bool _notifPermissionGranted = false;
+  String _notifTz = '';
+  bool _isSchedulingTest = false;
+  int _testCountdown = 0;
+  Timer? _countdownTimer;
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
 
   static const List<Map<String, dynamic>> _personas = [
     {
@@ -160,7 +175,96 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _cacheSize = '$kb KB';
         }
       });
+      _loadNotificationDiagnostics();
     } catch (_) {}
+  }
+
+  Future<void> _loadNotificationDiagnostics() async {
+    final granted = await NotificationService.checkPermissionStatus();
+    if (mounted) {
+      setState(() {
+        _notifPermissionGranted = granted;
+        _notifTz = NotificationService.currentTimeZone;
+      });
+    }
+  }
+
+  Future<void> _trigger12sDiagnosticTest() async {
+    setState(() => _isSchedulingTest = true);
+    final hasPerm = await NotificationService.checkPermissionStatus();
+    if (!hasPerm) {
+      final granted = await NotificationService.requestPermissions();
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notification permission is disabled in system settings. Please enable notifications.'),
+              backgroundColor: Color(0xFFEF4444),
+            ),
+          );
+        }
+        setState(() => _isSchedulingTest = false);
+        return;
+      }
+    }
+
+    final success = await NotificationService.scheduleTestNotification(delaySeconds: 12);
+    if (!mounted) return;
+
+    if (success) {
+      _countdownTimer?.cancel();
+      final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      if (isTest) {
+        setState(() {
+          _isSchedulingTest = false;
+          _testCountdown = 0;
+        });
+      } else {
+        setState(() => _testCountdown = 12);
+        _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          setState(() {
+            if (_testCountdown > 1) {
+              _testCountdown--;
+            } else {
+              _testCountdown = 0;
+              _isSchedulingTest = false;
+              timer.cancel();
+            }
+          });
+        });
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Test notification scheduled! Close or minimize app now to verify lockscreen/status bar delivery in 12s.'),
+          duration: Duration(seconds: 8),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    } else {
+      setState(() => _isSchedulingTest = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to schedule test notification. Check system exact alarm settings.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _triggerImmediateTest() async {
+    final hasPerm = await NotificationService.checkPermissionStatus();
+    if (!hasPerm) {
+      await NotificationService.requestPermissions();
+    }
+    await NotificationService.showSystemNotification(
+      title: 'MAUSAM TEST',
+      body: 'Notification delivery is working. Local timezone: ${NotificationService.currentTimeZone}',
+    );
   }
 
   Future<void> _saveBoolPref(String key, bool val) async {
@@ -901,8 +1005,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
         const SizedBox(height: 24),
 
-        // SECTION 7: APPEARANCE
-        _buildSectionHeader('APPEARANCE & ATMOSPHERE', 'SINGLE LUXURY THEME'),
+        // SECTION 7: APPEARANCE & WALLPAPER
+        _buildSectionHeader('APPEARANCE & WALLPAPER', '2 THEME OPTIONS'),
         const SizedBox(height: 12),
 
         StaggeredItemWrapper(
@@ -911,6 +1015,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             builder: (context, ref, child) {
               final appearance = ref.watch(appearanceProvider);
               final opacity = ref.watch(cardSurfaceOpacityProvider);
+              final isDynamic = appearance.wallpaperTheme.isDynamic;
+              final currentHour = DateTime.now().hour;
+              final currentPeriod = EnvironmentTheme.periodForHour(currentHour);
+
+              String currentPeriodName;
+              switch (currentPeriod) {
+                case TimeOfDayPeriod.dawn:
+                case TimeOfDayPeriod.morning:
+                  currentPeriodName = 'Morning 🌅';
+                  break;
+                case TimeOfDayPeriod.afternoon:
+                  currentPeriodName = 'Afternoon ☀️';
+                  break;
+                case TimeOfDayPeriod.goldenHour:
+                case TimeOfDayPeriod.dusk:
+                  currentPeriodName = 'Evening 🌇';
+                  break;
+                case TimeOfDayPeriod.night:
+                  currentPeriodName = 'Night 🌙';
+                  break;
+              }
 
               return Container(
                 padding: const EdgeInsets.all(16),
@@ -922,64 +1047,338 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141417),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF27272A)),
+                    Text(
+                      'HOME WALLPAPER PREFERENCE',
+                      style: GoogleFonts.inter(
+                        color: MausamPalette.textTertiary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF09090B),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Option 1: Dynamic Live Wallpaper (DEFAULT)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: const Key('wallpaper_option_dynamic'),
+                        onTap: () {
+                          ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.dynamic);
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDynamic ? const Color(0xFF181C26) : const Color(0xFF131317),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isDynamic ? const Color(0xFF60A5FA) : const Color(0xFF27272A),
+                              width: isDynamic ? 1.4 : 1.0,
                             ),
-                            child: const Icon(Icons.nightlight_round, color: Color(0xFFD4D4D8), size: 16),
+                            boxShadow: isDynamic
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mausam Obsidian Night',
-                                  style: GoogleFonts.inter(
-                                    color: MausamPalette.textPrimary,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Color(0xFF3B82F6), Color(0xFFF59E0B)],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(Icons.wb_sunny_rounded, color: Colors.white, size: 18),
                                   ),
-                                ),
-                                Text(
-                                  'Ultra-dark OLED palette • Single luxury theme',
-                                  style: GoogleFonts.inter(
-                                    color: MausamPalette.textSecondary,
-                                    fontSize: 11,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Dynamic Live Wallpaper',
+                                              style: GoogleFonts.inter(
+                                                color: MausamPalette.textPrimary,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF1E293B),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFF3B82F6), width: 0.8),
+                                              ),
+                                              child: Text(
+                                                'DEFAULT',
+                                                style: GoogleFonts.inter(
+                                                  color: const Color(0xFF93C5FD),
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Evolves live across Morning, Afternoon, Evening & Night',
+                                          style: GoogleFonts.inter(
+                                            color: MausamPalette.textSecondary,
+                                            fontSize: 11.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isDynamic ? const Color(0xFF1E3A8A) : const Color(0xFF222226),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: isDynamic ? Border.all(color: const Color(0xFF60A5FA), width: 0.8) : null,
+                                    ),
+                                    child: Text(
+                                      isDynamic ? 'ACTIVE' : 'SELECT',
+                                      style: GoogleFonts.inter(
+                                        color: isDynamic ? const Color(0xFF93C5FD) : MausamPalette.textTertiary,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+                              // 4 Time stages chips
+                              Row(
+                                children: [
+                                  _buildTimePeriodChip('Morning 🌅', currentPeriod == TimeOfDayPeriod.morning || currentPeriod == TimeOfDayPeriod.dawn),
+                                  const SizedBox(width: 6),
+                                  _buildTimePeriodChip('Afternoon ☀️', currentPeriod == TimeOfDayPeriod.afternoon),
+                                  const SizedBox(width: 6),
+                                  _buildTimePeriodChip('Evening 🌇', currentPeriod == TimeOfDayPeriod.goldenHour || currentPeriod == TimeOfDayPeriod.dusk),
+                                  const SizedBox(width: 6),
+                                  _buildTimePeriodChip('Night 🌙', currentPeriod == TimeOfDayPeriod.night),
+                                ],
+                              ),
+
+                              if (isDynamic) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.access_time_filled_rounded, color: Color(0xFF60A5FA), size: 14),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          appearance.previewHour != null
+                                              ? 'Preview: ${_previewHourName(appearance.previewHour!)}'
+                                              : 'Live Now: $currentPeriodName ($currentHour:00)',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            color: const Color(0xFFE2E8F0),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      // Quick time preview buttons
+                                      GestureDetector(
+                                        key: const Key('preview_time_live'),
+                                        onTap: () => ref.read(appearanceProvider.notifier).setPreviewHour(null),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: appearance.previewHour == null ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('Live', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        key: const Key('preview_time_am'),
+                                        onTap: () => ref.read(appearanceProvider.notifier).setPreviewHour(8),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: appearance.previewHour == 8 ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('AM', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        key: const Key('preview_time_noon'),
+                                        onTap: () => ref.read(appearanceProvider.notifier).setPreviewHour(13),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: appearance.previewHour == 13 ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('Noon', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        key: const Key('preview_time_eve'),
+                                        onTap: () => ref.read(appearanceProvider.notifier).setPreviewHour(18),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: appearance.previewHour == 18 ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('Eve', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        key: const Key('preview_time_night'),
+                                        onTap: () => ref.read(appearanceProvider.notifier).setPreviewHour(22),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: appearance.previewHour == 22 ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('Night', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF222226),
-                              borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Option 2: Fixed Obsidian Black (Second Choice)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: const Key('wallpaper_option_fixed'),
+                        onTap: () {
+                          ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.wallpaper2);
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: !isDynamic ? const Color(0xFF18181D) : const Color(0xFF131317),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: !isDynamic ? const Color(0xFFA1A1AA) : const Color(0xFF27272A),
+                              width: !isDynamic ? 1.4 : 1.0,
                             ),
-                            child: Text(
-                              'ACTIVE',
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textPrimary,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.6,
+                            boxShadow: !isDynamic
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.5),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF030304),
+                                  border: Border.all(color: const Color(0xFF27272A), width: 1.2),
+                                ),
+                                child: const Icon(Icons.nightlight_round, color: Color(0xFFD4D4D8), size: 17),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Fixed Obsidian Black',
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.textPrimary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Permanent deep OLED black • Never changes with time',
+                                      style: GoogleFonts.inter(
+                                        color: MausamPalette.textSecondary,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: !isDynamic ? const Color(0xFF27272A) : const Color(0xFF222226),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: !isDynamic ? Border.all(color: const Color(0xFFA1A1AA), width: 0.8) : null,
+                                ),
+                                child: Text(
+                                  !isDynamic ? 'ACTIVE' : 'SELECT',
+                                  style: GoogleFonts.inter(
+                                    color: !isDynamic ? Colors.white : MausamPalette.textTertiary,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
 
@@ -1055,7 +1454,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '28°C • Clear Obsidian Night',
+                                isDynamic
+                                    ? 'Live Dynamic Wallpaper active'
+                                    : 'Fixed Obsidian Black active',
                                 style: GoogleFonts.inter(
                                   color: MausamPalette.textPrimary,
                                   fontSize: 13,
@@ -1063,7 +1464,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ),
                               ),
                               Text(
-                                'Surface opacity ${(opacity * 100).round()}% preview',
+                                'Card surface opacity ${(opacity * 100).round()}% preview',
                                 style: GoogleFonts.inter(
                                   color: MausamPalette.textSecondary,
                                   fontSize: 11,
@@ -1206,6 +1607,149 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // SECTION 10: DIAGNOSTICS & SYSTEM VERIFICATION (DEVELOPER ONLY)
+        _buildSectionHeader('DIAGNOSTICS & SYSTEM VERIFICATION', 'DEVELOPER ONLY'),
+        const SizedBox(height: 12),
+
+        StaggeredItemWrapper(
+          index: 9,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MausamPalette.cardBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1B4B),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.bug_report_rounded, color: Color(0xFF818CF8), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'OS Notification Delivery Test',
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'Test real background notification on this mobile device',
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14141A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF27272E)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Device Local Timezone:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Text(_notifTz.isNotEmpty ? _notifTz : NotificationService.currentTimeZone,
+                              style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('OS Notification Permission:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Row(
+                            children: [
+                              Icon(_notifPermissionGranted ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                                  color: _notifPermissionGranted ? const Color(0xFF10B981) : const Color(0xFFF87171), size: 14),
+                              const SizedBox(width: 5),
+                              Text(_notifPermissionGranted ? 'Granted' : 'Denied / Disabled',
+                                  style: GoogleFonts.inter(
+                                      color: _notifPermissionGranted ? const Color(0xFF10B981) : const Color(0xFFF87171),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Exact Alarm Capability:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Text(NotificationService.exactAlarmsAllowed ? 'Allowed' : 'Restricted (Fallback Active)',
+                              style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        key: const Key('dev_test_schedule_10s_button'),
+                        onPressed: _isSchedulingTest ? null : _trigger12sDiagnosticTest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.timer_outlined, size: 16),
+                        label: Text(
+                          _testCountdown > 0 ? 'Firing in ${_testCountdown}s...' : 'Schedule 12s Test',
+                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('dev_test_immediate_button'),
+                        onPressed: _triggerImmediateTest,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: MausamPalette.textPrimary,
+                          side: const BorderSide(color: Color(0xFF3F3F46)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.notifications_active_outlined, size: 16),
+                        label: Text(
+                          'Test Now',
+                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap "Schedule 12s Test", then close or minimize the app. The OS notification will appear on your device lockscreen/status bar in 12 seconds.',
+                  style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11, height: 1.35),
                 ),
               ],
             ),
@@ -1517,5 +2061,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildTimePeriodChip(String label, bool isCurrent) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: isCurrent ? const Color(0xFF2563EB).withValues(alpha: 0.22) : const Color(0xFF1E1E24),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isCurrent ? const Color(0xFF60A5FA) : const Color(0xFF2E2E38),
+            width: isCurrent ? 1.0 : 0.8,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              color: isCurrent ? const Color(0xFF93C5FD) : MausamPalette.textTertiary,
+              fontSize: 10,
+              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _previewHourName(int hour) {
+    if (hour >= 5 && hour < 11) return 'Morning (8:00 AM)';
+    if (hour >= 11 && hour < 16) return 'Afternoon (1:00 PM)';
+    if (hour >= 16 && hour < 21) return 'Evening (6:00 PM)';
+    return 'Night (10:00 PM)';
   }
 }

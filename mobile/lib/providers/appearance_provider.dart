@@ -10,12 +10,16 @@ class AppearanceState {
   /// Transparency percentage from 0 (0% transparent / fully opaque) to 100 (100% max translucent glass)
   final int transparencyPercent;
 
-  /// Selected home wallpaper. Defaults to Mausam Dynamic.
+  /// Selected home wallpaper. Defaults to Mausam Dynamic (Live Wallpaper).
   final WallpaperTheme wallpaperTheme;
+
+  /// Optional hour override for live time-of-day testing in Profile settings (null = real local time)
+  final int? previewHour;
 
   const AppearanceState({
     this.transparencyPercent = 25,
     this.wallpaperTheme = WallpaperTheme.dynamic,
+    this.previewHour,
   });
 
   /// Map 0-100% transparency to background surface alpha multiplier (1.0 down to 0.22)
@@ -26,10 +30,13 @@ class AppearanceState {
   AppearanceState copyWith({
     int? transparencyPercent,
     WallpaperTheme? wallpaperTheme,
+    int? previewHour,
+    bool clearPreview = false,
   }) {
     return AppearanceState(
       transparencyPercent: transparencyPercent ?? this.transparencyPercent,
       wallpaperTheme: wallpaperTheme ?? this.wallpaperTheme,
+      previewHour: clearPreview ? null : (previewHour ?? this.previewHour),
     );
   }
 }
@@ -66,11 +73,25 @@ class AppearanceNotifier extends Notifier<AppearanceState> {
   }
 
   Future<void> setWallpaperTheme(WallpaperTheme theme) async {
-    state = state.copyWith(wallpaperTheme: theme);
+    state = state.copyWith(wallpaperTheme: theme, clearPreview: true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kWallpaperTheme, theme.name);
     } catch (_) {}
+  }
+
+  void setPreviewHour(int? hour) {
+    state = state.copyWith(
+      previewHour: hour,
+      clearPreview: hour == null,
+    );
+  }
+
+  Future<void> toggleWallpaperTheme() async {
+    final nextTheme = state.wallpaperTheme.isDynamic
+        ? WallpaperTheme.wallpaper2
+        : WallpaperTheme.dynamic;
+    await setWallpaperTheme(nextTheme);
   }
 }
 

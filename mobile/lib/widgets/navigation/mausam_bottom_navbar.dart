@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../providers/mausam_ai_state_provider.dart';
 import '../../theme/weather_palette.dart';
+import 'mausam_center_logo_icon.dart';
 
 /// Minimalist, X (Twitter)-Style Bottom Navigation Bar for Mausam AI.
 ///
@@ -280,16 +281,13 @@ class _CenterMausamAiButtonState extends State<_CenterMausamAiButton>
                           ),
                         ),
 
-                      // Frameless clean icon (pure X / Twitter aesthetic)
+                      // Frameless clean icon (custom vector Mausam AI logo)
                       Transform.rotate(
                         angle: rotationAngle,
                         child: Transform.scale(
                           scale: logoScale,
-                          child: Icon(
-                            (isSelected || isActiveState)
-                                ? Icons.wb_cloudy_rounded
-                                : Icons.cloud_outlined,
-                            size: 27.5,
+                          child: MausamCenterLogoIcon(
+                            size: 28.0,
                             color: iconColor,
                           ),
                         ),

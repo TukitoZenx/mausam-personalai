@@ -8,7 +8,6 @@ import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../theme/weather_palette.dart';
-import '../services/notification_service.dart';
 import '../widgets/cards/personalized_context_card.dart';
 import '../widgets/cards/recommended_section_widget.dart';
 import '../widgets/staggered_item_wrapper.dart';
@@ -286,15 +285,7 @@ class _HomeAlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        NotificationService.showAlertNotification(
-          context,
-          title: alert.title,
-          message: alert.message,
-          isSevere: alert.isSevere,
-          onViewAlerts: onTap,
-        );
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(

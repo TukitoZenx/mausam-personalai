@@ -70,112 +70,70 @@ class _ContextDetailScreenState extends ConsumerState<ContextDetailScreen> {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 64, 16, 84),
+      padding: const EdgeInsets.fromLTRB(16, 60, 16, 88),
       children: [
-        // 1. Top Navigation & Weather-Adaptive Typography Header
+        // 1. Top Navigation Row: Back to Home + Persona Badge
         StaggeredItemWrapper(
           index: 0,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Top Action Row: Back to Home + Persona Badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    key: const Key('context_detail_back_button'),
-                    onTap: () => context.go('/home'),
+              InkWell(
+                key: const Key('context_detail_back_button'),
+                onTap: () => context.go('/home'),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 13),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Home',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: accentColor.withValues(alpha: 0.35)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.auto_awesome_rounded, size: 11, color: accentColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          userState.selectedPersona ?? 'Persona',
-                          style: GoogleFonts.inter(
-                            color: accentColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 13),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Home',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Overline: PERSONALIZED FOR [USER_NAME]
-              Text(
-                'PERSONALIZED FOR $userName'.toUpperCase(),
-                style: GoogleFonts.inter(
-                  color: accentColor,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
                 ),
               ),
-              const SizedBox(height: 4),
-
-              // Main Headline
-              Text(
-                'Lifestyle & Physical Context',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.35)),
                 ),
-              ),
-              const SizedBox(height: 4),
-
-              // Subtitle
-              Text(
-                'Daily climate adaptation tailored to your rhythm, biometrics, and triggers.',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  height: 1.35,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 11, color: accentColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      userState.selectedPersona ?? 'Persona',
+                      style: GoogleFonts.inter(
+                        color: accentColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // 2. Segmented Tab Switcher: [ Persona Context | Health & Metrics ]
         StaggeredItemWrapper(
@@ -258,6 +216,52 @@ class _ContextDetailScreenState extends ConsumerState<ContextDetailScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // 3. Screen Headline Typography
+        StaggeredItemWrapper(
+          index: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Overline: PERSONALIZED FOR [USER_NAME]
+              Text(
+                'PERSONALIZED FOR $userName'.toUpperCase(),
+                style: GoogleFonts.inter(
+                  color: accentColor,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              // Main Headline
+              Text(
+                'Lifestyle & Physical Context',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              // Subtitle
+              Text(
+                'Daily climate adaptation tailored to your rhythm, biometrics, and triggers.',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF94A3B8),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w400,
+                  height: 1.35,
+                ),
+              ),
+            ],
           ),
         ),
 

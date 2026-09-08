@@ -94,9 +94,40 @@ class ForecastScreen extends ConsumerWidget {
 
                 const SizedBox(height: 14),
 
-                // Precipitation & Moisture Outlook
+                // 1. Sun & Moon Feature Card
                 StaggeredItemWrapper(
                   index: 2,
+                  child: SunMoonCard(
+                    current: data.current,
+                    today: data.daily.firstOrNull,
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // 2. Comfort & Feel Feature Card
+                StaggeredItemWrapper(
+                  index: 3,
+                  child: ComfortFeelCard(
+                    current: data.current,
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // 3. Monthly Rainfall Feature Card (replaces unavailable placeholder)
+                StaggeredItemWrapper(
+                  index: 4,
+                  child: MonthlyRainfallCard(
+                    dashboard: data,
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // Precipitation & Moisture Outlook
+                StaggeredItemWrapper(
+                  index: 5,
                   child: _PrecipitationOutlookCard(
                     current: data.current,
                     hourly: data.hourly,
@@ -108,7 +139,7 @@ class ForecastScreen extends ConsumerWidget {
 
                 // Upcoming Weekend Outlook
                 StaggeredItemWrapper(
-                  index: 3,
+                  index: 6,
                   child: _WeekendOutlookCard(
                     daily: data.daily,
                   ),

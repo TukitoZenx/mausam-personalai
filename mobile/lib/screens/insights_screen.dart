@@ -15,6 +15,7 @@ import '../providers/routine_reminder_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../services/activity_recommendation_engine.dart';
+import '../services/notification_service.dart';
 import '../services/routine_intent_parser.dart';
 import '../services/routine_reminder_scheduler.dart';
 import '../services/weather_ai_engine.dart';
@@ -176,10 +177,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
         });
       }
     });
+
+    NotificationService.pendingNotificationQuery.addListener(_checkPendingNotificationQuery);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPendingNotificationQuery();
+    });
+  }
+
+  void _checkPendingNotificationQuery() {
+    final query = NotificationService.pendingNotificationQuery.value;
+    if (query != null && query.isNotEmpty) {
+      NotificationService.pendingNotificationQuery.value = null;
+      if (mounted) {
+        _handleSubmitted(query);
+      }
+    }
   }
 
   @override
   void dispose() {
+    NotificationService.pendingNotificationQuery.removeListener(_checkPendingNotificationQuery);
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     _controller.dispose();
@@ -279,6 +296,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
       if (!mounted) return;
       _loadingTimer?.cancel();
 
+      // Check for direct notification permission query
+      if (trimmed.toLowerCase() == 'enable notifications' || trimmed.toLowerCase() == 'allow notifications') {
+        final granted = await RoutineReminderScheduler.requestPermissions();
+        final text = granted
+            ? '✅ Mobile notification permissions are **granted**! You will receive daily weather and routine alerts directly in your phone\'s system tray.'
+            : '⚠️ Notification permission is still disabled in system settings. Please open phone Settings > Apps > Mausam > Notifications and toggle them on.';
+        _startStreamingResponse(text, followUps: ['My active reminders', 'Weather tomorrow', 'Will it rain today?']);
+        return;
+      }
+
       // Check for routine & activity intelligence intent first
       final routineIntent = RoutineIntentParser.parse(trimmed);
       if (routineIntent.type != RoutineIntentType.none) {
@@ -348,6 +375,36 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
       );
     }
 
+    if (intent.rawQuery.toLowerCase().contains('pause') &&
+        (intent.rawQuery.toLowerCase().contains('reminder') || intent.rawQuery.toLowerCase().contains('schedule'))) {
+      final activeReminders = ref.read(routineReminderProvider);
+      if (activeReminders.isNotEmpty) {
+        final target = activeReminders.first;
+        await ref.read(routineReminderProvider.notifier).togglePauseResume(target.id);
+        return (
+          text: 'I have paused your daily **${target.activity}** reminder for **${target.reminderTimeDisplay}**. No notifications will be sent while paused.',
+          followUps: ['Resume this reminder', 'My active reminders'],
+          recommendation: null,
+          reminder: null,
+        );
+      }
+    }
+
+    if (intent.rawQuery.toLowerCase().contains('resume') &&
+        (intent.rawQuery.toLowerCase().contains('reminder') || intent.rawQuery.toLowerCase().contains('schedule'))) {
+      final reminders = ref.read(routineReminderProvider);
+      if (reminders.isNotEmpty) {
+        final target = reminders.first;
+        await ref.read(routineReminderProvider.notifier).togglePauseResume(target.id);
+        return (
+          text: 'I have resumed your daily **${target.activity}** reminder for **${target.reminderTimeDisplay}**. Notifications are active again.',
+          followUps: ['Tomorrow\'s activity window', 'My active reminders'],
+          recommendation: null,
+          reminder: null,
+        );
+      }
+    }
+
     if (intent.type == RoutineIntentType.deleteReminder) {
       final activeReminders = ref.read(routineReminderProvider);
       if (activeReminders.isNotEmpty) {
@@ -380,16 +437,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
     }
 
     RoutineReminder? reminder;
+    bool hasPerm = true;
     if (intent.isReminderIntent && intent.reminderHour != null) {
       await RoutineReminderScheduler.init();
-      final hasPerm = await RoutineReminderScheduler.checkPermissionStatus();
+      hasPerm = await RoutineReminderScheduler.checkPermissionStatus();
       if (!hasPerm) {
-        await RoutineReminderScheduler.requestPermissions();
+        hasPerm = await RoutineReminderScheduler.requestPermissions();
       }
 
       final notifBody = rec != null
           ? "Tomorrow's best ${intent.activity} window is ${rec.recommendedWindow} (${rec.temperatureCelsius}°C, ${rec.aqiCategory} AQI)."
-          : "Tomorrow's best ${intent.activity} window has been calculated from fresh weather radar.";
+          : "Your daily weather check is ready. Open Mausam for the latest forecast.";
 
       reminder = await ref.read(routineReminderProvider.notifier).createOrUpdateReminder(
         activity: intent.activity,
@@ -403,7 +461,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
     String responseText;
     List<String> followUps;
 
-    if (intent.type == RoutineIntentType.reminderAndRecommendation) {
+    if (!hasPerm && reminder != null) {
+      responseText =
+          'I\'ve scheduled your daily **${intent.activity}** reminder for **${reminder.reminderTimeDisplay}**.\n\n'
+          '⚠️ **Allow notifications**: Mausam needs notifications to remind you about your weather routines. Please enable notifications in your phone Settings so the alert can be delivered.';
+      followUps = [
+        'Enable notifications',
+        'Tomorrow\'s activity window',
+        'Pause this reminder',
+      ];
+    } else if (intent.type == RoutineIntentType.reminderAndRecommendation) {
       responseText =
           'I\'ve scheduled your daily reminder for **${reminder!.reminderTimeDisplay}**.\n\n'
           'Every evening at ${reminder.reminderTimeDisplay}, I\'ll compute tomorrow morning\'s optimal ${intent.activity} window using live forecast radar and your profile. Here is your preview for tomorrow:';

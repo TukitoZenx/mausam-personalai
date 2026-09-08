@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../providers/appearance_provider.dart';
 import '../../providers/location_provider.dart';
+import '../../theme/environment_theme.dart';
 import '../../theme/weather_palette.dart';
 import 'drawer_time_header.dart';
 
@@ -64,13 +66,6 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Chat',
-                      icon: Icons.chat_bubble_outline_rounded,
-                      route: '/chat',
-                      isActive: currentRoute == '/chat',
-                    ),
-                    _drawerItem(
-                      context: context,
                       title: 'Mausam AI Assistant',
                       icon: Icons.wb_cloudy_rounded,
                       route: '/insights',
@@ -112,7 +107,102 @@ class MausamAppDrawer extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final appearance = ref.watch(appearanceProvider);
+                    final isDynamic = appearance.wallpaperTheme.isDynamic;
+
+                    return Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF131317),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: MausamPalette.cardBorder, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              key: const Key('drawer_switch_dynamic'),
+                              onTap: () {
+                                ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.dynamic);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isDynamic ? const Color(0xFF1E293B) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: isDynamic ? Border.all(color: const Color(0xFF3B82F6), width: 1) : null,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.wb_sunny_rounded, color: isDynamic ? const Color(0xFF60A5FA) : const Color(0xFF71717A), size: 13),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Live Sky',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: isDynamic ? Colors.white : const Color(0xFF71717A),
+                                          fontSize: 11,
+                                          fontWeight: isDynamic ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: GestureDetector(
+                              key: const Key('drawer_switch_fixed'),
+                              onTap: () {
+                                ref.read(appearanceProvider.notifier).setWallpaperTheme(WallpaperTheme.wallpaper2);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: !isDynamic ? const Color(0xFF27272A) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: !isDynamic ? Border.all(color: const Color(0xFFA1A1AA), width: 1) : null,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.nightlight_round, color: !isDynamic ? Colors.white : const Color(0xFF71717A), size: 13),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Fixed Black',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: !isDynamic ? Colors.white : const Color(0xFF71717A),
+                                          fontSize: 11,
+                                          fontWeight: !isDynamic ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Row(
                   children: [
                     ClipRRect(

@@ -211,8 +211,9 @@ class LocationNotifier extends Notifier<LocationState> {
         );
       }
 
+      final hasCustomized = prefs.getBool('has_customized_saved_locations') ?? false;
       final persistedLocations = prefs.getStringList('persisted_saved_locations');
-      if (persistedLocations != null && persistedLocations.isNotEmpty) {
+      if (persistedLocations != null) {
         final loaded = persistedLocations.map((str) {
           final map = jsonDecode(str) as Map<String, dynamic>;
           return LocationItem(
@@ -226,11 +227,15 @@ class LocationNotifier extends Notifier<LocationState> {
 
         if (loaded.isNotEmpty) {
           state = state.copyWith(savedLocations: loaded);
+        } else if (hasCustomized) {
+          state = state.copyWith(savedLocations: const []);
         } else {
           state = state.copyWith(savedLocations: defaultStarterLocations);
         }
-      } else {
+      } else if (!hasCustomized) {
         state = state.copyWith(savedLocations: defaultStarterLocations);
+      } else {
+        state = state.copyWith(savedLocations: const []);
       }
     } catch (_) {}
   }
@@ -532,10 +537,43 @@ class LocationNotifier extends Notifier<LocationState> {
     return item;
   }
 
+  Future<void> _persistCustomizedFlag() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_customized_saved_locations', true);
+    } catch (_) {}
+  }
+
   void removeSavedLocation(String id) {
+    final removed = state.savedLocations.where((loc) => loc.id == id).firstOrNull;
+    final updatedList = state.savedLocations.where((loc) => loc.id != id).toList();
+
+    // If the removed item was currently active, switch fallback to device GPS
+    final wasActive = state.isCustomSelected &&
+        removed != null &&
+        ((state.activeLatitude - removed.latitude).abs() < 0.001 &&
+            (state.activeLongitude - removed.longitude).abs() < 0.001);
+
+    if (wasActive) {
+      useCurrentLocation();
+    }
+
     state = state.copyWith(
-      savedLocations: state.savedLocations.where((loc) => loc.id != id).toList(),
+      savedLocations: updatedList,
     );
+    _persistCustomizedFlag();
+    _persistSavedLocations();
+  }
+
+  void insertSavedLocation(int index, LocationItem item) {
+    final list = [...state.savedLocations];
+    if (index >= 0 && index <= list.length) {
+      list.insert(index, item);
+    } else {
+      list.add(item);
+    }
+    state = state.copyWith(savedLocations: list);
+    _persistCustomizedFlag();
     _persistSavedLocations();
   }
 

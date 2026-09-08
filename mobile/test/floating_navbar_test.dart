@@ -20,11 +20,11 @@ void main() {
         ),
       );
 
-      // Verify location text and icons are rendered
+      // Verify location text and navigation icons are rendered (search icon removed from navbar)
       expect(find.text('DVC Research Center'), findsOneWidget);
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
       expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsNothing);
 
       // Verify that the background glass/shadow container has opacity 0.0 (transparent)
       final animatedOpacityFinder = find.byType(AnimatedOpacity);

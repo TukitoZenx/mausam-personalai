@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 enum WeatherAtmosphereType {
@@ -47,7 +48,6 @@ class _WeatherCardAtmosphereState extends State<WeatherCardAtmosphere>
   final math.Random _random = math.Random(42);
 
   final List<_RainDrop> _rainDrops = [];
-  final List<_SolarParticle> _solarParticles = [];
   final List<_SnowFlake> _snowFlakes = [];
   final List<_CloudBlob> _cloudBlobs = [];
 
@@ -63,17 +63,6 @@ class _WeatherCardAtmosphereState extends State<WeatherCardAtmosphere>
         speed: 0.4 + _random.nextDouble() * 0.5,
         length: 12.0 + _random.nextDouble() * 12.0,
         opacity: 0.20 + _random.nextDouble() * 0.35,
-      ));
-    }
-
-    // 2. Pre-generate solar particles (for sun/yellow theme)
-    for (int i = 0; i < 14; i++) {
-      _solarParticles.add(_SolarParticle(
-        x: 0.5 + _random.nextDouble() * 0.45,
-        y: 0.1 + _random.nextDouble() * 0.55,
-        radius: 1.5 + _random.nextDouble() * 2.5,
-        speed: 0.15 + _random.nextDouble() * 0.25,
-        phase: _random.nextDouble() * math.pi * 2,
       ));
     }
 
@@ -124,7 +113,7 @@ class _WeatherCardAtmosphereState extends State<WeatherCardAtmosphere>
     // Palette adaptation
     final Color borderColor;
     final List<BoxShadow> boxShadows;
-    final Gradient bgGradient;
+    final LinearGradient bgGradient;
 
     if (isYellow) {
       // Playful solar golden yellow theme
@@ -224,45 +213,67 @@ class _WeatherCardAtmosphereState extends State<WeatherCardAtmosphere>
       );
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+    final effectiveGradient = LinearGradient(
+      begin: bgGradient.begin,
+      end: bgGradient.end,
+      stops: bgGradient.stops,
+      colors: bgGradient.colors
+          .map((c) => c.withValues(alpha: (c.a * widget.surfaceOpacity).clamp(0.0, 1.0)))
+          .toList(),
+    );
+
+    return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: bgGradient,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.2),
         boxShadow: boxShadows,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            // Ambient Canvas Layer (Rain, Sun rays, Storm flashes, Clouds)
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) {
-                    return CustomPaint(
-                      painter: _WeatherCardPainter(
-                        type: widget.type,
-                        isYellow: isYellow,
-                        progress: _controller.value,
-                        rainDrops: _rainDrops,
-                        solarParticles: _solarParticles,
-                        snowFlakes: _snowFlakes,
-                        cloudBlobs: _cloudBlobs,
-                      ),
-                      size: Size.infinite,
-                    );
-                  },
-                ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: effectiveGradient,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: widget.surfaceOpacity < 0.95
+                    ? (isYellow ? const Color(0x66F59E0B) : Colors.white.withValues(alpha: 0.12))
+                    : borderColor,
+                width: 1.2,
               ),
             ),
+            child: Stack(
+              children: [
+                // Ambient Canvas Layer (Rain, Sun rays, Storm flashes, Clouds)
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, _) {
+                        return CustomPaint(
+                          painter: _WeatherCardPainter(
+                            type: widget.type,
+                            isYellow: isYellow,
+                            progress: _controller.value,
+                            rainDrops: _rainDrops,
+                            snowFlakes: _snowFlakes,
+                            cloudBlobs: _cloudBlobs,
+                          ),
+                          size: Size.infinite,
+                        );
+                      },
+                    ),
+                  ),
+                ),
 
-            // Card Foreground Content
-            widget.child,
-          ],
+                // Card Foreground Content
+                widget.child,
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -277,7 +288,6 @@ class _WeatherCardPainter extends CustomPainter {
   final bool isYellow;
   final double progress;
   final List<_RainDrop> rainDrops;
-  final List<_SolarParticle> solarParticles;
   final List<_SnowFlake> snowFlakes;
   final List<_CloudBlob> cloudBlobs;
 
@@ -286,7 +296,6 @@ class _WeatherCardPainter extends CustomPainter {
     required this.isYellow,
     required this.progress,
     required this.rainDrops,
-    required this.solarParticles,
     required this.snowFlakes,
     required this.cloudBlobs,
   });
@@ -308,57 +317,21 @@ class _WeatherCardPainter extends CustomPainter {
 
   // 1. SUN & PLAYFUL YELLOW ATMOSPHERE
   void _paintSunAtmosphere(Canvas canvas, Size size) {
-    final sunCenter = Offset(size.width * 0.82, size.height * 0.32);
+    // Elegant solar illumination aura aligned seamlessly behind the top-right weather icon
+    final iconCenter = Offset(size.width - 45, 68);
+    final pulse = 0.92 + 0.08 * math.sin(progress * math.pi * 2);
 
-    // Warm radial solar aura
-    final pulse = 0.88 + 0.12 * math.sin(progress * math.pi * 6);
-    final glowPaint = Paint()
+    final auraPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFF59E0B).withValues(alpha: 0.28 * pulse),
-          const Color(0xFFFBBF24).withValues(alpha: 0.12 * pulse),
+          const Color(0xFFF59E0B).withValues(alpha: 0.25 * pulse),
+          const Color(0xFFFBBF24).withValues(alpha: 0.10 * pulse),
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: sunCenter, radius: 110));
+      ).createShader(Rect.fromCircle(center: iconCenter, radius: 120));
 
-    canvas.drawCircle(sunCenter, 110, glowPaint);
-
-    // Rotating solar ray beams
-    final rayPaint = Paint()
-      ..color = const Color(0xFFFDE047).withValues(alpha: 0.15)
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-
-    final rayRotation = progress * math.pi * 2;
-    const rayCount = 12;
-    const rayInnerRadius = 34.0;
-    const rayOuterRadius = 64.0;
-
-    for (int i = 0; i < rayCount; i++) {
-      final angle = rayRotation + (i * (math.pi * 2 / rayCount));
-      final inner = Offset(
-        sunCenter.dx + math.cos(angle) * rayInnerRadius,
-        sunCenter.dy + math.sin(angle) * rayInnerRadius,
-      );
-      final outer = Offset(
-        sunCenter.dx + math.cos(angle) * (rayOuterRadius + (i % 2 == 0 ? 8 : 0)),
-        sunCenter.dy + math.sin(angle) * (rayOuterRadius + (i % 2 == 0 ? 8 : 0)),
-      );
-      canvas.drawLine(inner, outer, rayPaint);
-    }
-
-    // Floating golden ambient embers
-    final emberPaint = Paint()..style = PaintingStyle.fill;
-    for (final p in solarParticles) {
-      final yNorm = (p.y - progress * p.speed) % 1.0;
-      final currentY = (yNorm < 0 ? yNorm + 1.0 : yNorm) * size.height;
-      final currentX = (p.x * size.width) + math.sin(progress * math.pi * 4 + p.phase) * 10;
-      final alpha = (0.2 + 0.4 * math.sin(progress * math.pi * 2 + p.phase)).clamp(0.0, 1.0);
-
-      emberPaint.color = const Color(0xFFFBBF24).withValues(alpha: alpha * 0.35);
-      canvas.drawCircle(Offset(currentX, currentY), p.radius, emberPaint);
-    }
+    canvas.drawCircle(iconCenter, 120, auraPaint);
   }
 
   // 2. RAIN ATMOSPHERE
@@ -467,22 +440,6 @@ class _RainDrop {
     required this.speed,
     required this.length,
     required this.opacity,
-  });
-}
-
-class _SolarParticle {
-  final double x;
-  final double y;
-  final double radius;
-  final double speed;
-  final double phase;
-
-  const _SolarParticle({
-    required this.x,
-    required this.y,
-    required this.radius,
-    required this.speed,
-    required this.phase,
   });
 }
 

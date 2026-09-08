@@ -294,6 +294,35 @@ void main() {
     });
   });
 
+  group('HeroCurrentCard Underlined Change Location Action', () {
+    testWidgets('renders underlined Change button with location icon and triggers callback on tap', (tester) async {
+      bool changeTapped = false;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: HeroCurrentCard(
+                current: sampleDashboard.current,
+                hourly: sampleDashboard.hourly,
+                onChangeLocation: () => changeTapped = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final changeBtn = find.byKey(const Key('hero_change_location_button'));
+      expect(changeBtn, findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
+      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+
+      await tester.tap(changeBtn);
+      await tester.pump();
+      expect(changeTapped, isTrue);
+    });
+  });
+
   group('Responsive Layout Zero Overflow Verification', () {
     for (final width in [320.0, 360.0, 393.0, 412.0]) {
       testWidgets('renders all added sections with ZERO overflow at width ${width}px', (tester) async {
@@ -308,6 +337,7 @@ void main() {
                 body: SingleChildScrollView(
                   child: Column(
                     children: [
+                      HeroCurrentCard(current: sampleDashboard.current, hourly: sampleDashboard.hourly),
                       DailyForecastPanel(days: sampleDashboard.daily),
                       const TodaysMetricsGrid(dashboard: sampleDashboard),
                       const AdditionalConditionsSection(dashboard: sampleDashboard),
@@ -321,7 +351,6 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // tester.takeException() returns any FlutterError or overflow caught during layout
         expect(tester.takeException(), isNull, reason: 'Must not produce any overflow on width $width');
       });
     }

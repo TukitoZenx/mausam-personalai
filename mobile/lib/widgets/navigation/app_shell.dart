@@ -20,7 +20,6 @@ import 'app_drawer.dart';
 import 'fading_indexed_stack.dart';
 import 'floating_navbar.dart';
 import 'mausam_bottom_navbar.dart';
-import 'search_overlay.dart';
 
 const _shellRoutes = [
   '/home',
@@ -109,6 +108,7 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
       drawer: MausamAppDrawer(currentRoute: path),
       body: WeatherEnvironmentBackground(
         wallpaperTheme: appearance.wallpaperTheme,
+        hourOverride: appearance.previewHour,
         child: SafeArea(
           child: NotificationListener<ScrollNotification>(
             onNotification: _onScroll,
@@ -141,7 +141,6 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                     locationName: locationName,
                     locationAnimation: _locationAnim,
                     onLocationTap: () => context.go('/saved-locations'),
-                    onSearch: () => showSearchOverlay(context: context, ref: ref),
                   ),
                 ),
                 Positioned(

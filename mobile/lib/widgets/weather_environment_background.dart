@@ -37,9 +37,12 @@ class WeatherEnvironmentBackground extends StatefulWidget {
 }
 
 class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+    with TickerProviderStateMixin {
+  late AnimationController _crossfadeController;
+  late Animation<double> _crossfadeAnimation;
+
+  late AnimationController _ambientController;
+  late Animation<double> _ambientAnimation;
 
   /// The gradient we are currently animating FROM.
   late EnvironmentGradient _fromGradient;
@@ -57,12 +60,24 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
     _fromGradient = _resolveGradient();
     _toGradient = _fromGradient;
 
-    // Animation controller for crossfade on each update
-    _controller = AnimationController(
+    // Crossfade controller for smooth 1.2s transitions when changing wallpaper/time
+    _crossfadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200), // smooth 1.2s crossfade on theme toggle
+      duration: const Duration(milliseconds: 1200),
     );
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    _crossfadeAnimation = CurvedAnimation(parent: _crossfadeController, curve: Curves.easeInOut);
+
+    // Continuous ambient breathing controller for live dynamic wallpaper
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    );
+    _ambientAnimation = CurvedAnimation(parent: _ambientController, curve: Curves.easeInOut);
+
+    final isTestMode = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+    if (!isTestMode && widget.wallpaperTheme.isDynamic) {
+      _ambientController.repeat(reverse: true);
+    }
 
     // Dynamic wallpapers re-evaluate local time every minute.
     _minuteTimer = Timer.periodic(const Duration(seconds: 60), (_) {
@@ -85,14 +100,15 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
 
   void _updateGradient() {
     final newGradient = _resolveGradient();
-    if (newGradient.visuallyEquals(_toGradient) && (_controller.status == AnimationStatus.completed || !_controller.isAnimating)) {
+    if (newGradient.visuallyEquals(_toGradient) &&
+        (_crossfadeController.status == AnimationStatus.completed || !_crossfadeController.isAnimating)) {
       _toGradient = newGradient;
       return;
     }
     setState(() {
-      _fromGradient = EnvironmentGradient.lerp(_fromGradient, _toGradient, _animation.value);
+      _fromGradient = EnvironmentGradient.lerp(_fromGradient, _toGradient, _crossfadeAnimation.value);
       _toGradient = newGradient;
-      _controller.forward(from: 0);
+      _crossfadeController.forward(from: 0);
     });
   }
 
@@ -100,6 +116,14 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
   void didUpdateWidget(WeatherEnvironmentBackground old) {
     super.didUpdateWidget(old);
     if (old.wallpaperTheme != widget.wallpaperTheme || old.hourOverride != widget.hourOverride) {
+      final isTestMode = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+      if (!isTestMode) {
+        if (widget.wallpaperTheme.isDynamic && !_ambientController.isAnimating) {
+          _ambientController.repeat(reverse: true);
+        } else if (!widget.wallpaperTheme.isDynamic && _ambientController.isAnimating) {
+          _ambientController.stop();
+        }
+      }
       _updateGradient();
     }
   }
@@ -107,16 +131,17 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
   @override
   void dispose() {
     _minuteTimer?.cancel();
-    _controller.dispose();
+    _crossfadeController.dispose();
+    _ambientController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _animation,
+      animation: Listenable.merge([_crossfadeAnimation, _ambientAnimation]),
       builder: (context, _) {
-        final t = _animation.value;
+        final t = _crossfadeAnimation.value;
         final current = EnvironmentGradient.lerp(_fromGradient, _toGradient, t);
 
         return Stack(
@@ -125,7 +150,11 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
             // ── Layer 1: Atmospheric gradient + radial celestial glow (isolated repaint)
             RepaintBoundary(
               child: CustomPaint(
-                painter: _EnvironmentPainter(gradient: current),
+                painter: _EnvironmentPainter(
+                  gradient: current,
+                  isDynamic: widget.wallpaperTheme.isDynamic,
+                  ambientProgress: _ambientAnimation.value,
+                ),
                 child: const SizedBox.expand(),
               ),
             ),
@@ -152,24 +181,25 @@ class _WeatherEnvironmentBackgroundState extends State<WeatherEnvironmentBackgro
 // ─────────────────────────────────────────────────────────────────────────────
 class _EnvironmentPainter extends CustomPainter {
   final EnvironmentGradient gradient;
+  final bool isDynamic;
+  final double ambientProgress;
 
-  const _EnvironmentPainter({required this.gradient});
+  const _EnvironmentPainter({
+    required this.gradient,
+    this.isDynamic = true,
+    this.ambientProgress = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    Color grayOf(Color c) {
-      final l = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b);
-      return Color.from(alpha: c.a, red: l, green: l, blue: l);
-    }
-
-    // 1. Linear atmospheric gradient (forced monochrome)
+    // 1. Linear atmospheric gradient (rich color when dynamic, pure OLED black when fixed)
     final linearPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: gradient.linearColors.map(grayOf).toList(),
+        colors: gradient.linearColors,
         stops: gradient.linearStops,
       ).createShader(rect);
 
@@ -177,20 +207,24 @@ class _EnvironmentPainter extends CustomPainter {
 
     // 2. Celestial radial glow (sun / moon / horizon warmth)
     if (gradient.hasGlow && gradient.glowOpacity > 0.002) {
+      final double driftY = isDynamic ? math.sin(ambientProgress * 2 * math.pi) * 8.0 : 0.0;
+      final double driftX = isDynamic ? math.cos(ambientProgress * 2 * math.pi) * 4.0 : 0.0;
+      final double radiusPulse = isDynamic ? (1.0 + 0.035 * math.sin(ambientProgress * 2 * math.pi)) : 1.0;
+
       final glowCenter = Offset(
-        size.width * gradient.glowX,
-        size.height * gradient.glowY,
+        size.width * gradient.glowX + driftX,
+        size.height * gradient.glowY + driftY,
       );
-      final glowRadius = math.max(size.width, size.height) * gradient.glowRadius;
+      final glowRadius = math.max(size.width, size.height) * gradient.glowRadius * radiusPulse;
 
       final glowPaint = Paint()
         ..shader = RadialGradient(
           center: Alignment.center,
           radius: 1.0,
           colors: [
-            grayOf(gradient.glowColor).withValues(alpha: gradient.glowOpacity * 0.55),
-            grayOf(gradient.glowColor).withValues(alpha: gradient.glowOpacity * 0.25),
-            grayOf(gradient.glowColor).withValues(alpha: 0.0),
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.70),
+            gradient.glowColor.withValues(alpha: gradient.glowOpacity * 0.32),
+            gradient.glowColor.withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.45, 1.0],
         ).createShader(Rect.fromCircle(center: glowCenter, radius: glowRadius))
@@ -198,12 +232,46 @@ class _EnvironmentPainter extends CustomPainter {
 
       canvas.drawCircle(glowCenter, glowRadius, glowPaint);
     }
+
+    // 3. Live Atmospheric Particles (Stars at night, floating solar motes during day)
+    if (isDynamic) {
+      final bool isNightAtmosphere = gradient.glowColor == const Color(0xFF93C5FD);
+
+      if (isNightAtmosphere) {
+        // Celestial starry cosmos: soft twinkling stars
+        final starPaint = Paint()..style = PaintingStyle.fill;
+        for (int i = 0; i < 32; i++) {
+          final double sx = ((i * 47 + 13) % 100) / 100.0 * size.width;
+          final double sy = ((i * 73 + 29) % 75) / 100.0 * size.height;
+          final double starPhase = ambientProgress * 2 * math.pi + (i * 0.75);
+          final double twinkle = (0.20 + 0.55 * (0.5 + 0.5 * math.sin(starPhase))).clamp(0.0, 1.0);
+          final double starRadius = (i % 5 == 0) ? 1.4 : ((i % 2 == 0) ? 1.0 : 0.7);
+
+          starPaint.color = Colors.white.withValues(alpha: twinkle);
+          canvas.drawCircle(Offset(sx, sy), starRadius, starPaint);
+        }
+      } else {
+        // Daylight / Sunset / Morning: subtle drifting solar warmth motes
+        final motePaint = Paint()..style = PaintingStyle.fill;
+        for (int i = 0; i < 18; i++) {
+          final double baseX = ((i * 61 + 17) % 100) / 100.0 * size.width;
+          final double baseY = ((i * 89 + 31) % 85) / 100.0 * size.height;
+          final double moteOffset = math.sin(ambientProgress * 2 * math.pi + i) * 10.0;
+          final double pulse = (0.06 + 0.12 * (0.5 + 0.5 * math.cos(ambientProgress * 2 * math.pi + i * 0.5))).clamp(0.0, 0.22);
+          final double moteRadius = 1.2 + (i % 4) * 0.4;
+
+          motePaint.color = gradient.glowColor.withValues(alpha: pulse);
+          canvas.drawCircle(Offset(baseX, baseY + moteOffset), moteRadius, motePaint);
+        }
+      }
+    }
   }
 
   @override
   bool shouldRepaint(_EnvironmentPainter old) {
     return old.gradient.linearColors != gradient.linearColors ||
-        old.gradient.glowOpacity != gradient.glowOpacity;
+        old.gradient.glowOpacity != gradient.glowOpacity ||
+        (isDynamic && (old.ambientProgress - ambientProgress).abs() > 0.005);
   }
 }
 

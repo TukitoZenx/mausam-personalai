@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,16 +23,26 @@ class RecommendedSectionWidget extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MausamPalette.cardBorder),
         boxShadow: MausamPalette.cardShadow,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
             onTap: onTap,
             splashColor: Colors.white.withValues(alpha: 0.04),
             child: Padding(
@@ -130,6 +141,8 @@ class RecommendedSectionWidget extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

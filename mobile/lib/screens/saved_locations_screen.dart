@@ -168,30 +168,42 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
   }
 
   Future<void> _deleteLocation(String id, String name) async {
+    final locNotifier = ref.read(locationProvider.notifier);
+    final currentSaved = ref.read(locationProvider).savedLocations;
+    final index = currentSaved.indexWhere((loc) => loc.id == id);
+    final deletedItem = index != -1 ? currentSaved[index] : null;
+
+    // 1. Optimistic instant local removal
+    locNotifier.removeSavedLocation(id);
+
+    // 2. Show instant feedback with Undo action
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed $name', style: GoogleFonts.inter(color: Colors.white, fontSize: 13)),
+          backgroundColor: const Color(0xFF18181B),
+          duration: const Duration(seconds: 4),
+          action: deletedItem != null
+              ? SnackBarAction(
+                  label: 'UNDO',
+                  textColor: const Color(0xFF60A5FA),
+                  onPressed: () {
+                    locNotifier.insertSavedLocation(index, deletedItem);
+                  },
+                )
+              : null,
+        ),
+      );
+    }
+
+    // 3. Best-effort server sync in the background
     final userState = ref.read(userProvider);
     final apiClient = ref.read(apiClientProvider);
     final idToken = userState.idToken ?? 'test_token';
-
     try {
       await apiClient.deleteSavedLocation(id: id, idToken: idToken);
-      if (!mounted) return;
-      ref.read(locationProvider.notifier).removeSavedLocation(id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Removed $name'),
-          backgroundColor: MausamPalette.cardSurface,
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete location'),
-            backgroundColor: MausamPalette.cardSurface,
-          ),
-        );
-      }
-    }
+    } catch (_) {}
   }
 
   @override
@@ -308,8 +320,8 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
           ),
         ),
 
-        // 2. Current Location Tile (Directly below search bar as requested)
-        _buildCurrentLocationCard(locState),
+        // 2. Current Location Tile (Directly below search bar at all times)
+        _buildCurrentLocationCard(locState, weatherDash),
             if (_results.isNotEmpty)
               Flexible(
                 flex: 2,
@@ -406,18 +418,23 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     );
   }
 
-  Widget _buildCurrentLocationCard(LocationState locState) {
+  Widget _buildCurrentLocationCard(LocationState locState, WeatherDashboardState weatherDash) {
     final isGpsActive = !locState.isCustomSelected;
-    var deviceCity = locState.deviceCityName ?? 'Current Location';
-    if (deviceCity == 'Locating...' || deviceCity.isEmpty) {
-      deviceCity = (locState.activeCityName.isNotEmpty && locState.activeCityName != 'Locating...')
-          ? locState.activeCityName
-          : 'Live GPS Location';
+
+    String deviceCity;
+    if (locState.deviceCityName != null &&
+        locState.deviceCityName!.isNotEmpty &&
+        locState.deviceCityName != 'Locating...') {
+      deviceCity = locState.deviceCityName!;
+    } else if (isGpsActive &&
+        locState.activeCityName.isNotEmpty &&
+        locState.activeCityName != 'Locating...') {
+      deviceCity = locState.activeCityName;
+    } else {
+      deviceCity = 'Current Location';
     }
-    final hasCoords = (locState.deviceLatitude != null && locState.deviceLatitude != 0.0) ||
-        (locState.activeLatitude != 0.0);
-    final lat = locState.deviceLatitude ?? locState.activeLatitude;
-    final lon = locState.deviceLongitude ?? locState.activeLongitude;
+
+    final weather = _resolveCurrentLocationWeather(locState, weatherDash, deviceCity);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -425,172 +442,220 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: _selectCurrentLocation,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: Ink(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: isGpsActive
-                  ? const Color(0xFF131722)
-                  : const Color(0xFF121216),
-              borderRadius: BorderRadius.circular(16),
+              gradient: isGpsActive
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF131D2F), Color(0xFF0F1522)],
+                    )
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF14141A), Color(0xFF101014)],
+                    ),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: isGpsActive
-                    ? const Color(0xFF3B82F6).withValues(alpha: 0.45)
+                    ? const Color(0xFF3B82F6).withValues(alpha: 0.6)
                     : const Color(0xFF26262E),
-                width: isGpsActive ? 1.4 : 1.0,
+                width: isGpsActive ? 1.5 : 1.0,
               ),
               boxShadow: isGpsActive
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                        blurRadius: 14,
-                        offset: const Offset(0, 3),
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
                     ]
-                  : null,
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: isGpsActive
-                        ? const Color(0xFF1D283A)
-                        : const Color(0xFF1C1C22),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isGpsActive
-                          ? const Color(0xFF3B82F6).withValues(alpha: 0.5)
-                          : const Color(0xFF2E2E38),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.my_location_rounded,
-                    color: isGpsActive ? const Color(0xFF60A5FA) : const Color(0xFFA1A1AA),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
+                // Left Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Overline: GPS icon + GPS badge + ACTIVE indicator
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Flexible(
-                            child: Text(
-                              deviceCity,
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textPrimary,
-                                fontSize: 14.5,
-                                fontWeight: isGpsActive ? FontWeight.w700 : FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          Icon(
+                            Icons.my_location_rounded,
+                            color: isGpsActive ? const Color(0xFF60A5FA) : const Color(0xFFA1A1AA),
+                            size: 14,
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: const Color(0xFF22222A),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               'GPS',
                               style: GoogleFonts.inter(
                                 color: const Color(0xFFA1A1AA),
-                                fontSize: 9.5,
+                                fontSize: 9,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),
                             ),
                           ),
+                          if (isGpsActive) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                                  width: 0.9,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'ACTIVE',
+                                    style: GoogleFonts.inter(
+                                      color: const Color(0xFF34D399),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 5),
+
+                      // City Name
                       Text(
-                        hasCoords
-                            ? '${lat.toStringAsFixed(3)}° N, ${lon.toStringAsFixed(3)}° E • Live Device Sensors'
-                            : 'Auto-detect live GPS coordinates',
+                        deviceCity,
                         style: GoogleFonts.inter(
-                          color: isGpsActive ? const Color(0xFF93C5FD) : MausamPalette.textSecondary,
-                          fontSize: 11.5,
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 4),
+
+                      // Condition & H/L
+                      Row(
+                        children: [
+                          Icon(
+                            weather.icon,
+                            color: weather.iconColor,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              weather.condition,
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'H:${weather.tempMax}° L:${weather.tempMin}°',
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: MausamTypography.tabularFeatures,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                if (isGpsActive)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                        width: 1,
+
+                const SizedBox(width: 12),
+
+                // Right Degree & Action
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isGpsActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        margin: const EdgeInsets.only(bottom: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E2638),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF2B364D)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'USE GPS',
+                              style: GoogleFonts.inter(
+                                color: const Color(0xFF60A5FA),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 8,
+                              color: Color(0xFF60A5FA),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Text(
+                      '${weather.tempCelsius}°',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -1.0,
+                        fontFeatures: MausamTypography.tabularFeatures,
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'ACTIVE',
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF34D399),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1F1F26),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF2E2E38), width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'USE GPS',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textSecondary,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 9,
-                          color: MausamPalette.textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -599,16 +664,76 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     );
   }
 
+  _LocationWeatherSummary _resolveCurrentLocationWeather(
+    LocationState locState,
+    WeatherDashboardState weatherDash,
+    String deviceCity,
+  ) {
+    if (!locState.isCustomSelected && weatherDash.data?.current != null) {
+      final cur = weatherDash.data!.current;
+      final daily = weatherDash.data?.daily.firstOrNull;
+      final t = cur.temperatureCelsius.round();
+      final h = (cur.highCelsius ?? daily?.highCelsius)?.round() ?? (t + 3);
+      final l = (cur.lowCelsius ?? daily?.lowCelsius)?.round() ?? (t - 4);
+      final desc = cur.condition.isNotEmpty ? cur.condition : 'Clear Skies';
+      return _LocationWeatherSummary(
+        tempCelsius: t,
+        tempMax: h,
+        tempMin: l,
+        condition: desc,
+        icon: _iconForCondition(desc),
+        iconColor: _colorForCondition(desc),
+      );
+    }
+
+    final dummyItem = LocationItem(
+      id: 'current_device_location',
+      name: deviceCity,
+      latitude: locState.deviceLatitude ?? locState.activeLatitude,
+      longitude: locState.deviceLongitude ?? locState.activeLongitude,
+      placeName: 'Live Device Location',
+    );
+    return _resolveLocationWeather(dummyItem, weatherDash, locState);
+  }
+
   Widget _buildSavedLocationWeatherCard({
     required BuildContext context,
     required LocationItem item,
     required bool isSelected,
     required _LocationWeatherSummary weather,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
+    return Dismissible(
+      key: Key('dismiss_location_${item.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFDC2626).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Remove',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
+          ],
+        ),
+      ),
+      onDismissed: (_) => _deleteLocation(item.id, item.name),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: Colors.transparent,
         child: InkWell(
           onTap: () {
             ref.read(locationProvider.notifier).selectSavedLocation(item);
@@ -766,15 +891,23 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: () => _deleteLocation(item.id, item.name),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: Color(0xFF52525B),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkResponse(
+                        key: Key('delete_location_${item.id}'),
+                        onTap: () => _deleteLocation(item.id, item.name),
+                        radius: 18,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF272730).withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: Color(0xFFA1A1AA),
+                          ),
                         ),
                       ),
                     ),
@@ -796,8 +929,9 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   _LocationWeatherSummary _resolveLocationWeather(
     LocationItem item,

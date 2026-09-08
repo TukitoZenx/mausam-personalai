@@ -16,7 +16,7 @@ class FloatingNavbar extends StatelessWidget {
   final Animation<double>? locationAnimation;
   final bool isScrolled;
   final VoidCallback onLocationTap;
-  final VoidCallback onSearch;
+  final VoidCallback? onSearch;
 
   const FloatingNavbar({
     super.key,
@@ -24,7 +24,7 @@ class FloatingNavbar extends StatelessWidget {
     this.locationAnimation,
     this.isScrolled = false,
     required this.onLocationTap,
-    required this.onSearch,
+    this.onSearch,
   });
 
   @override
@@ -66,7 +66,7 @@ class FloatingNavbar extends StatelessWidget {
             ),
           ),
 
-          // 2. Pinned Top Bar Content (Icons & Location Text)
+          // 2. Pinned Top Bar Content (Icons & Location Text - without search icon)
           Positioned.fill(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -108,11 +108,7 @@ class FloatingNavbar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.search_rounded, color: MausamPalette.textPrimary, size: 22),
-                    tooltip: 'Search City',
-                    onPressed: onSearch,
-                  ),
+                  const SizedBox(width: 10),
                 ],
               ),
             ),

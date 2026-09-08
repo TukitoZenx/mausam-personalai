@@ -20,18 +20,24 @@ enum WallpaperTheme {
   wallpaper3;
 
   bool get isDynamic => this == WallpaperTheme.dynamic;
+  bool get isFixedBlack => this == WallpaperTheme.wallpaper2 || this == WallpaperTheme.wallpaper3;
 
   static WallpaperTheme get defaultTheme => WallpaperTheme.dynamic;
 
-  /// Parses persisted names, including legacy Auto/Horizon/Aurora/Clouds/Nightfall.
+  /// Parses persisted names, including legacy Auto/Horizon/Aurora/Clouds/Nightfall and Fixed Black.
   static WallpaperTheme parse(String? name) {
     switch (name) {
       case 'wallpaper2':
+      case 'fixed':
+      case 'black':
+      case 'fixedBlack':
+      case 'obsidian':
         return WallpaperTheme.wallpaper2;
       case 'wallpaper3':
       case 'nightfall':
         return WallpaperTheme.wallpaper3;
       case 'dynamic':
+      case 'live':
       case 'auto':
       case 'horizon':
       case 'aurora':
@@ -143,8 +149,7 @@ class WallpaperCatalog {
     return all.firstWhere((s) => s.id == theme, orElse: () => _dynamic);
   }
 
-  // ── Unified Luxury Obsidian Night Atmosphere (Single Night Theme) ──
-
+  // ── Fixed Obsidian Black Atmosphere (Pure OLED Black) ──
   static const _obsidianNight = EnvironmentGradient(
     linearColors: [
       Color(0xFF030304),
@@ -163,27 +168,9 @@ class WallpaperCatalog {
     overlayAlphas: [0.28, 0.14, 0.08, 0.24, 0.44],
   );
 
-  static const _obsidianDawn = EnvironmentGradient(
+  static const _obsidianNebula = EnvironmentGradient(
     linearColors: [
-      Color(0xFF050507),
-      Color(0xFF07070A),
-      Color(0xFF09090D),
-      Color(0xFF0D0D12),
-      Color(0xFF060609),
-    ],
-    linearStops: _stops,
-    hasGlow: true,
-    glowX: 0.40,
-    glowY: 0.12,
-    glowRadius: 0.62,
-    glowColor: Color(0xFFC4C4CD),
-    glowOpacity: 0.09,
-    overlayAlphas: [0.26, 0.12, 0.06, 0.22, 0.42],
-  );
-
-  static const _obsidianMorning = EnvironmentGradient(
-    linearColors: [
-      Color(0xFF07070A),
+      Color(0xFF070709),
       Color(0xFF0A0A0E),
       Color(0xFF0E0E14),
       Color(0xFF13131A),
@@ -199,91 +186,153 @@ class WallpaperCatalog {
     overlayAlphas: [0.24, 0.10, 0.05, 0.20, 0.40],
   );
 
-  static const _obsidianAfternoon = EnvironmentGradient(
+  // ── Dynamic Live Wallpaper Atmospheres (Dawn, Morning, Afternoon, Golden Hour, Dusk, Night) ──
+
+  /// Dawn (05:00 - 06:59): Deep cosmic obsidian zenith with subtle rose-gold/apricot horizon glow
+  static const _liveDawn = EnvironmentGradient(
     linearColors: [
-      Color(0xFF09090D),
-      Color(0xFF0D0D13),
-      Color(0xFF12121A),
-      Color(0xFF171722),
-      Color(0xFF0B0B10),
+      Color(0xFF080B14),
+      Color(0xFF0E121E),
+      Color(0xFF171526),
+      Color(0xFF241824),
+      Color(0xFF352026),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.42,
+    glowY: 0.14,
+    glowRadius: 0.65,
+    glowColor: Color(0xFFF59E0B),
+    glowOpacity: 0.10,
+    overlayAlphas: [0.26, 0.12, 0.06, 0.20, 0.40],
+  );
+
+  /// Morning (07:00 - 10:59): Pristine deep navy-obsidian charcoal with quiet daylight solar halo
+  static const _liveMorning = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF090E18),
+      Color(0xFF0E1726),
+      Color(0xFF142034),
+      Color(0xFF1A2B45),
+      Color(0xFF223758),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.38,
+    glowY: 0.10,
+    glowRadius: 0.70,
+    glowColor: Color(0xFFFDE68A),
+    glowOpacity: 0.12,
+    overlayAlphas: [0.28, 0.14, 0.08, 0.22, 0.42],
+  );
+
+  /// Afternoon (11:00 - 15:59): Crisp obsidian sapphire-slate with pure solar daylight radiance
+  static const _liveAfternoon = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF0A101C),
+      Color(0xFF101B2E),
+      Color(0xFF172640),
+      Color(0xFF1E3254),
+      Color(0xFF263F68),
     ],
     linearStops: _stops,
     hasGlow: true,
     glowX: 0.35,
     glowY: 0.08,
-    glowRadius: 0.68,
-    glowColor: Color(0xFFE4E4E7),
-    glowOpacity: 0.11,
-    overlayAlphas: [0.22, 0.08, 0.04, 0.18, 0.38],
+    glowRadius: 0.72,
+    glowColor: Color(0xFFFFFFFF),
+    glowOpacity: 0.14,
+    overlayAlphas: [0.28, 0.14, 0.08, 0.22, 0.42],
   );
 
-  static const _obsidianGoldenHour = EnvironmentGradient(
+  /// Golden Hour (16:00 - 18:59): Velvety obsidian dusk with warm burnished bronze/copper horizon whisper
+  static const _liveGoldenHour = EnvironmentGradient(
     linearColors: [
-      Color(0xFF08080B),
-      Color(0xFF0B0B0F),
-      Color(0xFF101016),
-      Color(0xFF14141D),
-      Color(0xFF09090D),
+      Color(0xFF0A0912),
+      Color(0xFF120E1C),
+      Color(0xFF1C1324),
+      Color(0xFF271724),
+      Color(0xFF361F26),
     ],
     linearStops: _stops,
     hasGlow: true,
-    glowX: 0.40,
+    glowX: 0.42,
     glowY: 0.12,
-    glowRadius: 0.64,
-    glowColor: Color(0xFFD4D4D8),
-    glowOpacity: 0.10,
-    overlayAlphas: [0.25, 0.11, 0.06, 0.21, 0.41],
+    glowRadius: 0.68,
+    glowColor: Color(0xFFF59E0B),
+    glowOpacity: 0.12,
+    overlayAlphas: [0.26, 0.12, 0.06, 0.20, 0.40],
   );
 
-  static const _obsidianDusk = EnvironmentGradient(
+  /// Dusk (19:00 - 20:59): Royal obsidian-indigo with quiet twilight violet horizon
+  static const _liveDusk = EnvironmentGradient(
     linearColors: [
-      Color(0xFF050507),
-      Color(0xFF07070A),
-      Color(0xFF0A0A0D),
-      Color(0xFF0E0E13),
-      Color(0xFF060608),
+      Color(0xFF060710),
+      Color(0xFF0A0B18),
+      Color(0xFF0F1022),
+      Color(0xFF15152C),
+      Color(0xFF1B1834),
     ],
     linearStops: _stops,
     hasGlow: true,
     glowX: 0.45,
     glowY: 0.15,
-    glowRadius: 0.60,
-    glowColor: Color(0xFFA1A1AA),
+    glowRadius: 0.62,
+    glowColor: Color(0xFFA855F7),
     glowOpacity: 0.08,
-    overlayAlphas: [0.27, 0.13, 0.07, 0.23, 0.43],
+    overlayAlphas: [0.24, 0.10, 0.05, 0.18, 0.38],
+  );
+
+  /// Night (21:00 - 04:59): Abyssal obsidian midnight cosmos with delicate silver-blue lunar starlight
+  static const _liveNight = EnvironmentGradient(
+    linearColors: [
+      Color(0xFF030408),
+      Color(0xFF05070E),
+      Color(0xFF070A14),
+      Color(0xFF0A0D1B),
+      Color(0xFF070A14),
+    ],
+    linearStops: _stops,
+    hasGlow: true,
+    glowX: 0.46,
+    glowY: 0.13,
+    glowRadius: 0.60,
+    glowColor: Color(0xFF93C5FD),
+    glowOpacity: 0.08,
+    overlayAlphas: [0.22, 0.08, 0.04, 0.16, 0.36],
   );
 
   static const WallpaperSpec _dynamic = WallpaperSpec(
     id: WallpaperTheme.dynamic,
-    title: 'Mausam Obsidian Night',
-    subtitle: 'Deep luxury night atmosphere',
+    title: 'Dynamic Live Wallpaper',
+    subtitle: 'Changes live across Morning, Afternoon, Evening & Night',
     isDynamic: true,
     isDefault: true,
     previewColors: [
-      Color(0xFF050506),
-      Color(0xFF0C0C0E),
-      Color(0xFF101013),
-      Color(0xFF18181B),
+      Color(0xFF0E1726),
+      Color(0xFF172640),
+      Color(0xFF271724),
+      Color(0xFF05070E),
     ],
     periods: {
-      TimeOfDayPeriod.dawn: _obsidianDawn,
-      TimeOfDayPeriod.morning: _obsidianMorning,
-      TimeOfDayPeriod.afternoon: _obsidianAfternoon,
-      TimeOfDayPeriod.goldenHour: _obsidianGoldenHour,
-      TimeOfDayPeriod.dusk: _obsidianDusk,
-      TimeOfDayPeriod.night: _obsidianNight,
+      TimeOfDayPeriod.dawn: _liveDawn,
+      TimeOfDayPeriod.morning: _liveMorning,
+      TimeOfDayPeriod.afternoon: _liveAfternoon,
+      TimeOfDayPeriod.goldenHour: _liveGoldenHour,
+      TimeOfDayPeriod.dusk: _liveDusk,
+      TimeOfDayPeriod.night: _liveNight,
     },
   );
 
   static const WallpaperSpec _wallpaper2 = WallpaperSpec(
     id: WallpaperTheme.wallpaper2,
-    title: 'Obsidian Pure',
-    subtitle: 'High-contrast pure OLED black',
+    title: 'Fixed Obsidian Black',
+    subtitle: 'Permanent deep OLED black — never changes with time',
     isDynamic: false,
     previewColors: [
       Color(0xFF030304),
-      Color(0xFF060607),
-      Color(0xFF0A0A0C),
+      Color(0xFF050506),
+      Color(0xFF070709),
     ],
     fixed: _obsidianNight,
   );
@@ -298,7 +347,7 @@ class WallpaperCatalog {
       Color(0xFF0E0E12),
       Color(0xFF141418),
     ],
-    fixed: _obsidianAfternoon,
+    fixed: _obsidianNebula,
   );
 }
 

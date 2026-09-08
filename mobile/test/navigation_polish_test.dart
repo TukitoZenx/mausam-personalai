@@ -111,7 +111,6 @@ void main() {
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('My Locations'), findsOneWidget);
       expect(find.text('Extended Forecast'), findsOneWidget);
-      expect(find.text('Chat'), findsOneWidget);
       expect(find.text('Mausam AI Assistant'), findsOneWidget);
       expect(find.text('Persona Context'), findsOneWidget);
       expect(find.text('Health & Metrics'), findsOneWidget);

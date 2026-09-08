@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,19 +7,27 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
 import '../../theme/weather_palette.dart';
+import '../navigation/search_overlay.dart';
 import 'persona_home.dart';
 import 'weather_card_atmosphere.dart';
 import 'weather_glyphs.dart';
 import 'weather_intel.dart';
+import 'sun_moon_card.dart';
+
+export 'comfort_feel_card.dart';
+export 'monthly_rainfall_card.dart';
+export 'sun_moon_card.dart';
 
 class HeroCurrentCard extends ConsumerStatefulWidget {
   final CurrentConditions current;
   final List<HourlyForecastItem> hourly;
+  final VoidCallback? onChangeLocation;
 
   const HeroCurrentCard({
     super.key,
     required this.current,
     required this.hourly,
+    this.onChangeLocation,
   });
 
   @override
@@ -53,7 +62,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Row: Condition Pill
+            // Top Row: Condition Pill & Underlined Change Location Action
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -89,6 +98,37 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  key: const Key('hero_change_location_button'),
+                  onTap: widget.onChangeLocation ?? () => showSearchOverlay(context: context, ref: ref),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 13,
+                          color: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Change',
+                          style: GoogleFonts.inter(
+                            color: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            decorationColor: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
+                            decorationThickness: 1.2,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -137,17 +177,35 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
                     color: isYellow
-                        ? const Color(0x33F59E0B)
-                        : (isRain ? const Color(0x1F3B82F6) : Colors.transparent),
+                        ? const Color(0x28F59E0B)
+                        : (isRain ? const Color(0x223B82F6) : const Color(0x15FFFFFF)),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isYellow
+                          ? const Color(0x66F59E0B)
+                          : (isRain ? const Color(0x4460A5FA) : MausamPalette.cardBorderSubtle),
+                      width: 1.2,
+                    ),
+                    boxShadow: isYellow
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x33F59E0B),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
                   ),
-                  child: Icon(
-                    isYellow ? Icons.wb_sunny_rounded : weatherGlyph(current.condition, icon: current.conditionIcon),
-                    color: isYellow ? const Color(0xFFFBBF24) : weatherGlyphColor(current.condition),
-                    size: 48,
+                  child: Center(
+                    child: Icon(
+                      isYellow ? Icons.wb_sunny_rounded : weatherGlyph(current.condition, icon: current.conditionIcon),
+                      color: isYellow ? const Color(0xFFFBBF24) : weatherGlyphColor(current.condition),
+                      size: 36,
+                    ),
                   ),
                 ),
               ],
@@ -678,78 +736,94 @@ class TodayMetricCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MausamPalette.cardBorder),
         boxShadow: MausamPalette.cardShadow,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 13, color: iconColor ?? MausamPalette.textTertiary),
-                const SizedBox(width: 6),
-              ],
-              Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textTertiary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                    letterSpacing: 0.8,
-                  ),
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
               ),
-              if (pillLabel != null && pillLabel!.isNotEmpty)
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 13, color: iconColor ?? MausamPalette.textTertiary),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textTertiary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    if (pillLabel != null)
+                      Text(
+                        pillLabel!.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textTertiary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 9,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  pillLabel!.toUpperCase(),
+                  value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
-                    color: MausamPalette.textTertiary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 9,
-                    letterSpacing: 0.5,
+                    color: MausamPalette.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 21,
+                    height: 1.1,
+                    letterSpacing: -0.3,
+                    fontFeatures: MausamTypography.tabularFeatures,
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              color: MausamPalette.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 21,
-              height: 1.1,
-              letterSpacing: -0.3,
-              fontFeatures: MausamTypography.tabularFeatures,
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textSecondary,
+                    fontSize: 11,
+                    height: 1.25,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            maxLines: 2,
-            softWrap: true,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              color: MausamPalette.textSecondary,
-              fontSize: 11,
-              height: 1.25,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -868,160 +942,6 @@ class StatGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TodaysMetricsGrid(dashboard: dashboard);
-  }
-}
-
-class SunMoonCard extends StatelessWidget {
-  final CurrentConditions current;
-  final DailyForecastItem? today;
-
-  const SunMoonCard({super.key, required this.current, this.today});
-
-  @override
-  Widget build(BuildContext context) {
-    final rise = current.sunriseUnix;
-    final set = current.sunsetUnix;
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    double t = 0.5;
-    if (rise != null && set != null && set > rise) {
-      t = ((now - rise) / (set - rise)).clamp(0.0, 1.0);
-    }
-    final daylight = (rise != null && set != null) ? Duration(seconds: set - rise) : null;
-    final daylightLabel = daylight == null
-        ? '--'
-        : '${daylight.inHours}h ${daylight.inMinutes.remainder(60)}m';
-    final golden = WeatherIntel.goldenHourWindow(current);
-
-    return _sectionCard(
-      title: 'SUN & MOON',
-      child: Column(
-        children: [
-          SizedBox(
-            height: 98,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _SunArcPainter(t: t),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        daylightLabel,
-                        style: GoogleFonts.inter(
-                          color: MausamPalette.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          fontFeatures: MausamTypography.tabularFeatures,
-                        ),
-                      ),
-                      Text(
-                        'Daylight duration',
-                        style: GoogleFonts.inter(
-                          color: MausamPalette.textTertiary,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.wb_sunny_rounded, size: 13, color: Color(0xFFFBBF24)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        'Sunrise ${_fmtUnix(rise, current.timezoneOffsetSec)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.nightlight_round, size: 13, color: Color(0xFF93C5FD)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        'Sunset ${_fmtUnix(set, current.timezoneOffsetSec)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (golden != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.wb_twilight_rounded, size: 13, color: Color(0xFFFBBF24)),
-                const SizedBox(width: 6),
-                Text(
-                  'Golden hour $golden',
-                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 10),
-          const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(moonVectorIcon(today?.moonPhase), size: 22, color: const Color(0xFF93C5FD)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      moonPhaseName(today?.moonPhase),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        color: MausamPalette.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                    Text(
-                      today?.moonriseUnix != null
-                          ? 'Rise ${_fmtUnix(today?.moonriseUnix, current.timezoneOffsetSec)} • Set ${_fmtUnix(today?.moonsetUnix, current.timezoneOffsetSec)}'
-                          : 'Moon phase details',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        color: MausamPalette.textTertiary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1181,7 +1101,7 @@ class ConditionsAroundYouSection extends StatelessWidget {
   }
 }
 
-class _CommuteStatusCard extends StatelessWidget {
+class _CommuteStatusCard extends ConsumerWidget {
   final String location;
   final String status;
   final Color statusColor;
@@ -1199,86 +1119,103 @@ class _CommuteStatusCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MausamPalette.cardBorder),
         boxShadow: MausamPalette.cardShadow,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.commute_rounded, size: 14, color: Color(0xFF60A5FA)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'COMMUTE STATUS · ${location.toUpperCase()}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textTertiary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                    letterSpacing: 0.6,
-                  ),
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.commute_rounded, size: 14, color: Color(0xFF60A5FA)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'COMMUTE STATUS · ${location.toUpperCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: MausamPalette.textTertiary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10.5,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        status,
+                        style: GoogleFonts.inter(
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  status,
-                  style: GoogleFonts.inter(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 9.5,
-                    letterSpacing: 0.4,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _col(
+                        icon: Icons.directions_car_rounded,
+                        iconColor: const Color(0xFF93C5FD),
+                        title: 'Roads',
+                        value: roadSurface,
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: MausamPalette.cardBorderSubtle),
+                    Expanded(
+                      child: _col(
+                        icon: Icons.visibility_rounded,
+                        title: 'Sight',
+                        value: sightDist,
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: MausamPalette.cardBorderSubtle),
+                    Expanded(
+                      child: _col(
+                        icon: Icons.air_rounded,
+                        iconColor: const Color(0xFF93C5FD),
+                        title: 'Wind',
+                        value: windSpeed,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _col(
-                  icon: Icons.directions_car_rounded,
-                  iconColor: const Color(0xFF93C5FD),
-                  title: 'Roads',
-                  value: roadSurface,
-                ),
-              ),
-              Container(width: 1, height: 36, color: MausamPalette.cardBorderSubtle),
-              Expanded(
-                child: _col(
-                  icon: Icons.visibility_rounded,
-                  title: 'Sight',
-                  value: sightDist,
-                ),
-              ),
-              Container(width: 1, height: 36, color: MausamPalette.cardBorderSubtle),
-              Expanded(
-                child: _col(
-                  icon: Icons.air_rounded,
-                  iconColor: const Color(0xFF93C5FD),
-                  title: 'Wind',
-                  value: windSpeed,
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1435,43 +1372,59 @@ class SectionCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MausamPalette.cardBorder),
         boxShadow: MausamPalette.cardShadow,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        color: MausamPalette.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.8,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          if (subtitle != null)
+                            Text(subtitle!, style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                        ],
                       ),
                     ),
-                    if (subtitle != null)
-                      Text(subtitle!, style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                    if (trailing != null) trailing!,
                   ],
                 ),
-              ),
-              if (trailing != null) trailing!,
-            ],
+                const SizedBox(height: 10),
+                child,
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1506,40 +1459,46 @@ class MiniCard extends ConsumerWidget {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MausamPalette.cardBorder),
         boxShadow: MausamPalette.cardShadow,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              color: MausamPalette.textTertiary,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-              letterSpacing: 0.5,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                child,
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          child,
-        ],
+        ),
       ),
     );
   }
-}
-
-String _fmtUnix(int? unix, int? offsetSec) {
-  if (unix == null) return '--';
-  final dt = DateTime.fromMillisecondsSinceEpoch(unix * 1000, isUtc: true)
-      .add(Duration(seconds: offsetSec ?? 0));
-  final h = dt.hour.toString().padLeft(2, '0');
-  final m = dt.minute.toString().padLeft(2, '0');
-  return '$h:$m';
 }
 
 class _GradientMarkerPainter extends CustomPainter {
@@ -1567,28 +1526,6 @@ class _GradientMarkerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GradientMarkerPainter oldDelegate) => oldDelegate.position != position;
-}
-
-class _SunArcPainter extends CustomPainter {
-  final double t;
-  _SunArcPainter({required this.t});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(16, 20, size.width - 32, (size.height - 10) * 2);
-    final arcPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = MausamPalette.cardBorder;
-    canvas.drawArc(rect, math.pi, math.pi, false, arcPaint);
-    final angle = math.pi + t * math.pi;
-    final cx = rect.center.dx + rect.width / 2 * math.cos(angle);
-    final cy = rect.center.dy + rect.height / 2 * math.sin(angle);
-    canvas.drawCircle(Offset(cx, cy), 6, Paint()..color = MausamPalette.textPrimary);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SunArcPainter oldDelegate) => oldDelegate.t != t;
 }
 
 class _TempRangeBarPainter extends CustomPainter {

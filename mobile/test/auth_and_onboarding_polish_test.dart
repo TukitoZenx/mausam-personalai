@@ -310,7 +310,7 @@ void main() {
   });
 
   group('FloatingNavbar Polish Tests', () {
-    testWidgets('renders with subtle border, integrated location text, and menu/search buttons', (tester) async {
+    testWidgets('renders with subtle border, integrated location text, and menu button (search removed)', (tester) async {
       final anim = AnimationController(vsync: const TestVSync());
 
       await tester.pumpWidget(
@@ -320,7 +320,6 @@ void main() {
               locationName: 'Bengaluru, India',
               locationAnimation: anim,
               onLocationTap: () {},
-              onSearch: () {},
             ),
           ),
         ),
@@ -328,7 +327,7 @@ void main() {
 
       expect(find.text('Bengaluru, India'), findsOneWidget);
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsNothing);
     });
   });
 }

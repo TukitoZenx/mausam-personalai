@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/providers/mausam_ai_state_provider.dart';
 import 'package:mobile/widgets/navigation/mausam_bottom_navbar.dart';
+import 'package:mobile/widgets/navigation/mausam_center_logo_icon.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,10 +29,10 @@ void main() {
       expect(centerButtonFinder, findsOneWidget);
       expect(find.text('Mausam'), findsNothing);
 
-      // Verify that the Mausam AI cloud icon is rendered inside the button (idle: cloud_outlined)
+      // Verify that the custom Mausam AI vector logo is rendered inside the button
       final iconFinder = find.descendant(
         of: centerButtonFinder,
-        matching: find.byIcon(Icons.cloud_outlined),
+        matching: find.byType(MausamCenterLogoIcon),
       );
       expect(iconFinder, findsOneWidget);
 
@@ -63,10 +64,10 @@ void main() {
       final centerButtonFinder = find.byKey(const Key('bottom_nav_insights'));
       expect(centerButtonFinder, findsOneWidget);
 
-      // Verify cloud icon is active in thinking state
+      // Verify custom vector logo is active in thinking state
       final iconFinder = find.descendant(
         of: centerButtonFinder,
-        matching: find.byIcon(Icons.wb_cloudy_rounded),
+        matching: find.byType(MausamCenterLogoIcon),
       );
       expect(iconFinder, findsOneWidget);
     });
@@ -89,7 +90,7 @@ void main() {
 
       final iconFinder = find.descendant(
         of: centerButtonFinder,
-        matching: find.byIcon(Icons.wb_cloudy_rounded),
+        matching: find.byType(MausamCenterLogoIcon),
       );
       expect(iconFinder, findsOneWidget);
     });

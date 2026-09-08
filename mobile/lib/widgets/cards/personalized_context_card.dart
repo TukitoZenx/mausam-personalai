@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -202,14 +203,28 @@ class PersonalizedContextCard extends ConsumerWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MausamPalette.cardBorder, width: 1.0),
         boxShadow: MausamPalette.cardShadow,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: MausamPalette.cardSurface.withValues(alpha: surfaceOpacity),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: surfaceOpacity < 0.95
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : MausamPalette.cardBorder,
+                width: 1.0,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           splashColor: Colors.white.withValues(alpha: 0.05),
@@ -358,6 +373,9 @@ class PersonalizedContextCard extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  ),
+),
+);
   }
 }

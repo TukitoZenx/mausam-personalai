@@ -291,6 +291,10 @@ class ApiClient {
     required String id,
     required String idToken,
   }) async {
+    // Local starter or offline IDs do not exist on the remote server
+    if (id.startsWith('loc_') || id.startsWith('local_')) {
+      return;
+    }
     Object? lastError;
     for (final host in _candidateHosts) {
       try {
@@ -303,12 +307,16 @@ class ApiClient {
           },
         ).timeout(const Duration(seconds: 4));
 
-        if (response.statusCode == 204 || response.statusCode == 200) return;
+        // 200, 204, or 404 (already deleted/absent on server) are successful
+        if (response.statusCode == 204 || response.statusCode == 200 || response.statusCode == 404) {
+          return;
+        }
       } catch (e) {
         lastError = e;
       }
     }
-    throw Exception('Failed to delete saved location: $lastError');
+    // Best-effort; log without crashing
+    debugPrint('Server deletion of saved location ($id) skipped/failed: $lastError');
   }
 
   Future<Map<String, dynamic>> fetchWeatherForecast({
