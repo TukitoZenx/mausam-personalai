@@ -50,12 +50,11 @@ export const Hero: React.FC = () => {
           {hasApk ? (
             <a
               href={CONFIG.APK_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              download="mausam-release.apk"
               className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm font-semibold text-obsidian-950 bg-white hover:bg-obsidian-200 px-7 py-3.5 rounded-2xl shadow-[0_4px_24px_rgba(255,255,255,0.2)] transition-all duration-200 hover:scale-[1.02]"
             >
               <Download size={16} />
-              <span>Download Android APK</span>
+              <span>Download Android APK (60.6 MB)</span>
             </a>
           ) : (
             <div className="relative group w-full sm:w-auto">

@@ -81,12 +81,11 @@ export const Navbar: React.FC = () => {
           {hasApk ? (
             <a
               href={CONFIG.APK_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              download="mausam-release.apk"
               className="flex items-center gap-1.5 text-xs font-semibold text-obsidian-950 bg-white hover:bg-obsidian-200 px-3.5 py-2 rounded-xl transition-all shadow-[0_2px_10px_rgba(255,255,255,0.15)]"
             >
               <Download size={14} />
-              <span>Download APK</span>
+              <span>Download APK (60.6 MB)</span>
             </a>
           ) : (
             <div
@@ -143,10 +142,11 @@ export const Navbar: React.FC = () => {
             {hasApk ? (
               <a
                 href={CONFIG.APK_URL}
+                download="mausam-release.apk"
                 className="flex items-center justify-center gap-2 text-xs font-semibold text-obsidian-950 bg-white py-2.5 rounded-xl"
               >
                 <Download size={14} />
-                <span>Download Android APK</span>
+                <span>Download Android APK (60.6 MB)</span>
               </a>
             ) : (
               <div className="flex items-center justify-center gap-2 text-xs font-medium text-obsidian-400 bg-white/[0.04] border border-white/[0.06] py-2.5 rounded-xl cursor-not-allowed">
