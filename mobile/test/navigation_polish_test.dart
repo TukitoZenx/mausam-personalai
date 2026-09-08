@@ -38,10 +38,10 @@ void main() {
       expect(find.byKey(const Key('bottom_nav_insights')), findsOneWidget);
       expect(find.byKey(const Key('bottom_nav_settings')), findsOneWidget);
 
-      // Verify labels
-      expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Mausam'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+      // Verify no text labels in bottom navbar (icon-only design per user requirement)
+      expect(find.text('Home'), findsNothing);
+      expect(find.text('Mausam'), findsNothing);
+      expect(find.text('Settings'), findsNothing);
 
       // Tap center action
       await tester.tap(find.byKey(const Key('bottom_nav_insights')));
@@ -111,8 +111,13 @@ void main() {
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('My Locations'), findsOneWidget);
       expect(find.text('Extended Forecast'), findsOneWidget);
-      expect(find.text('Health Metrics'), findsOneWidget);
+      expect(find.text('Chat'), findsOneWidget);
+      expect(find.text('Mausam AI Assistant'), findsOneWidget);
+      expect(find.text('Persona Context'), findsOneWidget);
+      expect(find.text('Health & Metrics'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Alerts & Travel'), 50);
       expect(find.text('Alerts & Travel'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Profile & Settings'), 50);
       expect(find.text('Profile & Settings'), findsOneWidget);
       expect(find.textContaining('MAUSAM'), findsWidgets);
     });

@@ -1,9 +1,11 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.alerts import router as alerts_router
 from app.api.aqi import router as aqi_router
+from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.locations import router as locations_router
 from app.api.personalization import router as personalization_router
@@ -16,6 +18,7 @@ from app.core.exceptions import (
     unhandled_exception_handler,
 )
 from app.core.logging import LoggingMiddleware
+from app.services.reminder_service import ReminderService
 
 app = FastAPI(
     title="Mausam PersonalAI API",
@@ -51,6 +54,22 @@ async def warmup_firebase_certs():
     except Exception:
         pass
 
+
+# Periodic background runner for scheduled reminder checks
+async def _periodic_reminder_checker():
+    while True:
+        try:
+            await ReminderService.check_due_reminders()
+        except Exception:
+            pass
+        await asyncio.sleep(60)
+
+
+@app.on_event("startup")
+async def start_reminder_scheduler():
+    asyncio.create_task(_periodic_reminder_checker())
+
+
 # Centralized Exception Handlers
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
@@ -64,6 +83,7 @@ app.include_router(aqi_router)
 app.include_router(locations_router)
 app.include_router(personalization_router)
 app.include_router(alerts_router)
+app.include_router(chat_router)
 
 @app.get("/")
 async def root():

@@ -364,4 +364,124 @@ class ApiClient {
     }
     throw Exception('Failed to fetch AQI: $lastError');
   }
+
+  // --- Chat & Reminders Endpoints ---
+
+  Future<Map<String, dynamic>> sendChatMessage({
+    required String text,
+    double? lat,
+    double? lon,
+    required String idToken,
+  }) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/chat/message');
+        final response = await _client.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'text': text,
+            if (lat != null) 'lat': lat,
+            if (lon != null) 'lon': lon,
+          }),
+        ).timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+        lastError = 'HTTP ${response.statusCode}: ${response.body}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to send chat message: $lastError');
+  }
+
+  Future<Map<String, dynamic>> createReminder({
+    required String timeOfDay,
+    required String frequency,
+    String? locationId,
+    required String idToken,
+  }) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/chat/reminders');
+        final response = await _client.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'time_of_day': timeOfDay,
+            'frequency': frequency,
+            if (locationId != null) 'location_id': locationId,
+          }),
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+        lastError = 'HTTP ${response.statusCode}: ${response.body}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to create reminder: $lastError');
+  }
+
+  Future<List<dynamic>> fetchReminders({required String idToken}) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/chat/reminders');
+        final response = await _client.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as List<dynamic>;
+        }
+        lastError = 'HTTP ${response.statusCode}: ${response.body}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to fetch reminders: $lastError');
+  }
+
+  Future<void> deleteReminder({
+    required String id,
+    required String idToken,
+  }) async {
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final url = Uri.parse('$host/chat/reminders/$id');
+        final response = await _client.delete(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 204 || response.statusCode == 200) return;
+        lastError = 'HTTP ${response.statusCode}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Failed to delete reminder: $lastError');
+  }
 }
+

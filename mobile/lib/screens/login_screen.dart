@@ -38,6 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isSubmitting = false;
+  String? _submittingMessage;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String? _inlineError;
@@ -59,16 +60,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: MausamPalette.cardSurfaceLight,
+        backgroundColor: const Color(0xFF1E1416),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFFEF4444), width: 1),
         ),
       ),
     );
@@ -76,16 +87,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _showSuccessSnackBar(String message) {
     if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: MausamPalette.cardSurfaceLight,
+        backgroundColor: const Color(0xFF132219),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF10B981), width: 1),
         ),
       ),
     );
@@ -306,20 +327,198 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _handleForgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      _showErrorSnackBar('Enter your email in the field above to reset your password.');
+  Future<void> _sendPasswordReset(String email) async {
+    final trimmedEmail = email.trim();
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
+      _showErrorSnackBar('Please enter a valid email address.');
       return;
     }
 
+    setState(() {
+      _isSubmitting = true;
+      _submittingMessage = 'Sending password reset email...';
+    });
+
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      _showSuccessSnackBar('Password reset link sent to $email');
+      final authService = ref.read(authServiceProvider);
+      await authService.sendPasswordResetEmail(trimmedEmail);
+      if (mounted) {
+        _showSuccessSnackBar('Password reset link sent to $trimmedEmail. Check your inbox!');
+      }
     } on FirebaseAuthException catch (e) {
-      _showErrorSnackBar(e.message ?? 'Failed to send reset email.');
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'No account found with this email address.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'The email address format is invalid.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many requests. Please try again in a few minutes.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'Network connection failed. Please check your internet.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This user account has been disabled.';
+          break;
+        default:
+          errorMessage = e.message ?? 'Failed to send password reset email.';
+      }
+      _showErrorSnackBar(errorMessage);
     } catch (e) {
-      _showErrorSnackBar('Error: ${e.toString()}');
+      _showErrorSnackBar('Unable to send reset email: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _submittingMessage = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final dialogEmailController = TextEditingController(text: _emailController.text.trim());
+    String? dialogError;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF141417),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF27272A), width: 1),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.lock_reset_rounded,
+                      color: Color(0xFFFAFAFA),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Reset Password',
+                    style: GoogleFonts.inter(
+                      color: MausamPalette.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Enter your registered email address and we will send you a password reset link.',
+                    style: GoogleFonts.inter(
+                      color: MausamPalette.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('forgot_password_dialog_email_field'),
+                    controller: dialogEmailController,
+                    autofocus: true,
+                    keyboardType: TextInputType.emailAddress,
+                    style: GoogleFonts.inter(
+                      color: MausamPalette.textPrimary,
+                      fontSize: 13.5,
+                    ),
+                    decoration: _inputDecoration(
+                      hintText: 'name@example.com',
+                      prefixIcon: Icons.mail_outline_rounded,
+                    ).copyWith(
+                      errorText: dialogError,
+                    ),
+                    onSubmitted: (value) {
+                      final val = value.trim();
+                      if (val.isEmpty || !val.contains('@') || !val.contains('.')) {
+                        setDialogState(() {
+                          dialogError = 'Enter a valid email address';
+                        });
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop();
+                      _emailController.text = val;
+                      _sendPasswordReset(val);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      color: MausamPalette.textMuted,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  key: const Key('send_reset_link_button'),
+                  onPressed: () {
+                    final val = dialogEmailController.text.trim();
+                    if (val.isEmpty || !val.contains('@') || !val.contains('.')) {
+                      setDialogState(() {
+                        dialogError = 'Enter a valid email address';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop();
+                    _emailController.text = val;
+                    _sendPasswordReset(val);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFAFAFA),
+                    foregroundColor: const Color(0xFF09090B),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Send Link',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty && email.contains('@') && email.contains('.')) {
+      await _sendPasswordReset(email);
+    } else {
+      await _showForgotPasswordDialog();
     }
   }
 
@@ -821,7 +1020,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            isSignIn ? 'Signing you in...' : 'Creating your account...',
+                            _submittingMessage ??
+                                (isSignIn ? 'Signing you in...' : 'Creating your account...'),
                             style: GoogleFonts.inter(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w500,

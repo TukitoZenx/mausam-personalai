@@ -52,12 +52,7 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
         ),
       ),
       ShellRoute(
-        pageBuilder: (context, state, child) {
-          return mausamFadePage(
-            key: const ValueKey('mausam-shell'),
-            child: const AppShell(),
-          );
-        },
+        builder: (context, state, child) => const AppShell(),
         routes: [
           GoRoute(
             path: '/home',
@@ -80,6 +75,11 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
             pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
           ),
           GoRoute(
+            path: '/chat',
+            name: 'chat',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
             path: '/alerts',
             name: 'alerts',
             pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
@@ -87,6 +87,16 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
           GoRoute(
             path: '/profile',
             name: 'profile',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/context-detail',
+            name: 'context_detail',
+            pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
+          ),
+          GoRoute(
+            path: '/health-metrics',
+            name: 'health_metrics',
             pageBuilder: (context, state) => mausamNoMovePage(child: const SizedBox.shrink()),
           ),
         ],

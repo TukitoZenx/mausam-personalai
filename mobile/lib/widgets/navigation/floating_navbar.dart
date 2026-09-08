@@ -5,100 +5,119 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/weather_palette.dart';
 
+/// Minimalist Top Navigation Bar for Mausam AI.
+///
+/// Features:
+/// - Unscrolled / Top state: 100% transparent background with only the text and icons visible.
+/// - Scrolled state: Stays pinned at the top with a smooth dark glass backdrop, subtle shadow, and hairline divider.
+/// - The location text remains pinned at the top without collapsing or moving away during scroll.
 class FloatingNavbar extends StatelessWidget {
   final String locationName;
-  final Animation<double> locationAnimation;
+  final Animation<double>? locationAnimation;
+  final bool isScrolled;
   final VoidCallback onLocationTap;
   final VoidCallback onSearch;
 
   const FloatingNavbar({
     super.key,
     required this.locationName,
-    required this.locationAnimation,
+    this.locationAnimation,
+    this.isScrolled = false,
     required this.onLocationTap,
     required this.onSearch,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        boxShadow: MausamPalette.navbarShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MausamPalette.cardBorder.withValues(alpha: 0.6), width: 1.0),
-            ),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (drawerContext) => IconButton(
-                    icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 22),
-                    tooltip: 'Open Menu',
-                    onPressed: () => Scaffold.of(drawerContext).openDrawer(),
-                  ),
-                ),
-                Expanded(
-                  child: ClipRect(
-                    child: AnimatedBuilder(
-                      animation: locationAnimation,
-                      builder: (context, child) {
-                        final t = locationAnimation.value.clamp(0.0, 1.2);
-                        return Transform.translate(
-                          offset: Offset(0, -t * 28),
-                          child: Opacity(
-                            opacity: (1.0 - t * 0.35).clamp(0.0, 1.0),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: GestureDetector(
-                        onTap: onLocationTap,
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              color: MausamPalette.textSecondary,
-                              size: 15,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                locationName,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  color: MausamPalette.textPrimary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            ),
-                          ],
+    return SizedBox(
+      height: 52,
+      child: Stack(
+        children: [
+          // 1. Scrolling Shadow & Glass Backdrop (Fades in smoothly only while scrolling)
+          Positioned.fill(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              opacity: isScrolled ? 1.0 : 0.0,
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xCC0B0E14),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          width: 0.5,
                         ),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 16,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.search_rounded, color: MausamPalette.textPrimary, size: 22),
-                  tooltip: 'Search City',
-                  onPressed: onSearch,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+
+          // 2. Pinned Top Bar Content (Icons & Location Text)
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: [
+                  Builder(
+                    builder: (drawerContext) => IconButton(
+                      icon: const Icon(Icons.menu_rounded, color: MausamPalette.textPrimary, size: 22),
+                      tooltip: 'Open Menu',
+                      onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onLocationTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: MausamPalette.accentCyan,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              locationName,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14.5,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.search_rounded, color: MausamPalette.textPrimary, size: 22),
+                    tooltip: 'Search City',
+                    onPressed: onSearch,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

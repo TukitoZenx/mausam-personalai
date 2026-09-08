@@ -109,7 +109,7 @@ class HomeScreen extends ConsumerWidget {
                           locationName: locationName,
                           dashboard: data,
                           userStateOverride: userState,
-                          onTap: () => context.go('/insights'),
+                          onTap: () => context.go('/context-detail'),
                         ),
                       ),
                       const SizedBox(height: 18),

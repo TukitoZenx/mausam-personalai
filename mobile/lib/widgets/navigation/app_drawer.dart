@@ -64,10 +64,31 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'Health Metrics',
-                      icon: Icons.favorite_border_rounded,
+                      title: 'Chat',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      route: '/chat',
+                      isActive: currentRoute == '/chat',
+                    ),
+                    _drawerItem(
+                      context: context,
+                      title: 'Mausam AI Assistant',
+                      icon: Icons.wb_cloudy_rounded,
                       route: '/insights',
                       isActive: currentRoute == '/insights',
+                    ),
+                    _drawerItem(
+                      context: context,
+                      title: 'Persona Context',
+                      icon: Icons.tune_rounded,
+                      route: '/context-detail',
+                      isActive: currentRoute == '/context-detail',
+                    ),
+                    _drawerItem(
+                      context: context,
+                      title: 'Health & Metrics',
+                      icon: Icons.favorite_border_rounded,
+                      route: '/health-metrics',
+                      isActive: currentRoute == '/health-metrics',
                     ),
                     _drawerItem(
                       context: context,

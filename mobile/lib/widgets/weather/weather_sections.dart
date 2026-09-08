@@ -27,7 +27,6 @@ class HeroCurrentCard extends ConsumerStatefulWidget {
 
 class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
   bool _bannerDismissed = false;
-  bool _isYellowFunMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +40,12 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
 
     final detectedType = resolveAtmosphereType(current.condition, icon: current.conditionIcon);
-    final effectiveType = _isYellowFunMode ? WeatherAtmosphereType.sun : detectedType;
-    final isYellow = _isYellowFunMode || effectiveType == WeatherAtmosphereType.sun;
-    final isRain = effectiveType == WeatherAtmosphereType.rain;
-    final isThunder = effectiveType == WeatherAtmosphereType.thunder;
+    final isYellow = detectedType == WeatherAtmosphereType.sun;
+    final isRain = detectedType == WeatherAtmosphereType.rain;
+    final isThunder = detectedType == WeatherAtmosphereType.thunder;
 
     return WeatherCardAtmosphere(
-      type: effectiveType,
+      type: detectedType,
       isYellowTheme: isYellow,
       surfaceOpacity: surfaceOpacity,
       child: Padding(
@@ -55,7 +53,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Row: Condition Pill + Interactive Fun Yellow Toggle
+            // Top Row: Condition Pill
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -78,7 +76,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
                   ),
                   child: Text(
                     isYellow
-                        ? '☀️ SUNNY • SOLAR GOLD'
+                        ? '☀️ SUNNY'
                         : (isRain
                             ? '🌧️ RAINING NOW'
                             : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
@@ -91,43 +89,6 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isYellowFunMode = !_isYellowFunMode;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _isYellowFunMode ? const Color(0xFFF59E0B) : MausamPalette.cardSurfaceLight,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _isYellowFunMode ? const Color(0xFFFDE047) : MausamPalette.cardBorderSubtle,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isYellowFunMode ? Icons.wb_sunny_rounded : Icons.palette_outlined,
-                          color: _isYellowFunMode ? Colors.black : MausamPalette.textTertiary,
-                          size: 11,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _isYellowFunMode ? 'YELLOW: ON' : 'FUN THEME',
-                          style: GoogleFonts.inter(
-                            color: _isYellowFunMode ? Colors.black : MausamPalette.textSecondary,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ),

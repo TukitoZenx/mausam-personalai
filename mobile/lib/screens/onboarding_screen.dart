@@ -755,7 +755,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  '02 / YOUR PROFILE',
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                    color: MausamPalette.textTertiary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Persona Selection',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: MausamPalette.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Text(
             'Choose Your Persona',
             style: GoogleFonts.inter(
@@ -980,6 +1007,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     _nextPage();
   }
 
+  // Helper map for trigger chip icons
+  static const Map<String, String> _triggerIcons = {
+    'Dust': '🌫',
+    'Pollen': '🌸',
+    'AQI / smoke': '💨',
+    'Humidity': '💧',
+    'Heat': '☀️',
+    'Monsoon damp': '🌧',
+    'Cold': '❄️',
+    'UV / sun': '🕶',
+    'Asthma': '🫁',
+    'Allergies': '🤧',
+    'Migraine': '🧠',
+    'Skin sensitivity': '✨',
+    'Heart health': '❤️',
+    'None of these': '🛡',
+  };
+
   // SLIDE 2: What does the weather stir up? (matching reference layout)
   Widget _buildSlide2Notifications() {
     return Padding(
@@ -1185,6 +1230,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final emoji = _triggerIcons[label];
+
     return GestureDetector(
       key: key,
       onTap: onTap,
@@ -1215,12 +1262,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? Icons.check_rounded : Icons.add_rounded,
-              size: 13,
-              color: isSelected ? MausamPalette.bgDeep : MausamPalette.textSecondary,
-            ),
-            const SizedBox(width: 4.5),
+            if (emoji != null) ...[
+              Text(
+                emoji,
+                style: const TextStyle(fontSize: 11.5),
+              ),
+              const SizedBox(width: 5),
+            ] else
+              Icon(
+                isSelected ? Icons.check_rounded : Icons.add_rounded,
+                size: 13,
+                color: isSelected ? MausamPalette.bgDeep : MausamPalette.textSecondary,
+              ),
+            if (emoji == null) const SizedBox(width: 4.5),
             Text(
               label,
               style: GoogleFonts.inter(
@@ -1234,6 +1288,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       ),
     );
   }
+
+  String _generateLiveInsightPreview() {
+    final persona = _selectedPersona ?? 'Fitness';
+    final activity = _selectedActivityLevel;
+    final hasAqi = _selectedTriggers.contains('AQI / smoke') || _selectedTriggers.contains('Dust');
+    final hasHeat = _selectedTriggers.contains('Heat') || _selectedTriggers.contains('UV / sun');
+
+    if (persona == 'Fitness') {
+      return 'Optimal outdoor window: 6:15 AM – 8:30 AM · Temp 24°C · UV Low. Best $activity-intensity workout slot before afternoon heat peak.';
+    } else if (persona == 'Health' || hasAqi) {
+      return 'Air quality alert tuned · Moderate AQI 84 · Sensitivity protection enabled. Surface risk warnings before peak exposure hours.';
+    } else if (persona == 'Traveler') {
+      return 'Hyper-local travel sync · Rain probability 35% at 4:30 PM. Personal afternoon packing nudge & dry-window routing active.';
+    } else if (persona == 'Commuter') {
+      return 'Commute safety monitor · Morning visibility clear · Evening rain warning tuned for your usual route.';
+    } else if (hasHeat) {
+      return 'Heat & UV shield active · High UV 7 forecast at 1:30 PM. Hydration nudges scheduled for peak warmth hours.';
+    } else {
+      return 'Bright & Sunny · 31°C · 89% humidity. Customized $activity activity guidance & personalized outdoor windows active.';
+    }
+  }
+
   // SLIDE 3: What should your day feel like? (matching reference layout)
   Widget _buildSlide3Rhythm() {
     return Padding(
@@ -1394,44 +1470,77 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // Section 3: Your First Insight Card
-                  Container(
+                  // Section 3: Your First Insight Card (Interactive AI Live Preview)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: const Color(0xFF141417),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF27272A), width: 1),
+                      border: Border.all(
+                        color: const Color(0x66FB7185),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFB7185).withValues(alpha: 0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Icon(
-                              Icons.auto_awesome,
-                              size: 15,
-                              color: Color(0xFFE4D090),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 15,
+                                  color: Color(0xFFFB7185),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Your first insight',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: MausamPalette.textPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Your first insight',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: MausamPalette.textPrimary,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0x22FB7185),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0x44FB7185), width: 0.8),
+                              ),
+                              child: Text(
+                                'AI LIVE PREVIEW',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: const Color(0xFFFB7185),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Text(
-                          'Bright & Sunny · 31°C · 89% humidity. We\'ll suggest your best outdoor window and daily guidance.',
+                          _generateLiveInsightPreview(),
                           style: GoogleFonts.inter(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w400,
                             color: MausamPalette.textSecondary,
-                            height: 1.35,
+                            height: 1.4,
                           ),
                         ),
                       ],
@@ -1538,25 +1647,104 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 32),
-          Center(
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: MausamPalette.cardSurfaceLight,
-                border: Border.all(color: MausamPalette.cardBorder, width: 1.5),
-                boxShadow: MausamPalette.cardShadow,
-              ),
-              child: const Icon(
-                Icons.location_on_rounded,
-                color: MausamPalette.textPrimary,
-                size: 36,
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  // Concentric animated radar location avatar
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer aura ring
+                        Container(
+                          width: 130,
+                          height: 130,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.03),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        // Middle aura ring
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.06),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        // Core location badge
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: MausamPalette.textPrimary,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                blurRadius: 18,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.location_on_rounded,
+                              color: MausamPalette.bgDeep,
+                              size: 34,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Feature Trust Badges Container
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141417),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF27272A), width: 1.0),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildTrustRow('🔒', '100% On-Device Privacy', 'Location is stored locally and never shared.'),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Divider(color: Color(0xFF23232A), height: 1, thickness: 1),
+                        ),
+                        _buildTrustRow('⚡', 'Hyper-local Weather Signals', 'Accurate micro-climate updates for your exact area.'),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Divider(color: Color(0xFF23232A), height: 1, thickness: 1),
+                        ),
+                        _buildTrustRow('🔔', 'Timely Rain & Risk Nudges', 'Get notified before rain or high UV strikes.'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
           ),
-          const Spacer(),
+
           if (_isSubmitting)
             const Center(
               child: SizedBox(
@@ -1631,6 +1819,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           const SizedBox(height: 10),
         ],
       ),
+    );
+  }
+
+  Widget _buildTrustRow(String icon, String title, String subtitle) {
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: MausamPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: MausamPalette.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

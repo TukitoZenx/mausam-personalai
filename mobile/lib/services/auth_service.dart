@@ -24,6 +24,7 @@ abstract class AuthService {
   Future<AuthUser> signInWithGoogle();
   Future<AuthUser> signInWithEmail({required String email, required String password});
   Future<AuthUser> registerWithEmail({required String email, required String password});
+  Future<void> sendPasswordResetEmail(String email);
   Future<void> signOut();
   Future<String?> getIdToken({bool forceRefresh = false});
 }
@@ -88,6 +89,12 @@ class FirebaseAuthService implements AuthService {
       password: password,
     );
     return _fromUser(credential.user, fallbackEmail: email);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    final auth = await _requireAuth();
+    await auth.sendPasswordResetEmail(email: email.trim());
   }
 
   @override

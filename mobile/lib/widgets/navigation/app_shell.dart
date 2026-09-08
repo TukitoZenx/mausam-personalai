@@ -7,7 +7,10 @@ import '../../providers/appearance_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/weather_dashboard_provider.dart';
 import '../../screens/alerts_screen.dart';
+import '../../screens/chat_screen.dart';
+import '../../screens/context_detail_screen.dart';
 import '../../screens/forecast_screen.dart';
+import '../../screens/health_metrics_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/insights_screen.dart';
 import '../../screens/profile_screen.dart';
@@ -24,8 +27,11 @@ const _shellRoutes = [
   '/saved-locations',
   '/forecast',
   '/insights',
+  '/chat',
   '/alerts',
   '/profile',
+  '/context-detail',
+  '/health-metrics',
 ];
 
 int shellIndexForPath(String path) {
@@ -91,9 +97,12 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
     final locState = ref.watch(locationProvider);
     final dash = ref.watch(weatherDashboardProvider);
     final appearance = ref.watch(appearanceProvider);
-    final locationName = locState.cityName.isNotEmpty
+    final rawLocation = locState.cityName.isNotEmpty
         ? locState.cityName
         : (dash.data?.current.location ?? 'Active Location');
+    final locationName = rawLocation.split(',').first.trim().isNotEmpty
+        ? rawLocation.split(',').first.trim()
+        : rawLocation;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -116,8 +125,11 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                       SavedLocationsScreen(),
                       ForecastScreen(),
                       InsightsScreen(),
+                      ChatScreen(),
                       AlertsScreen(),
                       ProfileScreen(),
+                      ContextDetailScreen(),
+                      HealthMetricsScreen(),
                     ],
                   ),
                 ),
@@ -133,12 +145,20 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                   ),
                 ),
                 Positioned(
-                  bottom: 12,
-                  left: MediaQuery.sizeOf(context).width < 360 ? 12 : 20,
-                  right: MediaQuery.sizeOf(context).width < 360 ? 12 : 20,
-                  child: MausamBottomNavbar(
-                    currentRoute: path,
-                    onNavigate: (route) => context.go(route),
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: MediaQuery.viewInsetsOf(context).bottom > 0 ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: IgnorePointer(
+                      ignoring: MediaQuery.viewInsetsOf(context).bottom > 0,
+                      child: MausamBottomNavbar(
+                        currentRoute: path,
+                        onNavigate: (route) => context.go(route),
+                      ),
+                    ),
                   ),
                 ),
               ],

@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/router/app_router.dart';
+import 'package:mobile/screens/chat_screen.dart';
 import 'package:mobile/screens/home_screen.dart';
+import 'package:mobile/screens/insights_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FakeUser extends Fake implements User {
@@ -124,7 +126,24 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('INSIGHTS'), findsWidgets);
+    expect(find.byType(InsightsScreen), findsOneWidget);
+  });
+
+  testWidgets('App renders ChatScreen at /chat', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/chat');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(ChatScreen), findsOneWidget);
   });
 
   testWidgets('App renders AlertsScreen at /alerts', (WidgetTester tester) async {
@@ -160,4 +179,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.textContaining('PROFILE'), findsWidgets);
   });
+
+  testWidgets('App renders ContextDetailScreen at /context-detail', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/context-detail');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Persona Context'), findsOneWidget);
+  });
+
+  testWidgets('App renders HealthMetricsScreen as new blank page at /health-metrics', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = createRouter(initialLocation: '/health-metrics');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('health_metrics_blank_page')), findsOneWidget);
+    expect(find.text('Health & Metrics'), findsOneWidget);
+  });
 }
+
