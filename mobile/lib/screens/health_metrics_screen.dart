@@ -1123,7 +1123,15 @@ class _ComparisonRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1661,7 +1669,15 @@ class _PhototypeRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(type, style: GoogleFonts.inter(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Text(
+                  type,
+                  style: GoogleFonts.inter(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
               Text(burnRisk, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
             ],
           ),
@@ -1669,7 +1685,15 @@ class _PhototypeRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(spf, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8))),
+              Expanded(
+                child: Text(
+                  spf,
+                  style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
               Text(med, style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF64748B))),
             ],
           ),
@@ -2073,14 +2097,19 @@ class _PollenRow extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              name,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            Expanded(
+              child: Text(
+                name,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               levelLabel,
               style: GoogleFonts.inter(

@@ -67,41 +67,46 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isYellow
-                        ? const Color(0x33F59E0B)
-                        : (isRain
-                            ? const Color(0x223B82F6)
-                            : (isThunder ? const Color(0x26FACC15) : MausamPalette.cardSurfaceLight)),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
                       color: isYellow
-                          ? const Color(0x88F59E0B)
+                          ? const Color(0x33F59E0B)
                           : (isRain
-                              ? const Color(0x4460A5FA)
-                              : (isThunder ? const Color(0x55FACC15) : MausamPalette.cardBorderSubtle)),
+                              ? const Color(0x223B82F6)
+                              : (isThunder ? const Color(0x26FACC15) : MausamPalette.cardSurfaceLight)),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isYellow
+                            ? const Color(0x88F59E0B)
+                            : (isRain
+                                ? const Color(0x4460A5FA)
+                                : (isThunder ? const Color(0x55FACC15) : MausamPalette.cardBorderSubtle)),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    isYellow
-                        ? '☀️ SUNNY'
-                        : (isRain
-                            ? '🌧️ RAINING NOW'
-                            : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
-                    style: GoogleFonts.inter(
-                      color: isYellow
-                          ? const Color(0xFFFDE047)
+                    child: Text(
+                      isYellow
+                          ? '☀️ SUNNY'
                           : (isRain
-                              ? const Color(0xFF93C5FD)
-                              : (isThunder ? const Color(0xFFFDE047) : MausamPalette.textSecondary)),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+                              ? '🌧️ RAINING NOW'
+                              : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: isYellow
+                            ? const Color(0xFFFDE047)
+                            : (isRain
+                                ? const Color(0xFF93C5FD)
+                                : (isThunder ? const Color(0xFFFDE047) : MausamPalette.textSecondary)),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   key: const Key('hero_change_location_button'),
                   onTap: widget.onChangeLocation ?? () => showSearchOverlay(context: context, ref: ref),

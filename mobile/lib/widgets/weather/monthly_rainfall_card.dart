@@ -167,29 +167,38 @@ class MonthlyRainfallCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${intel.monthName} RAINFALL',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: MausamPalette.textTertiary,
+              Flexible(
+                child: Text(
+                  '${intel.monthName} RAINFALL',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: MausamPalette.textTertiary,
+                  ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0x223B82F6),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0x443B82F6)),
-                ),
-                child: Text(
-                  intel.seasonalCategory,
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF93C5FD),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0x223B82F6),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0x443B82F6)),
+                  ),
+                  child: Text(
+                    intel.seasonalCategory,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF93C5FD),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
                   ),
                 ),
               ),

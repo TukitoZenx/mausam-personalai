@@ -910,26 +910,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Temperature',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Temperature',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          _tempIsCelsius ? 'Metric (°Celsius)' : 'Imperial (°Fahrenheit)',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textSecondary,
-                            fontSize: 11.5,
+                          Text(
+                            _tempIsCelsius ? 'Metric (°Celsius)' : 'Imperial (°Fahrenheit)',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textSecondary,
+                              fontSize: 11.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       height: 32,
                       decoration: BoxDecoration(
@@ -956,26 +961,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Wind & Speed',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Wind & Speed',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          _windIsKmh ? 'Kilometers/hour (km/h)' : 'Miles/hour (mph)',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textSecondary,
-                            fontSize: 11.5,
+                          Text(
+                            _windIsKmh ? 'Kilometers/hour (km/h)' : 'Miles/hour (mph)',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textSecondary,
+                              fontSize: 11.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       height: 32,
                       decoration: BoxDecoration(
@@ -1084,9 +1094,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   Container(
                                     width: 32,
                                     height: 32,
-                                    decoration: BoxDecoration(
+                                    decoration: const BoxDecoration(
                                       shape: BoxShape.circle,
-                                      gradient: const LinearGradient(
+                                      gradient: LinearGradient(
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
                                         colors: [Color(0xFF2A3344), Color(0xFF12151C)],
@@ -1099,7 +1109,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Row(
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 6,
+                                          runSpacing: 4,
                                           children: [
                                             Text(
                                               'Dynamic Live Wallpaper',
@@ -1109,7 +1122,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                 fontWeight: FontWeight.w700,
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                               decoration: BoxDecoration(
@@ -1318,14 +1330,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Card Glassmorphism & Opacity',
-                          style: GoogleFonts.inter(
-                            color: MausamPalette.textPrimary,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Card Glassmorphism & Opacity',
+                            style: GoogleFonts.inter(
+                              color: MausamPalette.textPrimary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -1454,26 +1471,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Weather Data Storage',
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textPrimary,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Weather Data Storage',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Local offline cache: $_cacheSize',
-                              style: GoogleFonts.inter(
-                                color: MausamPalette.textSecondary,
-                                fontSize: 11.5,
+                              Text(
+                                'Local offline cache: $_cacheSize',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textSecondary,
+                                  fontSize: 11.5,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: _clearCache,
                           style: OutlinedButton.styleFrom(
@@ -1526,8 +1546,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Icons.cloud_sync_rounded,
                 ),
                 const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(
                       'Mausam PersonalAI Version',
@@ -1573,18 +1596,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: const Icon(Icons.bug_report_rounded, color: Color(0xFF818CF8), size: 20),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'OS Notification Delivery Test',
-                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          'Test real background notification on this mobile device',
-                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'OS Notification Delivery Test',
+                            style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            'Test real background notification on this mobile device',
+                            style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1598,20 +1623,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   child: Column(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text('Device Local Timezone:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Text('Device Local Timezone:',
+                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
                           Text(_notifTz.isNotEmpty ? _notifTz : NotificationService.currentTimeZone,
                               style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text('OS Notification Permission:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Text('OS Notification Permission:',
+                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(_notifPermissionGranted ? Icons.check_circle_rounded : Icons.cancel_rounded,
                                   color: _notifPermissionGranted ? const Color(0xFF10B981) : const Color(0xFFF87171), size: 14),
@@ -1626,10 +1660,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text('Exact Alarm Capability:', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
+                          Text('Exact Alarm Capability:',
+                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
                           Text(NotificationService.exactAlarmsAllowed ? 'Allowed' : 'Restricted (Fallback Active)',
                               style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
@@ -1715,15 +1753,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            color: MausamPalette.textTertiary,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
+        Expanded(
+          child: Text(
+            title,
+            style: GoogleFonts.inter(
+              color: MausamPalette.textTertiary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
         Text(
           tag,
           style: GoogleFonts.inter(
