@@ -210,6 +210,10 @@ class _EnvironmentPainter extends CustomPainter {
         ).createShader(rect),
     );
 
+    // If celestial bodies are hidden (e.g. login or onboarding screens),
+    // do not draw sun/moon discs, atmospheric bloom circles, horizon wash, or stars.
+    if (!showCelestialDisc) return;
+
     if (!gradient.hasGlow || gradient.glowOpacity <= 0.002) return;
 
     final body = math.min(size.width, size.height);
