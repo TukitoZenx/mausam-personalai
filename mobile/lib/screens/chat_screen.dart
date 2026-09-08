@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
+import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../services/api_client.dart';
 
@@ -50,7 +51,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _apiClient = ApiClient();
+    _apiClient = ref.read(apiClientProvider);
     _loadInitialGreeting();
     _loadReminders();
   }
@@ -76,8 +77,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _loadReminders() async {
     setState(() => _loadingReminders = true);
     try {
+      final userState = ref.read(userProvider);
       final auth = ref.read(authStateProvider);
-      final idToken = auth.value != null ? 'test_token_user' : 'guest_token';
+      final idToken = userState.idToken ?? (auth.value != null ? 'test_token_user' : 'guest_token');
       final list = await _apiClient.fetchReminders(idToken: idToken);
       if (mounted) {
         setState(() {
@@ -132,7 +134,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? locState.longitude
         : (dashState.data != null ? 77.5946 : 78.4867);
 
-    final idToken = auth.value != null ? 'test_token_user' : 'guest_token';
+    final userState = ref.read(userProvider);
+    final idToken = userState.idToken ?? (auth.value != null ? 'test_token_user' : 'guest_token');
 
     try {
       final res = await _apiClient.sendChatMessage(
@@ -360,8 +363,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         final minuteStr = selectedTime.minute.toString().padLeft(2, '0');
                         final timeOfDayStr = '$hourStr:$minuteStr';
 
+                        final userState = ref.read(userProvider);
                         final auth = ref.read(authStateProvider);
-                        final idToken = auth.value != null ? 'test_token_user' : 'guest_token';
+                        final idToken = userState.idToken ?? (auth.value != null ? 'test_token_user' : 'guest_token');
 
                         setState(() => _isLoading = true);
                         try {
@@ -493,8 +497,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                           onPressed: () async {
+                            final userState = ref.read(userProvider);
                             final auth = ref.read(authStateProvider);
-                            final idToken = auth.value != null ? 'test_token_user' : 'guest_token';
+                            final idToken = userState.idToken ?? (auth.value != null ? 'test_token_user' : 'guest_token');
                             await _apiClient.deleteReminder(id: r['id'], idToken: idToken);
                             if (ctx.mounted) {
                               Navigator.pop(ctx);
@@ -553,21 +558,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Mausam Weather AI',
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Live Weather Intelligence & Reminders',
-                        style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mausam Weather AI',
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Live Weather Intelligence & Reminders',
+                          style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
-                  if (_activeReminders.isNotEmpty)
+                  if (_activeReminders.isNotEmpty) ...[
+                    const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: _showActiveRemindersSheet,
                       icon: const Icon(Icons.notifications_active, color: _accentCyan, size: 16),
@@ -576,6 +585,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         style: GoogleFonts.inter(color: _accentCyan, fontWeight: FontWeight.bold),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -840,9 +850,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildMiniStat('TEMP', '${msg.weatherData!['temperature_celsius']}°C'),
-                          _buildMiniStat('CONDITION', '${msg.weatherData!['condition']}'),
-                          _buildMiniStat('AQI', '${msg.weatherData!['aqi']} (${msg.weatherData!['aqi_category']})'),
+                          Flexible(child: _buildMiniStat('TEMP', '${msg.weatherData!['temperature_celsius']}°C')),
+                          const SizedBox(width: 6),
+                          Flexible(child: _buildMiniStat('CONDITION', '${msg.weatherData!['condition']}')),
+                          const SizedBox(width: 6),
+                          Flexible(child: _buildMiniStat('AQI', '${msg.weatherData!['aqi']} (${msg.weatherData!['aqi_category']})')),
                         ],
                       ),
                     ),
@@ -858,10 +870,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildMiniStat(String label, String value) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: GoogleFonts.inter(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: GoogleFonts.inter(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 2),
-        Text(value, style: GoogleFonts.inter(color: _accentCyan, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        Text(
+          value,
+          style: GoogleFonts.inter(color: _accentCyan, fontSize: 11.5, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }

@@ -19,8 +19,26 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _get_sync_db_url() -> str:
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        try:
+            from app.core.config import settings
+            db_url = settings.DATABASE_URL
+        except Exception:
+            pass
+    if db_url:
+        sync_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        if sync_url.startswith("postgres://"):
+            sync_url = sync_url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif sync_url.startswith("postgresql://") and not sync_url.startswith("postgresql+"):
+            sync_url = sync_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return sync_url
+    return config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = _get_sync_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -33,8 +51,10 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = _get_sync_db_url()
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

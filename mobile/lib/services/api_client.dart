@@ -5,12 +5,19 @@ import '../models/personalized_home_response.dart';
 
 class ApiClient {
   ApiClient({String? baseUrl, http.Client? client})
-      : baseUrl = baseUrl ?? _defaultBaseUrl(),
+      : baseUrl = (baseUrl ?? _defaultBaseUrl()).trim().replaceAll(RegExp(r'/+$'), ''),
         _client = client ?? http.Client();
 
   static String _defaultBaseUrl() {
     const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) return envUrl;
+    if (envUrl.isNotEmpty) {
+      return envUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    }
+    // In production/release builds, never default to local loopback/emulator IPs
+    if (kReleaseMode) {
+      return '';
+    }
+    // Local developer fallback for debug/test mode only
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:8000';
     }
@@ -21,6 +28,13 @@ class ApiClient {
   final http.Client _client;
 
   List<String> get _candidateHosts {
+    if (baseUrl.isEmpty) return const [];
+    // If a production or custom URL is specified, or running in release mode,
+    // only target the explicitly configured baseUrl and never fall back to local IPs.
+    if (kReleaseMode || (!baseUrl.contains('localhost') && !baseUrl.contains('10.0.2.2') && !baseUrl.contains('127.0.0.1'))) {
+      return [baseUrl];
+    }
+    // Debug-only local emulator & loopback fallbacks:
     final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final primary = isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
     final fallback = isAndroid ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
@@ -490,6 +504,43 @@ class ApiClient {
       }
     }
     throw Exception('Failed to delete reminder: $lastError');
+  }
+
+  // --- Alerts Endpoints ---
+
+  Future<List<dynamic>> fetchAlerts({
+    double? lat,
+    double? lon,
+    required String idToken,
+  }) async {
+    final queryParams = <String, String>{};
+    if (lat != null) queryParams['lat'] = lat.toString();
+    if (lon != null) queryParams['lon'] = lon.toString();
+
+    Object? lastError;
+    for (final host in _candidateHosts) {
+      try {
+        final uri = Uri.parse('$host/alerts').replace(
+          queryParameters: queryParams.isNotEmpty ? queryParams : null,
+        );
+        final response = await _client.get(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        ).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          if (decoded is List) return decoded;
+        }
+        lastError = 'HTTP ${response.statusCode}: ${response.body}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    return [];
   }
 }
 
