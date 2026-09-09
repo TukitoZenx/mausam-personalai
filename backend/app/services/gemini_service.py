@@ -254,25 +254,26 @@ class GeminiService:
     _client = None
 
     @classmethod
+    def is_available(cls) -> bool:
+        """Check if the Gemini service is configured with a valid API key."""
+        key = (getattr(settings, "GEMINI_API_KEY", "") or "").strip()
+        return bool(key) and not key.startswith("your_") and key not in ("placeholder", "placeholder_gemini_key")
+
+    @classmethod
     def _get_client(cls):
         """Lazy-initialize the Gemini client (google-genai SDK)."""
         if cls._client is None:
-            if not settings.GEMINI_API_KEY:
+            if not cls.is_available():
                 return None
             try:
                 from google import genai  # google-genai >= 1.0.0
 
-                cls._client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                cls._client = genai.Client(api_key=settings.GEMINI_API_KEY.strip())
                 logger.info("✅ Gemini client initialized (google-genai SDK)")
             except Exception as exc:
                 logger.error("Failed to initialize Gemini client: %s", exc)
                 cls._client = None
         return cls._client
-
-    @classmethod
-    def is_available(cls) -> bool:
-        """Check if the Gemini service is configured."""
-        return bool(settings.GEMINI_API_KEY)
 
     @classmethod
     async def generate_response(

@@ -36,4 +36,10 @@ if settings.WEATHER_API_KEY and settings.WEATHER_API_KEY != "placeholder_weather
 else:
     logger.warning("⚠️  WEATHER_API_KEY is missing or still a placeholder — external weather calls will fail")
 
+gemini_key = (settings.GEMINI_API_KEY or "").strip()
+if gemini_key and not gemini_key.startswith("your_") and gemini_key not in ("placeholder", "placeholder_gemini_key"):
+    logger.info("✅ GEMINI_API_KEY loaded (%d chars, model: %s)", len(gemini_key), settings.GEMINI_MODEL)
+else:
+    logger.warning("⚠️  GEMINI_API_KEY is missing or placeholder — AI chat will use deterministic fallback engine")
+
 

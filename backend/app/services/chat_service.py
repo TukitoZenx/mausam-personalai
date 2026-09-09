@@ -564,8 +564,43 @@ class ChatService:
                 suggested_actions=["Remind me daily at 7:00 AM", "Remind me at 9:00 PM daily", "Today's weather"],
             )
 
-        # 2. Small Talk / Greetings
+        # Build user context early for all conversational pathways
+        user_context = None
+        if (
+            payload.persona
+            or payload.health_concerns
+            or payload.weather_triggers
+            or payload.what_matters_most
+            or payload.activity_level
+            or payload.user_name
+        ):
+            user_context = {
+                "name": payload.user_name,
+                "persona": payload.persona,
+                "health_concerns": payload.health_concerns or [],
+                "weather_triggers": payload.weather_triggers or [],
+                "what_matters_most": payload.what_matters_most or [],
+                "activity_level": payload.activity_level,
+            }
+
+        # 2. Small Talk / Greetings / Help / Thanks
         if intent in ("greeting", "smalltalk", "thanks", "help"):
+            if GeminiService.is_available():
+                gemini_res = await GeminiService.generate_response(
+                    user_message=text,
+                    user_context=user_context,
+                    history=payload.history,
+                )
+                if gemini_res:
+                    reply_text, actions, card = gemini_res
+                    return ChatMessageResponse(
+                        reply=reply_text,
+                        intent=intent,
+                        source="gemini",
+                        card_data=card,
+                        suggested_actions=actions,
+                    )
+
             greetings = {
                 "smalltalk": "I'm doing well and ready! Ask me about current weather, rain chances, what to wear, or travel safety.",
                 "thanks": "You're welcome! Let me know if you need another weather update or recommendation.",
@@ -592,20 +627,22 @@ class ChatService:
                 comp_card = _build_comparison_card(comp_data)
 
                 # Try Gemini with comparison grounding
-                gemini_res = await GeminiService.generate_response(
-                    user_message=text,
-                    comparison_data=comp_data,
-                    history=payload.history,
-                )
-                if gemini_res:
-                    reply_text, actions, card = gemini_res
-                    return ChatMessageResponse(
-                        reply=reply_text,
-                        intent="compare",
-                        source="gemini",
-                        card_data=card or comp_card,
-                        suggested_actions=actions,
+                if GeminiService.is_available():
+                    gemini_res = await GeminiService.generate_response(
+                        user_message=text,
+                        comparison_data=comp_data,
+                        user_context=user_context,
+                        history=payload.history,
                     )
+                    if gemini_res:
+                        reply_text, actions, card = gemini_res
+                        return ChatMessageResponse(
+                            reply=reply_text,
+                            intent="compare",
+                            source="gemini",
+                            card_data=card or comp_card,
+                            suggested_actions=actions,
+                        )
 
                 w1 = comp_data["location1"]
                 w2 = comp_data["location2"]
@@ -641,6 +678,23 @@ class ChatService:
                         results.append(cur)
 
                 if results:
+                    if GeminiService.is_available():
+                        gemini_res = await GeminiService.generate_response(
+                            user_message=text,
+                            saved_locations=results,
+                            user_context=user_context,
+                            history=payload.history,
+                        )
+                        if gemini_res:
+                            reply_text, actions, card = gemini_res
+                            return ChatMessageResponse(
+                                reply=reply_text,
+                                intent="saved_locations",
+                                source="gemini",
+                                card_data=card,
+                                suggested_actions=actions,
+                            )
+
                     sorted_by_temp = sorted(results, key=lambda x: x["temperature_celsius"])
                     coldest = sorted_by_temp[0]
                     warmest = sorted_by_temp[-1]
@@ -691,17 +745,6 @@ class ChatService:
         except Exception as exc:
             logger.warning("Weather tool fetch failed: %s", exc)
 
-        if weather_snapshot is None and intent == "weather":
-            return ChatMessageResponse(
-                reply=(
-                    "I could not retrieve live weather data right now. "
-                    "Please make sure your location services are enabled or specify a city name (e.g., *'Weather in Guntur'*)."
-                ),
-                intent="weather",
-                source="template",
-                suggested_actions=["Weather in Hyderabad", "Weather in Guntur", "Check air quality"],
-            )
-
         # Build fallback structured card
         structured_card = None
         if weather_snapshot:
@@ -712,49 +755,32 @@ class ChatService:
                 query_text=text,
             )
 
-        user_context = None
-        if (
-            payload.persona
-            or payload.health_concerns
-            or payload.weather_triggers
-            or payload.what_matters_most
-            or payload.activity_level
-            or payload.user_name
-        ):
-            user_context = {
-                "name": payload.user_name,
-                "persona": payload.persona,
-                "health_concerns": payload.health_concerns or [],
-                "weather_triggers": payload.weather_triggers or [],
-                "what_matters_most": payload.what_matters_most or [],
-                "activity_level": payload.activity_level,
-            }
-
         # 6. Call Gemini Service with full Grounding
-        gemini_result = await GeminiService.generate_response(
-            user_message=text,
-            weather_data=weather_snapshot,
-            forecast_data=forecast_list,
-            user_context=user_context,
-            hourly_data=hourly_list,
-            alerts_data=alerts_list,
-            saved_locations=payload.saved_locations,
-            history=payload.history,
-        )
-
-        if gemini_result is not None:
-            reply_text, suggested_actions, gemini_card = gemini_result
-            return ChatMessageResponse(
-                reply=reply_text,
-                intent=intent,
-                source="gemini",
+        if GeminiService.is_available():
+            gemini_result = await GeminiService.generate_response(
+                user_message=text,
                 weather_data=weather_snapshot,
-                card_data=gemini_card or structured_card,
-                suggested_actions=suggested_actions,
-                location_context={"location": weather_snapshot.get("location") if weather_snapshot else target_location},
+                forecast_data=forecast_list,
+                user_context=user_context,
+                hourly_data=hourly_list,
+                alerts_data=alerts_list,
+                saved_locations=payload.saved_locations,
+                history=payload.history,
             )
 
-        # 7. Deterministic Fallback Template
+            if gemini_result is not None:
+                reply_text, suggested_actions, gemini_card = gemini_result
+                return ChatMessageResponse(
+                    reply=reply_text,
+                    intent=intent,
+                    source="gemini",
+                    weather_data=weather_snapshot,
+                    card_data=gemini_card or structured_card,
+                    suggested_actions=suggested_actions,
+                    location_context={"location": weather_snapshot.get("location") if weather_snapshot else target_location},
+                )
+
+        # 7. Deterministic Fallback Template (when Gemini is not configured or offline)
         if weather_snapshot is not None:
             reply, facts, recs = _detailed_weather_reply(
                 text=text,
@@ -783,10 +809,10 @@ class ChatService:
 
         return ChatMessageResponse(
             reply=(
-                "I am **Mausam AI**, your personal weather intelligence assistant. "
-                "Ask me any question about current weather, forecasts, outdoor workout suitability, wardrobe, or air quality."
+                "I could not retrieve live weather data right now. "
+                "Please make sure your location services are enabled or specify a city name (e.g., *'Weather in Guntur'*)."
             ),
-            intent="general",
+            intent="weather",
             source="template",
-            suggested_actions=["Today's weather", "Will it rain today?", "Air quality right now"],
+            suggested_actions=["Weather in Hyderabad", "Weather in Guntur", "Check air quality"],
         )
