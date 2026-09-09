@@ -115,9 +115,9 @@ void main() {
 
       // Check destinations
       expect(find.text('Home'), findsOneWidget);
-      expect(find.text('My Locations'), findsOneWidget);
+      expect(find.text('My Locations'), findsNothing);
       expect(find.text('Extended Forecast'), findsOneWidget);
-      expect(find.text('Mausam AI Assistant'), findsOneWidget);
+      expect(find.text('Mausam AI Assistant'), findsNothing);
       expect(find.text('Persona Context'), findsOneWidget);
       expect(find.text('Health & Metrics'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Alerts & Travel'), 50);

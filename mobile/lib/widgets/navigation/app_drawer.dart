@@ -52,24 +52,10 @@ class MausamAppDrawer extends ConsumerWidget {
                     ),
                     _drawerItem(
                       context: context,
-                      title: 'My Locations',
-                      icon: Icons.map_outlined,
-                      route: '/saved-locations',
-                      isActive: currentRoute == '/saved-locations',
-                    ),
-                    _drawerItem(
-                      context: context,
                       title: 'Extended Forecast',
                       icon: Icons.calendar_today_rounded,
                       route: '/forecast',
                       isActive: currentRoute == '/forecast',
-                    ),
-                    _drawerItem(
-                      context: context,
-                      title: 'Mausam AI Assistant',
-                      icon: Icons.wb_cloudy_rounded,
-                      route: '/insights',
-                      isActive: currentRoute == '/insights',
                     ),
                     _drawerItem(
                       context: context,
