@@ -62,7 +62,12 @@ _THANKS_RE = re.compile(
 )
 _HELP_RE = re.compile(
     r"^(help|what can you do|who are you|what are you|"
-    r"what do you do|how does this work)[\s!.?]*$",
+    r"what do you do|how does this work|capabilities|what are your capabilities)[\s!.?]*$",
+    re.IGNORECASE,
+)
+_CASUAL_CHAT_RE = re.compile(
+    r"^(ok|okay|cool|nice|awesome|great|super|perfect|got it|sounds good|"
+    r"bye|goodbye|see you|see ya|cya|take care|have a nice day|good night)[\s!.?]*$",
     re.IGNORECASE,
 )
 
@@ -103,20 +108,27 @@ def _extract_comparison_locations(text: str) -> tuple[str, str] | None:
 
 def _extract_location_mention(text: str) -> str | None:
     """
-    Extract explicit location targets mentioned with 'in <City>' or 'for <City>'
-    e.g. 'weather in Vijayawada tomorrow' -> 'Vijayawada'
+    Extract explicit location targets mentioned with:
+      - 'in <City>' or 'for <City>' (e.g. 'weather in Vijayawada tomorrow' -> 'Vijayawada')
+      - '<City> weather' (e.g. 'Hyderabad weather' -> 'Hyderabad')
     """
     clean = text.strip()
-    # Strip trailing temporal words so they are not captured as part of city name
     truncated = re.sub(r"\b(tomorrow|today|tonight|now|yesterday|this weekend|this evening|next week|the morning)\b.*$", "", clean, flags=re.IGNORECASE).strip()
+    stopwords = {
+        "the morning", "the evening", "the afternoon", "the night", "my area",
+        "this city", "degrees", "celsius", "fahrenheit", "detail", "hours",
+        "advance", "a run", "cricket", "outdoor", "walking", "travel",
+        "what", "what is", "how is", "show", "tell", "check", "current",
+    }
     m = re.search(r"\b(?:in|at|for)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)\b", truncated, re.IGNORECASE)
     if m:
         candidate = m.group(1).strip()
-        stopwords = {
-            "the morning", "the evening", "the afternoon", "the night", "my area",
-            "this city", "degrees", "celsius", "fahrenheit", "detail", "hours",
-            "advance", "a run", "cricket", "outdoor", "walking", "travel",
-        }
+        if candidate.lower() not in stopwords and len(candidate) > 2:
+            return candidate
+
+    m = re.search(r"^([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+weather\b", clean, re.IGNORECASE)
+    if m:
+        candidate = m.group(1).strip()
         if candidate.lower() not in stopwords and len(candidate) > 2:
             return candidate
     return None
@@ -138,34 +150,250 @@ def _extract_time_and_frequency(text: str) -> tuple[str | None, str]:
     return None, freq
 
 
-def classify_chat_intent(text: str) -> str:
-    """Classify user intent: greeting | smalltalk | thanks | help | reminder | compare | saved_locations | weather | general."""
+def _is_general_chat(text: str) -> bool:
+    stripped = text.strip()
+    if (
+        _GREETING_RE.match(stripped)
+        or _SMALLTALK_RE.match(stripped)
+        or _THANKS_RE.match(stripped)
+        or _HELP_RE.match(stripped)
+        or _CASUAL_CHAT_RE.match(stripped)
+    ):
+        return True
+    lower = stripped.lower()
+    if re.search(r"\b(how are you|how's it going|hows it going|what's up|whats up|how do you do|you good)\b", lower):
+        return True
+    if re.search(r"\b(what can you do|who are you|what are you|what do you do|capabilities)\b", lower):
+        return True
+    if any(w in lower for w in ("thank you", "thanks a lot", "thanks so much", "thx", "tysm")):
+        return True
+    return False
+
+
+def _generate_general_chat_reply(text: str, user_name: str | None = None) -> tuple[str, list[str]]:
+    """
+    Generate fast, natural, conversational responses for general chat messages.
+    Adheres strictly to zero external/weather API call constraint.
+    """
     stripped = text.strip()
     lower = stripped.lower()
 
-    if _GREETING_RE.match(stripped):
-        return "greeting"
-    if _SMALLTALK_RE.match(stripped):
-        return "smalltalk"
-    if _THANKS_RE.match(stripped):
-        return "thanks"
-    if _HELP_RE.match(stripped):
-        return "help"
+    # “Hey, how are you?” → “I’m doing great! 😊 What can I help you with?”
+    if re.search(r"\b(how are you|how's it going|hows it going|what's up|whats up|how do you do|you good)\b", lower):
+        reply = "I’m doing great! 😊 What can I help you with?"
+        actions = ["What's the weather today?", "Will it rain today?", "Air quality index", "What can you do?"]
+        return reply, actions
+
+    # “What can you do?” → Explain chatbot capabilities.
+    if _HELP_RE.match(stripped) or any(k in lower for k in ("what can you do", "who are you", "what are you", "what do you do", "capabilities")):
+        reply = (
+            "I'm **Mausam AI**, your personal weather intelligence assistant! 🌤️ Here is what I can do for you:\n\n"
+            "• **Live Weather**: Instant temperature, 'feels-like', humidity, wind, and conditions\n"
+            "• **Forecasts**: Hourly trends and 5-day daily forecasts\n"
+            "• **Air Quality (AQI)**: Live pollution levels and respiratory health guidance\n"
+            "• **Severe Weather Alerts**: Official storm, heatwave, and heavy rain warnings\n"
+            "• **Activity Intelligence**: Optimal windows for cricket, running, workouts, and outdoor sports\n"
+            "• **Travel & Commute**: Weather comparison across cities and road safety insights\n"
+            "• **Wardrobe & Routine**: Personalized outfit advice, umbrella reminders, and daily schedules\n\n"
+            "What would you like to check today?"
+        )
+        actions = ["What's the weather in Hyderabad?", "Will it rain today?", "Check air quality", "Can I play cricket today?"]
+        return reply, actions
+
+    # “Thanks” → “You’re welcome! 😊”
+    if _THANKS_RE.match(stripped) or any(k in lower for k in ("thanks", "thank you", "thx", "ty", "tysm")):
+        reply = "You’re welcome! 😊"
+        actions = ["Today's weather", "Air quality index", "5-day forecast"]
+        return reply, actions
+
+    # “Hi” → “Hello! 👋 How can I help you today?”
+    if _GREETING_RE.match(stripped) or re.match(r"^(hi+|hii+|hello|hey+|yo|hola|namaste|sup|howdy)[\s!.?]*$", stripped, re.IGNORECASE):
+        reply = "Hello! 👋 How can I help you today?"
+        actions = ["What's the weather today?", "Will it rain today?", "Air quality index", "5-day forecast"]
+        return reply, actions
+
+    # Good morning / afternoon / evening
+    if "good morning" in lower:
+        reply = "Good morning! ☀️ How can I help you today?"
+        actions = ["Today's weather", "Will it rain today?", "Air quality index"]
+        return reply, actions
+    if "good afternoon" in lower:
+        reply = "Good afternoon! 🌤️ Hope your day is going well. What can I help you with today?"
+        actions = ["Current temperature", "Rain chance today", "Air quality index"]
+        return reply, actions
+    if "good evening" in lower:
+        reply = "Good evening! 🌙 How can I assist you with your evening plans or tomorrow's forecast?"
+        actions = ["Forecast for tomorrow", "Tonight's temperature", "Air quality right now"]
+        return reply, actions
+    if "good night" in lower:
+        reply = "Good night! 🌙 Sleep well and stay safe. Check back anytime for tomorrow's weather!"
+        actions = ["Tomorrow's weather", "Will it rain tomorrow?"]
+        return reply, actions
+
+    # Casual farewells & pleasantries
+    if any(w in lower for w in ("bye", "goodbye", "see you", "see ya", "cya", "take care")):
+        reply = "Goodbye! 👋 Stay safe and have a fantastic day ahead!"
+        actions = ["Today's weather", "Tomorrow's forecast"]
+        return reply, actions
+
+    if any(w in lower for w in ("cool", "awesome", "great", "nice", "perfect", "sounds good", "ok", "okay")):
+        reply = "Awesome! 😊 Feel free to ask whenever you need weather, AQI, travel, or activity updates."
+        actions = ["What's the weather today?", "Will it rain today?", "Air quality index"]
+        return reply, actions
+
+    # Default friendly greeting
+    reply = "Hello! 👋 How can I help you today?"
+    actions = ["What's the weather today?", "Will it rain today?", "Air quality index", "What can you do?"]
+    return reply, actions
+
+
+def _generate_concept_reply(text: str) -> tuple[str, list[str]]:
+    """Generate educational replies for meteorological concepts."""
+    lower_q = text.lower()
+    if "humidity" in lower_q:
+        concept_reply = (
+            "**Humidity** is the amount of water vapor present in the atmosphere.\n\n"
+            "• **Relative Humidity (RH)** indicates how close the air is to being completely saturated with water vapor (100%).\n"
+            "• When humidity is high (above 65%), sweat cannot evaporate efficiently from your skin, making the air feel muggy, sticky, and hotter than the actual temperature.\n"
+            "• When humidity is low (below 30%), the air feels dry and crisp, which can cause skin dryness or respiratory irritation."
+        )
+    elif "feel" in lower_q or "30" in lower_q:
+        concept_reply = (
+            "**Why does 30°C feel like 35°C? (The Heat Index)**\n\n"
+            "Your body cools itself down through the evaporation of sweat. When atmospheric humidity is elevated, the air is already laden with moisture, so sweat evaporates much more slowly.\n\n"
+            "Because heat remains trapped on your skin, your body perceives a significantly higher temperature than the thermometer reads. Meteorologists calculate this as the **'Feels-Like' Temperature** or **Heat Index**."
+        )
+    elif "dew" in lower_q:
+        concept_reply = (
+            "**Dew Point** is the temperature to which air must cool for water vapor to condense into liquid droplets (dew, mist, or clouds).\n\n"
+            "• **Below 15°C**: Crisp, dry, and comfortable.\n"
+            "• **15°C to 20°C**: Noticeable moisture in the air.\n"
+            "• **Above 20°C**: Muggy and oppressive tropical humidity.\n\n"
+            "Dew point is often a more reliable indicator of physical human comfort than relative humidity because it measures absolute atmospheric water content."
+        )
+    elif "thunderstorm" in lower_q:
+        concept_reply = (
+            "**What causes Thunderstorms?**\n\n"
+            "Thunderstorms form when three conditions align:\n"
+            "1. **Surface Moisture**: Warm, humid air near the ground.\n"
+            "2. **Atmospheric Instability**: Warm air rising rapidly into colder air above.\n"
+            "3. **Lift Mechanism**: Solar heating or frontal boundaries pushing the warm air upward.\n\n"
+            "As the rising moisture condenses into towering cumulonimbus clouds, ice crystals collide, creating electrical charges that discharge as **lightning and thunder**."
+        )
+    elif "pressure" in lower_q:
+        concept_reply = (
+            "**Atmospheric Pressure** represents the weight of the air column pressing down on the Earth's surface.\n\n"
+            "• **High Pressure**: Air gently sinks, inhibiting cloud formation and delivering clear, calm skies.\n"
+            "• **Low Pressure**: Air rises, cools, and condenses into clouds and precipitation. A rapid drop in barometric pressure often heralds stormy weather."
+        )
+    elif "rain" in lower_q or "probability" in lower_q or "80%" in lower_q:
+        concept_reply = (
+            "**What does an 80% chance of rain mean? (Probability of Precipitation)**\n\n"
+            "Probability of Precipitation (PoP) combines meteorological certainty with spatial coverage (**PoP = Confidence × Area Fraction**).\n\n"
+            "An 80% chance means that under these exact atmospheric parameters, there is an 8-in-10 likelihood that at least 0.1 mm of precipitation will fall anywhere within your local forecast area during that forecast period."
+        )
+    else:
+        concept_reply = (
+            "**Meteorological Concepts in Mausam AI**\n\n"
+            "Weather parameters like temperature, humidity, wind, and pressure interact continuously to create the conditions you experience outdoors. Ask me about any specific concept like *'What is humidity?'*, *'What is dew point?'*, or *'Why does 30°C feel like 35°C?'*!"
+        )
+    actions = ["What is dew point?", "Why does 30°C feel hotter?", "Today's weather"]
+    return concept_reply, actions
+
+
+def classify_chat_intent(text: str) -> str:
+    """
+    Classify user message into one of 9 canonical intents:
+      GENERAL_CHAT | WEATHER | FORECAST | LOCATION | AQI | ALERT | TRAVEL | ACTIVITY | OTHER
+    """
+    stripped = text.strip()
+    lower = stripped.lower()
+
+    # 1. Educational meteorological concepts or reminders -> OTHER
     if any(p in lower for p in (
         "what is humidity", "what is dew point", "why does it feel hotter", "why does 30",
         "what causes thunderstorm", "what is atmospheric pressure", "what is wind chill",
-        "what does rain probability mean", "what does 80% rain", "explain humidity", "explain dew point"
+        "what does rain probability mean", "what does 80% rain", "explain humidity", "explain dew point",
+        "explain pressure", "meteorological concept"
     )):
-        return "concept"
+        return "OTHER"
     if any(k in lower for k in ("remind", "reminder", "alarm", "schedule notification", "notify me")):
-        return "reminder"
+        return "OTHER"
+
+    # 2. Location comparison or travel commute inquiry -> TRAVEL
     if _extract_comparison_locations(stripped) is not None:
-        return "compare"
-    if "saved location" in lower or "saved locations" in lower:
-        return "saved_locations"
-    if any(k in lower for k in _WEATHER_HINTS) or _extract_location_mention(stripped):
-        return "weather"
-    return "general"
+        return "TRAVEL"
+    if any(k in lower for k in (
+        "travel to", "traveling to", "travelling to", "driving to", "trip to",
+        "road condition", "road conditions", "commute to", "commute from",
+        "safe to drive", "safe to travel", "flight weather", "highway weather"
+    )):
+        return "TRAVEL"
+
+    # 3. Saved locations queries -> LOCATION
+    if any(k in lower for k in (
+        "saved location", "saved locations", "saved cities", "which of my saved",
+        "in my saved", "saved places", "coldest saved", "warmest saved"
+    )):
+        return "LOCATION"
+
+    # 4. Severe weather alerts / warnings -> ALERT
+    if any(k in lower for k in (
+        "alert", "alerts", "warning", "warnings", "cyclone", "severe weather",
+        "storm warning", "heatwave", "heat wave", "flash flood", "flood warning",
+        "thunderstorm warning", "emergency weather", "weather advisory"
+    )):
+        return "ALERT"
+
+    # 5. Air quality / pollution / respiratory queries -> AQI
+    if any(k in lower for k in (
+        "aqi", "air quality", "pollution", "pm2.5", "pm10", "smog", "smoke",
+        "breathe", "breathing", "asthma", "air clean", "mask"
+    )):
+        return "AQI"
+
+    # 6. Sports / cricket / workout / running -> ACTIVITY
+    if any(k in lower for k in (
+        "cricket", "play cricket", "sports", "match", "game", "run", "running",
+        "jog", "jogging", "workout", "gym", "fitness", "exercise", "cycling",
+        "cycle", "walk", "walking", "outdoor activity", "play outside", "picnic"
+    )):
+        return "ACTIVITY"
+
+    # 7. Future weather / forecast / tomorrow / weekend -> FORECAST
+    if any(k in lower for k in (
+        "forecast", "tomorrow", "weekend", "5-day", "7-day", "next week",
+        "coming days", "days ahead", "later tonight", "this evening",
+        "hourly forecast", "hourly breakdown", "future weather", "weekly"
+    )):
+        return "FORECAST"
+
+    # 8. Check if pure general chat (without substantive weather inquiry) -> GENERAL_CHAT
+    has_substantive_weather = (
+        any(k in lower for k in _WEATHER_HINTS)
+        or _extract_location_mention(stripped) is not None
+    )
+
+    if not has_substantive_weather:
+        if (
+            _GREETING_RE.match(stripped)
+            or _SMALLTALK_RE.match(stripped)
+            or _THANKS_RE.match(stripped)
+            or _HELP_RE.match(stripped)
+            or _CASUAL_CHAT_RE.match(stripped)
+            or _is_general_chat(stripped)
+        ):
+            return "GENERAL_CHAT"
+
+    # 9. Current weather conditions & parameters -> WEATHER
+    if has_substantive_weather:
+        return "WEATHER"
+
+    # Fallback to GENERAL_CHAT for conversational inquiries, else OTHER
+    if any(w in lower for w in ("hi", "hello", "hey", "bye", "thanks", "thank", "how", "what", "good", "cool", "nice", "ok", "okay")):
+        return "GENERAL_CHAT"
+
+    return "OTHER"
 
 
 def _build_structured_card(
@@ -173,6 +401,7 @@ def _build_structured_card(
     forecast_list: list[dict[str, Any]] | None,
     alerts: list[dict[str, Any]] | None,
     query_text: str,
+    intent: str = "WEATHER",
 ) -> dict[str, Any]:
     """
     Construct a structured WeatherAiCardData dictionary for rich Flutter UI rendering.
@@ -187,8 +416,12 @@ def _build_structured_card(
     aqi_cat = snap.get("aqi_category", "Moderate")
 
     # 1. Severe Alert Card
-    if alerts and len(alerts) > 0:
-        top_alert = alerts[0]
+    if intent == "ALERT" or (alerts and len(alerts) > 0):
+        top_alert = alerts[0] if alerts else {
+            "headline": f"Severe Weather Advisory for {loc}",
+            "severity": "Warning",
+            "description": f"Conditions in {loc}: {temp}°C with {cond.lower()}. Stay updated with official advisories.",
+        }
         return {
             "cardType": "forecastSummary",
             "category": "OFFICIAL WEATHER WARNING",
@@ -206,7 +439,7 @@ def _build_structured_card(
         }
 
     # 2. Workout / Cricket / Running Intent
-    if any(w in lower for w in ("workout", "run", "jog", "fitness", "cricket", "play", "sports", "exercise")):
+    if intent == "ACTIVITY" or any(w in lower for w in ("workout", "run", "jog", "fitness", "cricket", "play", "sports", "exercise")):
         is_safe = rain_mm == 0 and temp < 34 and aqi_val < 150
         headline = "Favorable Outdoor Window" if is_safe else "Suboptimal Conditions for Outdoor Activity"
         subtitle = "Optimal early morning or late afternoon" if is_safe else "High heat or precipitation risk"
@@ -248,7 +481,7 @@ def _build_structured_card(
         }
 
     # 4. Air Quality & Health Intent
-    if any(w in lower for w in ("aqi", "air quality", "pollution", "smog", "breathe", "asthma")):
+    if intent == "AQI" or any(w in lower for w in ("aqi", "air quality", "pollution", "smog", "breathe", "asthma")):
         return {
             "cardType": "healthEnvironment",
             "category": "AIR QUALITY & ENVIRONMENT",
@@ -531,167 +764,116 @@ class ChatService:
         text = payload.text.strip()
         intent = classify_chat_intent(text)
 
-        # 1. Reminder Intent
-        if intent == "reminder":
-            extracted_time, freq = _extract_time_and_frequency(text)
-            if extracted_time:
+        # 1. GENERAL_CHAT Intent -> Zero weather/location/external API calls!
+        if intent == "GENERAL_CHAT":
+            reply, actions = _generate_general_chat_reply(text, user_name=payload.user_name)
+            return ChatMessageResponse(
+                reply=reply,
+                intent="GENERAL_CHAT",
+                source="template",
+                suggested_actions=actions,
+            )
+
+        # 2. OTHER Intent: Reminders & Meteorological Concepts -> Zero weather tools calls!
+        if intent == "OTHER":
+            # Reminder handling
+            if any(k in text.lower() for k in ("remind", "reminder", "alarm", "schedule notification", "notify me")):
+                extracted_time, freq = _extract_time_and_frequency(text)
+                if extracted_time:
+                    try:
+                        created = await ReminderService.create_reminder(
+                            user=user,
+                            payload=ReminderCreate(time_of_day=extracted_time, frequency=freq),
+                        )
+                        reply = (
+                            f"I have scheduled your {freq} weather reminder for **{created.time_of_day}**. "
+                            f"You will receive a daily routine notification with conditions for your area."
+                        )
+                        return ChatMessageResponse(
+                            reply=reply,
+                            intent="OTHER",
+                            source="template",
+                            reminder_created=True,
+                            reminder_details=created.model_dump(),
+                            suggested_actions=["Today's weather", "AQI right now", "List reminders"],
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to create reminder from chat: %s", exc)
+                        return ChatMessageResponse(
+                            reply=f"I understood you want a reminder at {extracted_time}, but encountered an error saving it: {exc}",
+                            intent="OTHER",
+                            source="template",
+                            suggested_actions=["Try setting a reminder again", "Today's weather"],
+                        )
+                return ChatMessageResponse(
+                    reply=(
+                        "I'd be glad to set a weather reminder for you! "
+                        "What time would you like to receive it (e.g., *7:00 AM* or *9:00 PM*) and how often (*daily* or *once*)?"
+                    ),
+                    intent="OTHER",
+                    source="template",
+                    suggested_actions=["Remind me daily at 7:00 AM", "Remind me at 9:00 PM daily", "Today's weather"],
+                )
+
+            # Educational concepts
+            concept_reply, concept_actions = _generate_concept_reply(text)
+            return ChatMessageResponse(
+                reply=concept_reply,
+                intent="OTHER",
+                source="template",
+                suggested_actions=concept_actions,
+            )
+
+        # 3. TRAVEL: Multi-City Comparison or Inter-city Commute
+        if intent == "TRAVEL":
+            comp_locs = _extract_comparison_locations(text)
+            if comp_locs:
+                loc1, loc2 = comp_locs
                 try:
-                    created = await ReminderService.create_reminder(
-                        user=user,
-                        payload=ReminderCreate(time_of_day=extracted_time, frequency=freq),
+                    comp_data = await weather_tools.compare_weather(
+                        loc1, loc2,
+                        default_lat=payload.resolved_lat or 17.3850,
+                        default_lon=payload.resolved_lon or 78.4867,
                     )
+                    comp_card = _build_comparison_card(comp_data)
+
+                    # Try Gemini with comparison grounding
+                    gemini_res = await GeminiService.generate_response(
+                        user_message=text,
+                        comparison_data=comp_data,
+                        history=payload.history,
+                    )
+                    if gemini_res:
+                        reply_text, actions, card = gemini_res
+                        return ChatMessageResponse(
+                            reply=reply_text,
+                            intent="TRAVEL",
+                            source="gemini",
+                            card_data=card or comp_card,
+                            suggested_actions=actions,
+                        )
+
+                    w1 = comp_data["location1"]
+                    w2 = comp_data["location2"]
+                    diff = comp_data["temperature_difference_celsius"]
                     reply = (
-                        f"I have scheduled your {freq} weather reminder for **{created.time_of_day}**. "
-                        f"You will receive a daily routine notification with conditions for your area."
+                        f"**Weather Comparison: {w1['location']} vs {w2['location']}**\n\n"
+                        f"• **{w1['location']}**: **{w1['temperature_celsius']}°C** (feels like {w1['feels_like_celsius']}°C), {w1['condition']}, AQI **{w1['aqi']}**\n"
+                        f"• **{w2['location']}**: **{w2['temperature_celsius']}°C** (feels like {w2['feels_like_celsius']}°C), {w2['condition']}, AQI **{w2['aqi']}**\n\n"
+                        f"**Summary**: {comp_data['warmer_location']} is warmer by {abs(diff):.1f}°C. {comp_data['cleaner_air_location']} has cleaner air quality."
                     )
                     return ChatMessageResponse(
                         reply=reply,
-                        intent="reminder",
+                        intent="TRAVEL",
                         source="template",
-                        reminder_created=True,
-                        reminder_details=created.model_dump(),
-                        suggested_actions=["Today's weather", "AQI right now", "List reminders"],
+                        card_data=comp_card,
+                        suggested_actions=[f"Forecast for {w1['location']}", f"Forecast for {w2['location']}", "Will it rain today?"],
                     )
                 except Exception as exc:
-                    logger.warning("Failed to create reminder from chat: %s", exc)
-                    return ChatMessageResponse(
-                        reply=f"I understood you want a reminder at {extracted_time}, but encountered an error saving it: {exc}",
-                        intent="reminder",
-                        source="template",
-                        suggested_actions=["Try setting a reminder again", "Today's weather"],
-                    )
-            return ChatMessageResponse(
-                reply=(
-                    "I'd be glad to set a weather reminder for you! "
-                    "What time would you like to receive it (e.g., *7:00 AM* or *9:00 PM*) and how often (*daily* or *once*)?"
-                ),
-                intent="reminder",
-                source="template",
-                suggested_actions=["Remind me daily at 7:00 AM", "Remind me at 9:00 PM daily", "Today's weather"],
-            )
+                    logger.warning("Comparison failed: %s", exc)
 
-        # 2. Small Talk / Greetings
-        if intent in ("greeting", "smalltalk", "thanks", "help"):
-            greetings = {
-                "smalltalk": "I'm doing well and ready! Ask me about current weather, rain chances, what to wear, or travel safety.",
-                "thanks": "You're welcome! Let me know if you need another weather update or recommendation.",
-                "help": "I'm **Mausam AI**. I can check live weather, 5-day forecasts, rain probabilities, AQI, outdoor activity suitability, and set reminders. What would you like to know?",
-                "greeting": "Hello! I'm **Mausam AI**. How can I help you with today's weather or your schedule?",
-            }
-            return ChatMessageResponse(
-                reply=greetings.get(intent, "Hello! How can I help with the weather?"),
-                intent=intent,
-                source="template",
-                suggested_actions=["What's the weather right now?", "Will it rain today?", "Is air quality good?"],
-            )
-
-        # 3. Meteorological Concept Educational Explanations
-        if intent == "concept":
-            lower_q = text.lower()
-            if "humidity" in lower_q:
-                concept_reply = (
-                    "**Humidity** is the amount of water vapor present in the atmosphere.\n\n"
-                    "• **Relative Humidity (RH)** indicates how close the air is to being completely saturated with water vapor (100%).\n"
-                    "• When humidity is high (above 65%), sweat cannot evaporate efficiently from your skin, making the air feel muggy, sticky, and hotter than the actual temperature.\n"
-                    "• When humidity is low (below 30%), the air feels dry and crisp, which can cause skin dryness or respiratory irritation."
-                )
-            elif "feel" in lower_q or "30" in lower_q:
-                concept_reply = (
-                    "**Why does 30°C feel like 35°C? (The Heat Index)**\n\n"
-                    "Your body cools itself down through the evaporation of sweat. When atmospheric humidity is elevated, the air is already laden with moisture, so sweat evaporates much more slowly.\n\n"
-                    "Because heat remains trapped on your skin, your body perceives a significantly higher temperature than the thermometer reads. Meteorologists calculate this as the **'Feels-Like' Temperature** or **Heat Index**."
-                )
-            elif "dew" in lower_q:
-                concept_reply = (
-                    "**Dew Point** is the temperature to which air must cool for water vapor to condense into liquid droplets (dew, mist, or clouds).\n\n"
-                    "• **Below 15°C**: Crisp, dry, and comfortable.\n"
-                    "• **15°C to 20°C**: Noticeable moisture in the air.\n"
-                    "• **Above 20°C**: Muggy and oppressive tropical humidity.\n\n"
-                    "Dew point is often a more reliable indicator of physical human comfort than relative humidity because it measures absolute atmospheric water content."
-                )
-            elif "thunderstorm" in lower_q:
-                concept_reply = (
-                    "**What causes Thunderstorms?**\n\n"
-                    "Thunderstorms form when three conditions align:\n"
-                    "1. **Surface Moisture**: Warm, humid air near the ground.\n"
-                    "2. **Atmospheric Instability**: Warm air rising rapidly into colder air above.\n"
-                    "3. **Lift Mechanism**: Solar heating or frontal boundaries pushing the warm air upward.\n\n"
-                    "As the rising moisture condenses into towering cumulonimbus clouds, ice crystals collide, creating electrical charges that discharge as **lightning and thunder**."
-                )
-            elif "pressure" in lower_q:
-                concept_reply = (
-                    "**Atmospheric Pressure** represents the weight of the air column pressing down on the Earth's surface.\n\n"
-                    "• **High Pressure**: Air gently sinks, inhibiting cloud formation and delivering clear, calm skies.\n"
-                    "• **Low Pressure**: Air rises, cools, and condenses into clouds and precipitation. A rapid drop in barometric pressure often heralds stormy weather."
-                )
-            elif "rain" in lower_q or "probability" in lower_q or "80%" in lower_q:
-                concept_reply = (
-                    "**What does an 80% chance of rain mean? (Probability of Precipitation)**\n\n"
-                    "Probability of Precipitation (PoP) combines meteorological certainty with spatial coverage (**PoP = Confidence × Area Fraction**).\n\n"
-                    "An 80% chance means that under these exact atmospheric parameters, there is an 8-in-10 likelihood that at least 0.1 mm of precipitation will fall anywhere within your local forecast area during that forecast period."
-                )
-            else:
-                concept_reply = (
-                    "**Meteorological Concepts in Mausam AI**\n\n"
-                    "Weather parameters like temperature, humidity, wind, and pressure interact continuously to create the conditions you experience outdoors. Ask me about any specific concept like *'What is humidity?'*, *'What is dew point?'*, or *'Why does 30°C feel like 35°C?'*!"
-                )
-
-            return ChatMessageResponse(
-                reply=concept_reply,
-                intent="concept",
-                source="template",
-                suggested_actions=["What is dew point?", "Why does 30°C feel hotter?", "Today's weather"],
-            )
-
-        # 3. Location Comparison Intent (e.g. "Hyderabad vs Guntur")
-        comp_locs = _extract_comparison_locations(text)
-        if comp_locs:
-            loc1, loc2 = comp_locs
-            try:
-                comp_data = await weather_tools.compare_weather(
-                    loc1, loc2,
-                    default_lat=payload.resolved_lat or 17.3850,
-                    default_lon=payload.resolved_lon or 78.4867,
-                )
-                comp_card = _build_comparison_card(comp_data)
-
-                # Try Gemini with comparison grounding
-                gemini_res = await GeminiService.generate_response(
-                    user_message=text,
-                    comparison_data=comp_data,
-                    history=payload.history,
-                )
-                if gemini_res:
-                    reply_text, actions, card = gemini_res
-                    return ChatMessageResponse(
-                        reply=reply_text,
-                        intent="compare",
-                        source="gemini",
-                        card_data=card or comp_card,
-                        suggested_actions=actions,
-                    )
-
-                w1 = comp_data["location1"]
-                w2 = comp_data["location2"]
-                diff = comp_data["temperature_difference_celsius"]
-                reply = (
-                    f"**Weather Comparison: {w1['location']} vs {w2['location']}**\n\n"
-                    f"• **{w1['location']}**: **{w1['temperature_celsius']}°C** (feels like {w1['feels_like_celsius']}°C), {w1['condition']}, AQI **{w1['aqi']}**\n"
-                    f"• **{w2['location']}**: **{w2['temperature_celsius']}°C** (feels like {w2['feels_like_celsius']}°C), {w2['condition']}, AQI **{w2['aqi']}**\n\n"
-                    f"**Summary**: {comp_data['warmer_location']} is warmer by {abs(diff):.1f}°C. {comp_data['cleaner_air_location']} has cleaner air quality."
-                )
-                return ChatMessageResponse(
-                    reply=reply,
-                    intent="compare",
-                    source="template",
-                    card_data=comp_card,
-                    suggested_actions=[f"Forecast for {w1['location']}", f"Forecast for {w2['location']}", "Will it rain today?"],
-                )
-            except Exception as exc:
-                logger.warning("Comparison failed: %s", exc)
-
-        # 4. Saved Locations Query (e.g. "Which saved location has the lowest temperature?")
-        if intent == "saved_locations" and payload.saved_locations:
+        # 4. LOCATION: Saved Locations Query
+        if intent == "LOCATION" and payload.saved_locations:
             try:
                 results = []
                 for loc_item in payload.saved_locations[:5]:
@@ -716,14 +898,15 @@ class ChatService:
                     )
                     return ChatMessageResponse(
                         reply=reply,
-                        intent="saved_locations",
+                        intent="LOCATION",
                         source="template",
                         suggested_actions=[f"Weather in {coldest['location']}", "Air quality index", "Today's weather"],
                     )
             except Exception as exc:
                 logger.warning("Saved locations query failed: %s", exc)
 
-        # 5. Location Resolution for Target Query
+        # 5. Targeted Live Weather Fetching for remaining weather intents:
+        # WEATHER, FORECAST, AQI, ALERT, ACTIVITY, or non-comparison TRAVEL / LOCATION
         target_location = _extract_location_mention(text) or payload.active_location_name
         default_lat = payload.resolved_lat or 17.3850
         default_lon = payload.resolved_lon or 78.4867
@@ -735,6 +918,7 @@ class ChatService:
         alerts_list = None
 
         try:
+            # 1. Fetch current weather snapshot
             weather_snapshot = await weather_tools.get_current_weather(
                 location=target_location,
                 default_lat=default_lat,
@@ -743,38 +927,47 @@ class ChatService:
             )
             lat = weather_snapshot["latitude"]
             lon = weather_snapshot["longitude"]
-            forecast_list = await weather_tools.get_daily_forecast(
-                location=target_location, default_lat=lat, default_lon=lon, default_name=weather_snapshot["location"]
-            )
-            hourly_list = await weather_tools.get_hourly_forecast(
-                location=target_location, default_lat=lat, default_lon=lon, default_name=weather_snapshot["location"]
-            )
-            alerts_list = await weather_tools.get_weather_alerts(
-                location=target_location, persona=payload.persona, default_lat=lat, default_lon=lon
-            )
-        except Exception as exc:
-            logger.warning("Weather tool fetch failed: %s", exc)
+            resolved_name = weather_snapshot["location"]
 
-        if weather_snapshot is None and intent == "weather":
+            # 2. Selectively fetch ONLY what this intent requires
+            if intent == "FORECAST":
+                forecast_list = await weather_tools.get_daily_forecast(
+                    location=target_location, default_lat=lat, default_lon=lon, default_name=resolved_name
+                )
+                hourly_list = await weather_tools.get_hourly_forecast(
+                    location=target_location, default_lat=lat, default_lon=lon, default_name=resolved_name
+                )
+            elif intent == "ACTIVITY":
+                hourly_list = await weather_tools.get_hourly_forecast(
+                    location=target_location, default_lat=lat, default_lon=lon, default_name=resolved_name
+                )
+            elif intent in ("ALERT", "TRAVEL"):
+                alerts_list = await weather_tools.get_weather_alerts(
+                    location=target_location, persona=payload.persona, default_lat=lat, default_lon=lon
+                )
+            # For "WEATHER" and "AQI", weather_snapshot already contains all needed live data!
+        except Exception as exc:
+            logger.warning("Targeted weather tool fetch failed: %s", exc)
+
+        if weather_snapshot is None:
             return ChatMessageResponse(
                 reply=(
                     "I could not retrieve live weather data right now. "
-                    "Please make sure your location services are enabled or specify a city name (e.g., *'Weather in Guntur'*)."
+                    "Please make sure your location services are enabled or specify a city name (e.g., *'Weather in Hyderabad'*)."
                 ),
-                intent="weather",
+                intent=intent,
                 source="template",
                 suggested_actions=["Weather in Hyderabad", "Weather in Guntur", "Check air quality"],
             )
 
-        # Build fallback structured card
-        structured_card = None
-        if weather_snapshot:
-            structured_card = _build_structured_card(
-                snap=weather_snapshot,
-                forecast_list=forecast_list,
-                alerts=alerts_list,
-                query_text=text,
-            )
+        # Build structured card tailored to intent
+        structured_card = _build_structured_card(
+            snap=weather_snapshot,
+            forecast_list=forecast_list,
+            alerts=alerts_list,
+            query_text=text,
+            intent=intent,
+        )
 
         user_context = None
         if (
@@ -794,7 +987,7 @@ class ChatService:
                 "activity_level": payload.activity_level,
             }
 
-        # 6. Call Gemini Service with full Grounding
+        # 6. Call Gemini Service with targeted Grounding
         gemini_result = await GeminiService.generate_response(
             user_message=text,
             weather_data=weather_snapshot,
@@ -819,38 +1012,27 @@ class ChatService:
             )
 
         # 7. Deterministic Fallback Template
-        if weather_snapshot is not None:
-            reply, facts, recs = _detailed_weather_reply(
-                text=text,
-                snap=weather_snapshot,
-                forecast_list=forecast_list,
-                hourly_list=hourly_list,
-                persona=payload.persona,
-                health=payload.health_concerns,
-                weather_triggers=payload.weather_triggers,
-                what_matters_most=payload.what_matters_most,
-                activity_level=payload.activity_level,
-                user_name=payload.user_name,
-                alerts=alerts_list,
-            )
-            return ChatMessageResponse(
-                reply=reply,
-                intent="weather",
-                source="template",
-                weather_data=weather_snapshot,
-                card_data=structured_card,
-                facts=facts,
-                recommendations=recs,
-                location_context={"location": weather_snapshot.get("location")},
-                suggested_actions=["Will it rain tomorrow?", "What should I wear?", "Hourly temperature breakdown"],
-            )
-
+        reply, facts, recs = _detailed_weather_reply(
+            text=text,
+            snap=weather_snapshot,
+            forecast_list=forecast_list,
+            hourly_list=hourly_list,
+            persona=payload.persona,
+            health=payload.health_concerns,
+            weather_triggers=payload.weather_triggers,
+            what_matters_most=payload.what_matters_most,
+            activity_level=payload.activity_level,
+            user_name=payload.user_name,
+            alerts=alerts_list,
+        )
         return ChatMessageResponse(
-            reply=(
-                "I am **Mausam AI**, your personal weather intelligence assistant. "
-                "Ask me any question about current weather, forecasts, outdoor workout suitability, wardrobe, or air quality."
-            ),
-            intent="general",
+            reply=reply,
+            intent=intent,
             source="template",
-            suggested_actions=["Today's weather", "Will it rain today?", "Air quality right now"],
+            weather_data=weather_snapshot,
+            card_data=structured_card,
+            facts=facts,
+            recommendations=recs,
+            location_context={"location": weather_snapshot.get("location")},
+            suggested_actions=["Will it rain tomorrow?", "What should I wear?", "Hourly temperature breakdown"],
         )

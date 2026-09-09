@@ -26,17 +26,48 @@ from app.services.gemini_service import _sanitize_input, _parse_response, _build
 
 
 def test_intent_classification():
-    assert classify_chat_intent("Hello!") == "greeting"
-    assert classify_chat_intent("How are you doing today?") == "smalltalk"
-    assert classify_chat_intent("Thanks a lot!") == "thanks"
-    assert classify_chat_intent("What can you do?") == "help"
-    assert classify_chat_intent("Remind me at 8:00 AM daily") == "reminder"
-    assert classify_chat_intent("How is Hyderabad compared to Guntur?") == "compare"
-    assert classify_chat_intent("Compare Delhi and Mumbai") == "compare"
-    assert classify_chat_intent("Which of my saved locations is coldest?") == "saved_locations"
-    assert classify_chat_intent("Will it rain tomorrow?") == "weather"
-    assert classify_chat_intent("Can I play cricket tomorrow evening?") == "weather"
-    assert classify_chat_intent("What should I wear?") == "weather"
+    # GENERAL_CHAT
+    assert classify_chat_intent("Hello!") == "GENERAL_CHAT"
+    assert classify_chat_intent("Hi") == "GENERAL_CHAT"
+    assert classify_chat_intent("Hey, how are you?") == "GENERAL_CHAT"
+    assert classify_chat_intent("How are you doing today?") == "GENERAL_CHAT"
+    assert classify_chat_intent("Thanks a lot!") == "GENERAL_CHAT"
+    assert classify_chat_intent("What can you do?") == "GENERAL_CHAT"
+    assert classify_chat_intent("Good morning") == "GENERAL_CHAT"
+
+    # OTHER (Reminders & Educational Concepts)
+    assert classify_chat_intent("Remind me at 8:00 AM daily") == "OTHER"
+    assert classify_chat_intent("What is humidity?") == "OTHER"
+    assert classify_chat_intent("Why does 30°C feel like 35°C?") == "OTHER"
+
+    # TRAVEL
+    assert classify_chat_intent("How is Hyderabad compared to Guntur?") == "TRAVEL"
+    assert classify_chat_intent("Compare Delhi and Mumbai") == "TRAVEL"
+    assert classify_chat_intent("Is it safe to travel to Vijayawada?") == "TRAVEL"
+
+    # LOCATION
+    assert classify_chat_intent("Which of my saved locations is coldest?") == "LOCATION"
+
+    # ALERT
+    assert classify_chat_intent("Are there any weather alerts?") == "ALERT"
+    assert classify_chat_intent("Is there a storm warning?") == "ALERT"
+
+    # AQI
+    assert classify_chat_intent("What is the AQI right now?") == "AQI"
+    assert classify_chat_intent("Is air quality good in Delhi?") == "AQI"
+
+    # ACTIVITY
+    assert classify_chat_intent("Can I play cricket tomorrow evening?") == "ACTIVITY"
+    assert classify_chat_intent("Is it good for running today?") == "ACTIVITY"
+
+    # FORECAST
+    assert classify_chat_intent("Will it rain tomorrow?") == "FORECAST"
+    assert classify_chat_intent("What is the weekend forecast?") == "FORECAST"
+
+    # WEATHER
+    assert classify_chat_intent("What's the weather in Hyderabad?") == "WEATHER"
+    assert classify_chat_intent("What should I wear?") == "WEATHER"
+    assert classify_chat_intent("Do I need an umbrella?") == "WEATHER"
 
 
 def test_location_extraction():
@@ -46,6 +77,7 @@ def test_location_extraction():
 
     assert _extract_location_mention("What's the weather in Vijayawada tomorrow?") == "Vijayawada"
     assert _extract_location_mention("Is it raining in Mumbai?") == "Mumbai"
+    assert _extract_location_mention("Hyderabad weather") == "Hyderabad"
     assert _extract_location_mention("Will it rain tomorrow in the morning?") is None
 
 
@@ -81,18 +113,101 @@ def test_parse_response_with_cards_and_actions():
 
 
 @pytest.mark.asyncio
-async def test_chat_service_greeting():
-    user = {"id": "user_123", "persona_type": "Fitness"}
-    req = ChatMessageRequest(text="Hello Mausam AI!")
-    res = await ChatService.process_message(user, req)
+async def test_chat_service_general_chat_zero_api_overhead():
+    """
+    Strict validation: GENERAL_CHAT queries must NOT call ANY weather or location tool APIs.
+    Validates exact prompt examples:
+      “Hi” → “Hello! 👋 How can I help you today?”
+      “Hey, how are you?” → “I’m doing great! 😊 What can I help you with?”
+      “What can you do?” → Explain chatbot capabilities.
+      “Thanks” → “You’re welcome! 😊”
+    """
+    user = {"id": "user_123"}
 
-    assert res.intent == "greeting"
-    assert "Mausam AI" in res.reply
-    assert len(res.suggested_actions) > 0
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_get_curr, \
+         patch("app.services.weather_tools.get_daily_forecast", new_callable=AsyncMock) as mock_get_daily, \
+         patch("app.services.weather_tools.get_hourly_forecast", new_callable=AsyncMock) as mock_get_hourly, \
+         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_get_alerts, \
+         patch("app.services.weather_tools.compare_weather", new_callable=AsyncMock) as mock_compare:
+
+        # Example 1: “Hi”
+        res_hi = await ChatService.process_message(user, ChatMessageRequest(text="Hi"))
+        assert res_hi.intent == "GENERAL_CHAT"
+        assert res_hi.reply == "Hello! 👋 How can I help you today?"
+
+        # Example 2: “Hey, how are you?”
+        res_how = await ChatService.process_message(user, ChatMessageRequest(text="Hey, how are you?"))
+        assert res_how.intent == "GENERAL_CHAT"
+        assert res_how.reply == "I’m doing great! 😊 What can I help you with?"
+
+        # Example 3: “What can you do?”
+        res_help = await ChatService.process_message(user, ChatMessageRequest(text="What can you do?"))
+        assert res_help.intent == "GENERAL_CHAT"
+        assert "Mausam AI" in res_help.reply
+        assert "Live Weather" in res_help.reply
+        assert "Activity Intelligence" in res_help.reply
+
+        # Example 4: “Thanks”
+        res_thanks = await ChatService.process_message(user, ChatMessageRequest(text="Thanks"))
+        assert res_thanks.intent == "GENERAL_CHAT"
+        assert res_thanks.reply == "You’re welcome! 😊"
+
+        # Verify ZERO weather/location tools were called across all general chat queries
+        mock_get_curr.assert_not_called()
+        mock_get_daily.assert_not_called()
+        mock_get_hourly.assert_not_called()
+        mock_get_alerts.assert_not_called()
+        mock_compare.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_chat_service_weather_template_fallback_with_cards():
+async def test_chat_service_weather_selective_fetching():
+    """
+    Validates example: “What’s the weather in Hyderabad?”
+    Must fetch ONLY required live weather data for Hyderabad, without daily or alerts overhead.
+    """
+    user = {"id": "user_123"}
+    req = ChatMessageRequest(text="What's the weather in Hyderabad?")
+
+    mock_weather = {
+        "location": "Hyderabad",
+        "latitude": 17.3850,
+        "longitude": 78.4867,
+        "temperature_celsius": 30,
+        "feels_like_celsius": 33,
+        "condition": "Partly Cloudy",
+        "humidity_percent": 65,
+        "wind_speed_kmh": 14,
+        "uv_index": 5.0,
+        "rain_mm_1h": 0.0,
+        "aqi": 48,
+        "aqi_category": "Good",
+    }
+
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_get_curr, \
+         patch("app.services.weather_tools.get_daily_forecast", new_callable=AsyncMock) as mock_get_daily, \
+         patch("app.services.weather_tools.get_hourly_forecast", new_callable=AsyncMock) as mock_get_hourly, \
+         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_get_alerts, \
+         patch("app.services.gemini_service.GeminiService.generate_response", new_callable=AsyncMock) as mock_gemini:
+
+        mock_get_curr.return_value = mock_weather
+        mock_gemini.return_value = None  # Fallback to template
+
+        res = await ChatService.process_message(user, req)
+
+        assert res.intent == "WEATHER"
+        assert "Hyderabad" in res.reply
+        assert "30°C" in res.reply
+
+        # Selective data retrieval: Only get_current_weather should be called!
+        mock_get_curr.assert_called_once()
+        mock_get_daily.assert_not_called()
+        mock_get_hourly.assert_not_called()
+        mock_get_alerts.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_service_activity_intent_with_cards():
     user = {"id": "user_123", "persona_type": "Fitness"}
     req = ChatMessageRequest(
         text="Can I play cricket tomorrow evening?",
@@ -122,24 +237,18 @@ async def test_chat_service_weather_template_fallback_with_cards():
     }
 
     with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_get_curr, \
-         patch("app.services.weather_tools.get_daily_forecast", new_callable=AsyncMock) as mock_get_daily, \
          patch("app.services.weather_tools.get_hourly_forecast", new_callable=AsyncMock) as mock_get_hourly, \
-         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_get_alerts, \
          patch("app.services.gemini_service.GeminiService.generate_response", new_callable=AsyncMock) as mock_gemini:
 
         mock_get_curr.return_value = mock_weather
-        mock_get_daily.return_value = [
-            {"day": "Tomorrow", "high_celsius": 31, "low_celsius": 22, "condition": "Sunny", "rain_probability_percent": 10}
-        ]
         mock_get_hourly.return_value = [
             {"hour": "17:00", "temperature_celsius": 29, "condition": "Clear", "rain_probability_percent": 5}
         ]
-        mock_get_alerts.return_value = []
-        mock_gemini.return_value = None  # Simulate template fallback
+        mock_gemini.return_value = None
 
         res = await ChatService.process_message(user, req)
 
-        assert res.intent == "weather"
+        assert res.intent == "ACTIVITY"
         assert res.source == "template"
         assert "Hyderabad" in res.reply
         assert res.card_data is not None
@@ -172,7 +281,7 @@ async def test_chat_service_multi_city_comparison():
 
         res = await ChatService.process_message(user, req)
 
-        assert res.intent == "compare"
+        assert res.intent == "TRAVEL"
         assert "Hyderabad vs Guntur" in res.reply
         assert "Guntur is warmer by 4.0°C" in res.reply
         assert res.card_data is not None
@@ -206,20 +315,16 @@ async def test_chat_service_user_centric_answers():
     }
 
     with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_get_cur, \
-         patch("app.services.weather_tools.get_daily_forecast", new_callable=AsyncMock) as mock_daily, \
          patch("app.services.weather_tools.get_hourly_forecast", new_callable=AsyncMock) as mock_hourly, \
-         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_alerts, \
          patch("app.services.gemini_service.GeminiService.generate_response", new_callable=AsyncMock) as mock_gemini:
 
         mock_get_cur.return_value = mock_weather
-        mock_daily.return_value = []
         mock_hourly.return_value = []
-        mock_alerts.return_value = []
         mock_gemini.return_value = None
 
         res = await ChatService.process_message(user, req)
 
-        assert res.intent == "weather"
+        assert res.intent == "ACTIVITY"
         assert "Rahul" in res.reply
         assert "favorable for playing cricket" in res.reply.lower() or "cricket" in res.reply.lower()
         assert res.card_data is not None
@@ -230,17 +335,17 @@ async def test_chat_service_concept_explanation():
     user = {"id": "user_123"}
     req_humidity = ChatMessageRequest(text="What is humidity?")
     res_humidity = await ChatService.process_message(user, req_humidity)
-    assert res_humidity.intent == "concept"
+    assert res_humidity.intent == "OTHER"
     assert "water vapor" in res_humidity.reply.lower()
 
     req_heat = ChatMessageRequest(text="Why does 30°C feel like 35°C?")
     res_heat = await ChatService.process_message(user, req_heat)
-    assert res_heat.intent == "concept"
+    assert res_heat.intent == "OTHER"
     assert "heat index" in res_heat.reply.lower() or "sweat" in res_heat.reply.lower()
 
     req_dew = ChatMessageRequest(text="What is dew point?")
     res_dew = await ChatService.process_message(user, req_dew)
-    assert res_dew.intent == "concept"
+    assert res_dew.intent == "OTHER"
     assert "dew point" in res_dew.reply.lower()
 
 

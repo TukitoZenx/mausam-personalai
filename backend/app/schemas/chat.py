@@ -30,7 +30,7 @@ class ChatMessageRequest(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     reply: str
-    intent: str = "weather"
+    intent: str = Field("WEATHER", description="Classified intent: GENERAL_CHAT, WEATHER, FORECAST, LOCATION, AQI, ALERT, TRAVEL, ACTIVITY, or OTHER")
     source: str = Field("template", description="Response source: 'gemini' or 'template'")
     weather_data: dict[str, Any] | None = None
     card_data: dict[str, Any] | None = Field(None, description="Structured UI card data for mobile rendering")
