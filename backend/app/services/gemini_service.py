@@ -325,29 +325,39 @@ class GeminiService:
             prompt_sections.append(f"\nUser: {safe_input}\nAssistant:")
             full_prompt = "\n".join(prompt_sections)
 
-            model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+            primary_model = getattr(settings, "GEMINI_MODEL", "gemini-3.6-flash") or "gemini-3.6-flash"
+            candidate_models = [primary_model]
+            for fallback in ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-3.8-flash"]:
+                if fallback not in candidate_models:
+                    candidate_models.append(fallback)
 
-            response = await client.aio.models.generate_content(
-                model=model_name,
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=_SYSTEM_PROMPT,
-                    temperature=0.35,
-                    max_output_tokens=1200,
-                    top_p=0.9,
-                    top_k=40,
-                    http_options=types.HttpOptions(timeout=15000),
-                ),
+            config = types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                temperature=0.35,
+                max_output_tokens=1200,
+                top_p=0.9,
+                top_k=40,
+                http_options=types.HttpOptions(timeout=25000),
             )
 
-            raw_text = response.text if response and response.text else None
-            if raw_text:
-                main_text, actions, card = _parse_response(raw_text)
-                if main_text:
-                    logger.info("Gemini response generated (%d chars)", len(main_text))
-                    return main_text, actions, card
+            for model_name in candidate_models:
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model_name,
+                        contents=full_prompt,
+                        config=config,
+                    )
+                    raw_text = response.text if response and response.text else None
+                    if raw_text:
+                        main_text, actions, card = _parse_response(raw_text)
+                        if main_text:
+                            logger.info("Gemini response generated using %s (%d chars)", model_name, len(main_text))
+                            return main_text, actions, card
+                except Exception as model_err:
+                    logger.warning("Gemini model %s call failed: %s", model_name, model_err)
+                    continue
 
-            logger.warning("Gemini returned empty response")
+            logger.warning("All candidate Gemini models failed or returned empty response")
             return None
 
         except Exception as exc:

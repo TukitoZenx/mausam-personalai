@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     AQI_API_KEY: str = "placeholder_aqi_key"
     FIREBASE_CREDENTIALS_PATH: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
