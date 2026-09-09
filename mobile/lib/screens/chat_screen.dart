@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/weather_ai_card_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../services/api_client.dart';
-
-const Color _accentPurple = Color(0xFF7B2CBF);
-const Color _accentPurpleLight = Color(0xFF9D4EDD);
-const Color _accentCyan = Color(0xFF00E5FF);
+import '../theme/weather_palette.dart';
+import '../widgets/ai/weather_intelligence_card.dart';
 
 class ChatMessageItem {
   final String id;
@@ -18,6 +17,7 @@ class ChatMessageItem {
   final bool isUser;
   final DateTime timestamp;
   final Map<String, dynamic>? weatherData;
+  final WeatherAiCardData? cardData;
   final bool reminderCreated;
 
   ChatMessageItem({
@@ -26,6 +26,7 @@ class ChatMessageItem {
     required this.isUser,
     required this.timestamp,
     this.weatherData,
+    this.cardData,
     this.reminderCreated = false,
   });
 }
@@ -64,10 +65,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _loadInitialGreeting() {
+    final userState = ref.read(userProvider);
+    final name = userState.displayName?.trim() ?? '';
+    final greeting = name.isNotEmpty
+        ? "Hello $name! I'm your Mausam personal weather intelligence companion. How can I help you with today's routine, commute, workout, or weather plans?"
+        : "Hello! I'm your Mausam personal weather intelligence companion. Ask me about your routine, workout suitability, what to wear, or rain forecasts!";
     _messages.add(
       ChatMessageItem(
         id: 'initial_greeting',
-        text: "Hello! I'm your Mausam AI weather assistant. Ask me about current conditions, air quality, rain forecasts, or set a daily weather briefing reminder!",
+        text: greeting,
         isUser: false,
         timestamp: DateTime.now(),
       ),
@@ -124,29 +130,59 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
 
     final locState = ref.read(locationProvider);
-    final dashState = ref.read(weatherDashboardProvider);
     final auth = ref.read(authStateProvider);
 
-    final lat = locState.latitude != 0.0
-        ? locState.latitude
-        : (dashState.data != null ? 12.9716 : 17.3850);
-    final lon = locState.longitude != 0.0
-        ? locState.longitude
-        : (dashState.data != null ? 77.5946 : 78.4867);
-
+    final hasCoords = locState.latitude != 0.0 || locState.longitude != 0.0;
     final userState = ref.read(userProvider);
     final idToken = userState.idToken ?? (auth.value != null ? 'test_token_user' : 'guest_token');
+
+    final locName = locState.cityName.isNotEmpty
+        ? locState.cityName.split(',').first.trim()
+        : null;
+
+    final history = _messages
+        .where((m) => m.id != 'initial_greeting')
+        .take(6)
+        .map((m) => {
+              'role': m.isUser ? 'user' : 'assistant',
+              'content': m.text,
+            })
+        .toList();
+
+    final savedLocationsPayload = locState.savedLocations
+        .map((l) => {
+              'name': l.name,
+              'latitude': l.latitude,
+              'longitude': l.longitude,
+            })
+        .toList();
 
     try {
       final res = await _apiClient.sendChatMessage(
         text: query,
-        lat: lat,
-        lon: lon,
+        lat: hasCoords ? locState.latitude : null,
+        lon: hasCoords ? locState.longitude : null,
+        persona: userState.selectedPersona,
+        healthConcerns: userState.healthConcerns.isEmpty ? null : userState.healthConcerns,
+        weatherTriggers: userState.weatherTriggers.isEmpty ? null : userState.weatherTriggers,
+        whatMattersMost: userState.whatMattersMost.isEmpty ? null : userState.whatMattersMost,
+        activityLevel: userState.activityLevel.isEmpty ? null : userState.activityLevel,
+        userName: (userState.displayName != null && userState.displayName!.trim().isNotEmpty) ? userState.displayName : null,
+        activeLocationName: locName,
+        savedLocations: savedLocationsPayload.isEmpty ? null : savedLocationsPayload,
+        history: history.isEmpty ? null : history,
         idToken: idToken,
       );
 
       final replyText = res['reply'] as String? ?? "Here is your weather update.";
       final weatherData = res['weather_data'] as Map<String, dynamic>?;
+      final rawCard = res['card_data'] as Map<String, dynamic>?;
+      WeatherAiCardData? cardData;
+      if (rawCard != null) {
+        try {
+          cardData = WeatherAiCardData.fromJson(rawCard);
+        } catch (_) {}
+      }
       final reminderCreated = res['reminder_created'] == true;
 
       final botMsg = ChatMessageItem(
@@ -155,6 +191,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         isUser: false,
         timestamp: DateTime.now(),
         weatherData: weatherData,
+        cardData: cardData,
         reminderCreated: reminderCreated,
       );
 
@@ -168,13 +205,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
         _scrollToBottom();
       }
-    } catch (e) {
+    } catch (_) {
+      final localReply = _localWeatherReply(query);
       if (mounted) {
         setState(() {
           _messages.add(
             ChatMessageItem(
-              id: 'err_${DateTime.now().millisecondsSinceEpoch}',
-              text: "Could not fetch live response: $e",
+              id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
+              text: localReply,
               isUser: false,
               timestamp: DateTime.now(),
             ),
@@ -184,6 +222,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _scrollToBottom();
       }
     }
+  }
+
+  String _localWeatherReply(String query) {
+    final dash = ref.read(weatherDashboardProvider).data;
+    final loc = ref.read(locationProvider);
+    final locName = loc.cityName.isNotEmpty && loc.cityName != 'Current Location'
+        ? loc.cityName.split(',').first
+        : (dash?.current.location ?? '');
+    if (dash == null) {
+      return locName.isEmpty
+          ? "I need an active location to use live weather. Open My Locations, pick a city, then ask again."
+          : "I don't have live weather for $locName yet. Open Home to load conditions, then ask again.";
+    }
+
+    final curr = dash.current;
+    final temp = curr.temperatureCelsius.round();
+    final feels = (curr.feelsLikeCelsius ?? curr.temperatureCelsius).round();
+    final condition = curr.condition;
+    final humidity = curr.humidityPercent;
+    final wind = curr.windSpeedKmh.round();
+    final rain = curr.rainMm1h ?? 0.0;
+    final aqiVal = dash.aqi?.aqiValue;
+    final aqiCat = dash.aqi?.category;
+    final q = query.toLowerCase();
+    final place = locName.isNotEmpty
+        ? locName
+        : (curr.location.isNotEmpty ? curr.location : 'your location');
+
+    if (q.contains('aqi') || q.contains('air quality') || q.contains('pollution')) {
+      if (aqiVal == null || aqiCat == null) {
+        return "I don't have air quality data for $place right now. Temperature is $temp°C with $condition.";
+      }
+      return "In $place, the Air Quality Index is $aqiVal ($aqiCat). Temperature is $temp°C with $condition skies.";
+    }
+    if (q.contains('rain') || q.contains('umbrella') || q.contains('shower')) {
+      final isRainy = rain > 0 ||
+          condition.toLowerCase().contains('rain') ||
+          condition.toLowerCase().contains('drizzle');
+      if (isRainy) {
+        return "It's $temp°C with $condition in $place (${rain.toStringAsFixed(1)} mm/h). Carry an umbrella.";
+      }
+      return "No rain is reported right now in $place. Conditions are $condition at $temp°C (feels like $feels°C).";
+    }
+    final aqiPart = (aqiVal != null && aqiCat != null) ? ", with AQI at $aqiVal ($aqiCat)" : "";
+    return "It's $temp°C and $condition in $place right now$aqiPart. Feels like $feels°C, humidity $humidity%, wind $wind km/h.";
   }
 
   void _showSetReminderModal() {
@@ -201,12 +284,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               key: const Key('set_reminder_dialog'),
               padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
               decoration: BoxDecoration(
-                color: const Color(0xFF14121E),
+                color: MausamPalette.cardSurface,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border.all(color: _accentPurple.withValues(alpha: 0.3)),
+                border: Border.all(color: MausamPalette.textPrimary.withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentPurple.withValues(alpha: 0.2),
+                    color: MausamPalette.textPrimary.withValues(alpha: 0.2),
                     blurRadius: 30,
                     spreadRadius: 2,
                   ),
@@ -232,10 +315,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: _accentPurple.withValues(alpha: 0.2),
+                          color: MausamPalette.textPrimary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.alarm, color: _accentPurple, size: 20),
+                        child: const Icon(Icons.alarm, color: MausamPalette.textPrimary, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -273,20 +356,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1A2D),
+                        color: MausamPalette.cardSurfaceLight,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.white12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.schedule, color: _accentCyan, size: 20),
+                          const Icon(Icons.schedule, color: MausamPalette.textSecondary, size: 20),
                           const SizedBox(width: 12),
                           Text(
                             selectedTime.format(context),
                             style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                           const Spacer(),
-                          Text('Change', style: GoogleFonts.inter(color: _accentPurpleLight, fontSize: 13, fontWeight: FontWeight.w500)),
+                          Text('Change', style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                         ],
                       ),
                     ),
@@ -304,7 +387,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: selectedFrequency == 'daily' ? _accentPurple : const Color(0xFF1E1A2D),
+                              color: selectedFrequency == 'daily' ? MausamPalette.textPrimary : MausamPalette.cardSurfaceLight,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: selectedFrequency == 'daily' ? Colors.transparent : Colors.white12),
                             ),
@@ -312,7 +395,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               child: Text(
                                 'Daily',
                                 style: GoogleFonts.inter(
-                                  color: Colors.white,
+                                  color: selectedFrequency == 'daily' ? MausamPalette.bgDeep : Colors.white,
                                   fontWeight: selectedFrequency == 'daily' ? FontWeight.bold : FontWeight.w500,
                                 ),
                               ),
@@ -327,7 +410,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: selectedFrequency == 'once' ? _accentPurple : const Color(0xFF1E1A2D),
+                              color: selectedFrequency == 'once' ? MausamPalette.textPrimary : MausamPalette.cardSurfaceLight,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: selectedFrequency == 'once' ? Colors.transparent : Colors.white12),
                             ),
@@ -335,7 +418,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               child: Text(
                                 'Once',
                                 style: GoogleFonts.inter(
-                                  color: Colors.white,
+                                  color: selectedFrequency == 'once' ? MausamPalette.bgDeep : Colors.white,
                                   fontWeight: selectedFrequency == 'once' ? FontWeight.bold : FontWeight.w500,
                                 ),
                               ),
@@ -353,7 +436,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: ElevatedButton(
                       key: const Key('confirm_reminder_button'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentPurple,
+                        backgroundColor: MausamPalette.textPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -409,7 +492,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       },
                       child: Text(
                         'Confirm Reminder',
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: MausamPalette.bgDeep, fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -430,7 +513,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
-            color: Color(0xFF14121E),
+            color: MausamPalette.cardSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -454,7 +537,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (_loadingReminders)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(child: CircularProgressIndicator(color: _accentPurple)),
+                  child: Center(child: CircularProgressIndicator(color: MausamPalette.textPrimary)),
                 )
               else if (_activeReminders.isEmpty)
                 Padding(
@@ -472,13 +555,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1A2D),
+                      color: MausamPalette.cardSurfaceLight,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.white12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.alarm_on, color: _accentCyan, size: 20),
+                        const Icon(Icons.alarm_on, color: MausamPalette.textSecondary, size: 20),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,7 +625,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F0E17).withValues(alpha: 0.9),
+                color: MausamPalette.bgDeep.withValues(alpha: 0.9),
                 border: const Border(bottom: BorderSide(color: Colors.white10)),
               ),
               child: Row(
@@ -550,9 +633,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_accentPurple, _accentPurpleLight],
-                      ),
+                      color: MausamPalette.cardSurfaceLight,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
@@ -579,10 +660,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: _showActiveRemindersSheet,
-                      icon: const Icon(Icons.notifications_active, color: _accentCyan, size: 16),
+                      icon: const Icon(Icons.notifications_active, color: MausamPalette.textSecondary, size: 16),
                       label: Text(
                         '${_activeReminders.length}',
-                        style: GoogleFonts.inter(color: _accentCyan, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -614,7 +695,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: _accentPurple),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.textPrimary),
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -673,14 +754,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     : 90,
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F0E17).withValues(alpha: 0.95),
+                color: MausamPalette.bgDeep.withValues(alpha: 0.95),
                 border: const Border(top: BorderSide(color: Colors.white10)),
               ),
               child: Row(
                 children: [
                   IconButton(
                     key: const Key('chat_reminder_button'),
-                    icon: const Icon(Icons.alarm_add_rounded, color: _accentPurpleLight),
+                    icon: const Icon(Icons.alarm_add_rounded, color: MausamPalette.textSecondary),
                     tooltip: 'Set Reminder',
                     onPressed: _showSetReminderModal,
                   ),
@@ -688,7 +769,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1829),
+                        color: MausamPalette.cardSurfaceLight,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white12),
                       ),
@@ -715,11 +796,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: _accentPurple,
+                      color: MausamPalette.textPrimary,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: _accentPurple.withValues(alpha: 0.4),
+                          color: MausamPalette.textPrimary.withValues(alpha: 0.4),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -727,7 +808,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     child: IconButton(
                       key: const Key('chat_send_button'),
-                      icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_upward_rounded, color: MausamPalette.bgDeep, size: 20),
                       onPressed: () => _handleSend(),
                     ),
                   ),
@@ -749,9 +830,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return ActionChip(
       key: key,
       onPressed: onTap,
-      avatar: Icon(icon, size: 14, color: _accentCyan),
+      avatar: Icon(icon, size: 14, color: MausamPalette.textSecondary),
       label: Text(label, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-      backgroundColor: const Color(0xFF1E1A2D),
+      backgroundColor: MausamPalette.cardSurfaceLight,
       side: const BorderSide(color: Colors.white12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
@@ -769,9 +850,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_accentPurple, _accentPurpleLight],
-                  ),
+                  color: MausamPalette.cardSurfaceLight,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(18),
                     topRight: Radius.circular(4),
@@ -807,18 +886,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: _accentPurple.withValues(alpha: 0.2),
+              color: MausamPalette.textPrimary.withValues(alpha: 0.2),
               shape: BoxShape.circle,
-              border: Border.all(color: _accentPurple.withValues(alpha: 0.5)),
+              border: Border.all(color: MausamPalette.textPrimary.withValues(alpha: 0.5)),
             ),
-            child: const Icon(Icons.wb_cloudy_rounded, color: _accentCyan, size: 16),
+            child: const Icon(Icons.wb_cloudy_rounded, color: MausamPalette.textSecondary, size: 16),
           ),
           const SizedBox(width: 10),
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1827),
+                color: MausamPalette.cardSurface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(18),
@@ -845,7 +924,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       height: 1.45,
                     ),
                   ),
-                  if (msg.weatherData != null) ...[
+                  if (msg.cardData != null) ...[
+                    const SizedBox(height: 10),
+                    WeatherIntelligenceCard(cardData: msg.cardData!),
+                  ] else if (msg.weatherData != null) ...[
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -889,7 +971,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.inter(color: _accentCyan, fontSize: 11.5, fontWeight: FontWeight.w600),
+          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,

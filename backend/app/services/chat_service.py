@@ -305,12 +305,18 @@ def _detailed_weather_reply(
     snap: dict[str, Any],
     forecast_list: list[dict[str, Any]] | None,
     hourly_list: list[dict[str, Any]] | None,
-    persona: str | None,
-    health: list[str] | None,
+    persona: str | None = None,
+    health: list[str] | None = None,
+    weather_triggers: list[str] | None = None,
+    what_matters_most: list[str] | None = None,
+    activity_level: str | None = None,
+    user_name: str | None = None,
     alerts: list[dict[str, Any]] | None = None,
 ) -> tuple[str, list[str], list[str]]:
     """
-    Template response with explicit FACT and RECOMMENDATION breakdown.
+    Generate a user-first, conversational advisory reply grounded in live weather data.
+    Directly answers the user's dilemma (commute, workout, cricket, wardrobe, health)
+    before highlighting key weather numbers.
     """
     loc = snap["location"]
     temp = snap["temperature_celsius"]
@@ -333,59 +339,181 @@ def _detailed_weather_reply(
 
     recommendations: list[str] = []
 
-    # Check severe alerts first
+    # 1. Severe alert priority
     alert_warning_str = ""
     if alerts and len(alerts) > 0:
         top_alert = alerts[0]
-        alert_warning_str = (
-            f"⚠️ **OFFICIAL WARNING: {top_alert.get('headline', 'Weather Warning')}**\n"
-            f"{top_alert.get('description', '')}\n\n"
-        )
-        recommendations.append(f"Safety priority: {top_alert.get('description', 'Exercise caution.')}")
+        headline = top_alert.get("headline", "Weather Advisory")
+        desc = top_alert.get("description", "Take appropriate precautions.")
+        alert_warning_str = f"⚠️ **SAFETY ALERT: {headline}**\n{desc}\n\n"
+        recommendations.append(f"Safety priority: {desc}")
 
+    # 2. Personalized Greeting / Name Address
+    name_str = f"{user_name}, " if user_name else ""
     lower = text.lower()
-    if any(w in lower for w in ("cricket", "play", "run", "workout", "fitness")):
+
+    # 3. Intent-Specific Direct User Answer & Practical Action
+    direct_answer = ""
+    action_advice = ""
+
+    if any(w in lower for w in ("cricket", "play", "sports", "match", "game")):
+        if rain_mm > 0 or "thunder" in cond.lower() or "rain" in cond.lower():
+            direct_answer = (
+                f"{name_str}outdoor cricket or sports are **not recommended** right now in {loc}. "
+                f"Rain is falling ({rain_mm:.1f} mm/h) and pitches will be damp and slippery, posing an injury risk."
+            )
+            action_advice = "Postpone your match or switch to an indoor sports venue until the rain clears."
+            recommendations.append("Ground is wet from rain; postpone outdoor cricket to prevent slipping.")
+        elif temp >= 35 or feels >= 38:
+            direct_answer = (
+                f"{name_str}playing cricket under the midday sun right now in {loc} isn't advisable due to high heat "
+                f"({temp}°C, feels like {feels}°C)."
+            )
+            action_advice = "Consider shifting your match to early morning or after 5:30 PM when the UV index subsides."
+            recommendations.append(f"High temperature ({temp}°C) creates heat stress risk; play during cooler evening hours.")
+        else:
+            direct_answer = (
+                f"{name_str}yes! Conditions in {loc} are **favorable for playing cricket** right now. "
+                f"The temperature is {temp}°C with {cond.lower()} skies and a gentle breeze ({wind} km/h)."
+            )
+            action_advice = "Stay well hydrated between overs and enjoy your match!"
+            recommendations.append("Conditions are suitable for outdoor sports. Maintain proper hydration.")
+
+    elif any(w in lower for w in ("run", "running", "jog", "workout", "fitness", "exercise")):
         if rain_mm > 0 or "thunder" in cond.lower():
-            recommendations.append("Rain or thunderstorm conditions present; postpone outdoor sports or use an indoor facility.")
-        elif temp >= 35:
-            recommendations.append(f"High temperature ({temp}°C) creates heat stress risk; shift session to cooler morning/evening hours.")
+            direct_answer = (
+                f"{name_str}outdoor running or workouts are **not recommended** right now in {loc}. "
+                f"Rain is actively falling ({rain_mm:.1f} mm/h) with wet road surfaces."
+            )
+            action_advice = "An indoor treadmill or bodyweight routine is much safer and more comfortable today."
+            recommendations.append("Active rain present; shift cardio workout indoors.")
+        elif temp >= 34 or feels >= 37 or aqi_val > 150:
+            direct_answer = (
+                f"{name_str}hold off on strenuous outdoor running right now in {loc}. "
+                f"Heat index is at {feels}°C with AQI {aqi_val} ({aqi_cat})."
+            )
+            action_advice = "Shift your training session to an indoor air-conditioned gym or early tomorrow morning."
+            recommendations.append("Elevated heat and AQI; limit strenuous outdoor cardio.")
         else:
-            recommendations.append("Conditions are suitable for outdoor activities. Maintain proper hydration.")
-    elif any(w in lower for w in ("wear", "outfit", "clothes", "umbrella")):
+            direct_answer = (
+                f"{name_str}it's a **great time for your workout** in {loc}! "
+                f"Current temperature is {temp}°C (feels like {feels}°C) with {cond.lower()} skies."
+            )
+            action_advice = "Pace yourself, hydrate adequately, and make the most of this clear weather window."
+            recommendations.append("Favorable outdoor workout conditions. Maintain hydration.")
+
+    elif any(w in lower for w in ("umbrella", "raincoat")):
+        if rain_mm > 0 or "rain" in cond.lower() or "drizzle" in cond.lower():
+            direct_answer = (
+                f"{name_str}**yes, definitely take an umbrella** before stepping out in {loc}! "
+                f"Precipitation is active ({rain_mm:.1f} mm/h) with {hum}% humidity."
+            )
+            action_advice = "Keep your bag or electronics in water-resistant sleeves."
+            recommendations.append("Carry an umbrella or raincoat; precipitation is active.")
+        else:
+            direct_answer = (
+                f"{name_str}**no umbrella needed** right now in {loc}! "
+                f"Skies are {cond.lower()} with no active rain."
+            )
+            action_advice = "You can travel comfortably without rain gear today."
+            recommendations.append(f"No precipitation in {loc}; rain protection not required.")
+
+    elif any(w in lower for w in ("wear", "outfit", "clothes", "jacket", "coat", "dressing")):
         if rain_mm > 0 or "rain" in cond.lower():
-            recommendations.append("Carry an umbrella or water-resistant jacket; footwear with wet traction recommended.")
+            direct_answer = (
+                f"{name_str}wear **water-resistant footwear and carry an umbrella or lightweight raincoat** in {loc} today."
+            )
+            action_advice = f"With {hum}% humidity, breathable waterproof layers will keep you dry without feeling stuffy."
+            recommendations.append("Water-resistant layers and wet-traction shoes recommended.")
         elif temp >= 32:
-            recommendations.append("Light, breathable cotton fabrics recommended. Sun protection advised.")
+            direct_answer = (
+                f"{name_str}go with **light, loose-fitting cotton clothing** today in {loc}. "
+                f"The temperature is {temp}°C (feels like {feels}°C) with {cond.lower()} skies."
+            )
+            action_advice = f"UV index is {uv}, so consider sunglasses or a hat if you'll be in the sun."
+            recommendations.append("Light, breathable cotton fabrics and sun protection advised.")
+        elif temp < 20:
+            direct_answer = (
+                f"{name_str}it's cool outside ({temp}°C) in {loc} with a {wind} km/h breeze. "
+                f"A **light jacket, cardigan, or sweater** is ideal."
+            )
+            action_advice = "Layer up comfortably, especially if heading out early or after dark."
+            recommendations.append("Light jacket or sweater recommended for cool temperatures.")
         else:
-            recommendations.append("Comfortable standard layers appropriate.")
-    elif any(w in lower for w in ("aqi", "air quality", "pollution")):
-        if aqi_val > 150:
+            direct_answer = (
+                f"{name_str}**comfortable casual wear** is perfect for {loc} today. "
+                f"The temperature is a pleasant {temp}°C with {cond.lower()} conditions."
+            )
+            action_advice = "Standard everyday clothes will keep you comfortable all day."
+            recommendations.append("Standard comfortable everyday attire is appropriate.")
+
+    elif any(w in lower for w in ("aqi", "air quality", "pollution", "smog", "breathe", "asthma")):
+        if health and any(h.lower() in ("asthma", "allergy", "allergies", "respiratory") for h in health):
+            direct_answer = (
+                f"{name_str}for your respiratory sensitivity, please take note: the AQI in {loc} is currently "
+                f"**{aqi_val} ({aqi_cat})** with {hum}% humidity."
+            )
+            action_advice = (
+                "Keep your rescue inhaler handy and avoid prolonged outdoor cardio."
+                if aqi_val > 100 else
+                "Air quality is clean and safe for your normal outdoor activities today."
+            )
+            recommendations.append(f"AQI is {aqi_val} ({aqi_cat}); sensitive individuals should take precautions.")
+        elif aqi_val > 150:
+            direct_answer = (
+                f"{name_str}air quality in {loc} is currently **{aqi_cat} (AQI {aqi_val})**. "
+                f"Pollutant levels are elevated."
+            )
+            action_advice = "Wear an N95 mask if outdoors for extended periods and limit intense aerobic workouts."
             recommendations.append("Unhealthy air quality; wear an N95 mask outdoors and limit strenuous cardio.")
         else:
-            recommendations.append("Air quality is acceptable for outdoor activity.")
+            direct_answer = (
+                f"{name_str}the air quality in {loc} is **{aqi_cat} (AQI {aqi_val})**, which is favorable for outdoor routines."
+            )
+            action_advice = "You can freely enjoy outdoor activities and fresh air."
+            recommendations.append("Air quality is satisfactory for general outdoor recreation.")
+
     else:
+        direct_answer = (
+            f"{name_str}here is your personal weather briefing for {loc}: "
+            f"Conditions are **{cond.lower()}** with a temperature of **{temp}°C** (feels like **{feels}°C**)."
+        )
+        action_advice = f"Wind is blowing at {wind} km/h with {hum}% humidity and AQI **{aqi_val} ({aqi_cat})**."
         recommendations.append(f"Plan your schedule around {cond.lower()} conditions and temperature highs near {temp}°C.")
 
-    body_lines = [
-        f"**Weather in {loc}**",
-        f"• **Temperature**: **{temp}°C** (feels like **{feels}°C**)",
-        f"• **Condition**: **{cond}**",
-        f"• **Air Quality**: **AQI {aqi_val} ({aqi_cat})**",
-        f"• **Wind & Humidity**: {wind} km/h · {hum}%",
-    ]
-    if rain_mm > 0:
-        body_lines.append(f"• **Precipitation**: {rain_mm:.1f} mm/h")
+    # 4. User Triggers & Health Notes
+    personalized_notes: list[str] = []
+    if weather_triggers:
+        if any("humidity" in t.lower() for t in weather_triggers) and hum >= 65:
+            personalized_notes.append(f"• **Sensitivity note**: Humidity is high ({hum}%), which might feel muggy or triggering.")
+        if any("heat" in t.lower() for t in weather_triggers) and temp >= 32:
+            personalized_notes.append(f"• **Heat sensitivity**: High heat ({temp}°C) detected—stay well hydrated.")
+        if any("rain" in t.lower() for t in weather_triggers) and rain_mm > 0:
+            personalized_notes.append(f"• **Precipitation alert**: Rain is actively falling ({rain_mm:.1f} mm/h).")
 
+    # 5. Hourly window context
+    hourly_block = ""
     if hourly_list:
         h_str = " · ".join([f"{h['hour']} {h['temperature_celsius']}°C" for h in hourly_list[:4]])
-        body_lines.append(f"\n**Next Hours**: {h_str}")
+        hourly_block = f"\n\n**Next Hours**: {h_str}"
 
+    forecast_block = ""
     if forecast_list:
         f_str = " · ".join([f"{d['day'][:3]}: {d['high_celsius']}°/{d['low_celsius']}°" for d in forecast_list[:3]])
-        body_lines.append(f"**Coming Days**: {f_str}")
+        forecast_block = f"\n**Coming Days**: {f_str}"
 
-    rec_block = "\n".join([f"• {r}" for r in recommendations])
-    full_text = f"{alert_warning_str}" + "\n".join(body_lines) + f"\n\n**Recommendation**:\n{rec_block}"
+    trigger_text = ("\n" + "\n".join(personalized_notes)) if personalized_notes else ""
+    summary_line = f"\n\n**Conditions in {loc}**: **{temp}°C**, {cond}, AQI **{aqi_val}** ({aqi_cat}), Humidity {hum}%."
+
+    full_text = (
+        f"{alert_warning_str}"
+        f"{direct_answer}\n\n"
+        f"{action_advice}"
+        f"{trigger_text}"
+        f"{summary_line}"
+        f"{hourly_block}"
+        f"{forecast_block}"
+    )
 
     return full_text, facts, recommendations
 
@@ -585,10 +713,21 @@ class ChatService:
             )
 
         user_context = None
-        if payload.persona or payload.health_concerns:
+        if (
+            payload.persona
+            or payload.health_concerns
+            or payload.weather_triggers
+            or payload.what_matters_most
+            or payload.activity_level
+            or payload.user_name
+        ):
             user_context = {
+                "name": payload.user_name,
                 "persona": payload.persona,
                 "health_concerns": payload.health_concerns or [],
+                "weather_triggers": payload.weather_triggers or [],
+                "what_matters_most": payload.what_matters_most or [],
+                "activity_level": payload.activity_level,
             }
 
         # 6. Call Gemini Service with full Grounding
@@ -624,6 +763,10 @@ class ChatService:
                 hourly_list=hourly_list,
                 persona=payload.persona,
                 health=payload.health_concerns,
+                weather_triggers=payload.weather_triggers,
+                what_matters_most=payload.what_matters_most,
+                activity_level=payload.activity_level,
+                user_name=payload.user_name,
                 alerts=alerts_list,
             )
             return ChatMessageResponse(

@@ -177,3 +177,50 @@ async def test_chat_service_multi_city_comparison():
         assert "Guntur is warmer by 4.0°C" in res.reply
         assert res.card_data is not None
         assert res.card_data["category"] == "LOCATION COMPARISON"
+
+
+@pytest.mark.asyncio
+async def test_chat_service_user_centric_answers():
+    user = {"id": "user_123"}
+    req = ChatMessageRequest(
+        text="Can I play cricket today?",
+        user_name="Rahul",
+        persona="Fitness Enthusiast",
+        latitude=17.3850,
+        longitude=78.4867,
+    )
+
+    mock_weather = {
+        "location": "Hyderabad",
+        "temperature_celsius": 28,
+        "feels_like_celsius": 30,
+        "condition": "Partly Cloudy",
+        "humidity_percent": 60,
+        "wind_speed_kmh": 12,
+        "uv_index": 4,
+        "rain_mm_1h": 0.0,
+        "aqi": 45,
+        "aqi_category": "Good",
+        "latitude": 17.3850,
+        "longitude": 78.4867,
+    }
+
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_get_cur, \
+         patch("app.services.weather_tools.get_daily_forecast", new_callable=AsyncMock) as mock_daily, \
+         patch("app.services.weather_tools.get_hourly_forecast", new_callable=AsyncMock) as mock_hourly, \
+         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_alerts, \
+         patch("app.services.gemini_service.GeminiService.generate_response", new_callable=AsyncMock) as mock_gemini:
+
+        mock_get_cur.return_value = mock_weather
+        mock_daily.return_value = []
+        mock_hourly.return_value = []
+        mock_alerts.return_value = []
+        mock_gemini.return_value = None
+
+        res = await ChatService.process_message(user, req)
+
+        assert res.intent == "weather"
+        assert "Rahul" in res.reply
+        assert "favorable for playing cricket" in res.reply.lower() or "cricket" in res.reply.lower()
+        assert res.card_data is not None
+

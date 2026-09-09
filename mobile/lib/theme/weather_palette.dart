@@ -68,10 +68,10 @@ class MausamPalette {
   static const Color accentGreen = Color(0xFFD4D4D8);
   static const Color accentMagenta = Color(0xFFA1A1AA);
 
-  // ─── Persona tokens (monochrome hierarchy, not hue) ───
-  static const Color personaFitness = Color(0xFFFAFAFA);
-  static const Color personaHealth = Color(0xFFD4D4D8);
-  static const Color personaTraveler = Color(0xFFA1A1AA);
+  // ─── Persona tokens ───
+  static const Color personaFitness = Color(0xFFF97316);   // Vibrant Coral/Orange
+  static const Color personaHealth = Color(0xFFA855F7);    // Vibrant Purple/Violet
+  static const Color personaTraveler = Color(0xFF6366F1);  // Vibrant Indigo/Blue
 
   // ─── Glass & Overlay Effects ───
   static const Color glassWhite = Color(0x0CFFFFFF);      // Subtle overlay
