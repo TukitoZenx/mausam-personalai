@@ -16,6 +16,16 @@ class MockChatApiClient extends ApiClient {
     required String text,
     double? lat,
     double? lon,
+    String? persona,
+    List<String>? healthConcerns,
+    List<String>? weatherTriggers,
+    List<String>? whatMattersMost,
+    String? activityLevel,
+    String? userName,
+    String? activeLocationName,
+    List<Map<String, dynamic>>? savedLocations,
+    List<Map<String, String>>? history,
+    String? language,
     required String idToken,
   }) async {
     return {

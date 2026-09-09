@@ -23,7 +23,7 @@ class GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = opacity.clamp(0.28, 0.62);
+    final fill = opacity.clamp(0.20, 0.98);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),

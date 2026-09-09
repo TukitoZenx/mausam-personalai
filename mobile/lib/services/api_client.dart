@@ -393,6 +393,16 @@ class ApiClient {
     required String text,
     double? lat,
     double? lon,
+    String? persona,
+    List<String>? healthConcerns,
+    List<String>? weatherTriggers,
+    List<String>? whatMattersMost,
+    String? activityLevel,
+    String? userName,
+    String? activeLocationName,
+    List<Map<String, dynamic>>? savedLocations,
+    List<Map<String, String>>? history,
+    String? language,
     required String idToken,
   }) async {
     Object? lastError;
@@ -409,8 +419,18 @@ class ApiClient {
             'text': text,
             if (lat != null) 'lat': lat,
             if (lon != null) 'lon': lon,
+            if (persona != null) 'persona': persona,
+            if (healthConcerns != null && healthConcerns.isNotEmpty) 'health_concerns': healthConcerns,
+            if (weatherTriggers != null && weatherTriggers.isNotEmpty) 'weather_triggers': weatherTriggers,
+            if (whatMattersMost != null && whatMattersMost.isNotEmpty) 'what_matters_most': whatMattersMost,
+            if (activityLevel != null && activityLevel.isNotEmpty) 'activity_level': activityLevel,
+            if (userName != null && userName.isNotEmpty) 'user_name': userName,
+            if (activeLocationName != null && activeLocationName.isNotEmpty) 'active_location_name': activeLocationName,
+            if (savedLocations != null && savedLocations.isNotEmpty) 'saved_locations': savedLocations,
+            if (history != null && history.isNotEmpty) 'history': history,
+            if (language != null && language.isNotEmpty) 'language': language,
           }),
-        ).timeout(const Duration(seconds: 6));
+        ).timeout(const Duration(seconds: 12));
 
         if (response.statusCode == 200) {
           return jsonDecode(response.body) as Map<String, dynamic>;
@@ -539,6 +559,9 @@ class ApiClient {
       } catch (e) {
         lastError = e;
       }
+    }
+    if (lastError != null) {
+      debugPrint('Alerts fetch failed: $lastError');
     }
     return [];
   }

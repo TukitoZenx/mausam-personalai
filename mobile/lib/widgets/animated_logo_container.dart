@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'navigation/mausam_center_logo_icon.dart';
 
 /// Ultra-premium monochrome logo container inspired by Grok and Kimi design language.
 /// Features a subtle breathing monochrome aura and vector-level crispness.
@@ -55,27 +56,10 @@ class _AnimatedLogoContainerState extends State<AnimatedLogoContainer>
 
     final double cornerRadius = logoSize * 0.26;
 
-    final Widget logoImage = ClipRRect(
-      borderRadius: BorderRadius.circular(cornerRadius),
-      child: Image.asset(
-        'assets/images/logo.png',
-        width: logoSize,
-        height: logoSize,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => Container(
-          width: logoSize,
-          height: logoSize,
-          decoration: BoxDecoration(
-            color: const Color(0xFF141417),
-            borderRadius: BorderRadius.circular(cornerRadius),
-            border: Border.all(color: const Color(0xFF27272A), width: 1),
-          ),
-          child: Icon(
-            Icons.blur_on_rounded,
-            size: logoSize * 0.55,
-            color: const Color(0xFFFAFAFA),
-          ),
-        ),
+    final Widget logoImage = Center(
+      child: MausamCenterLogoIcon(
+        size: logoSize * 0.65,
+        color: Colors.white,
       ),
     );
 

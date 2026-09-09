@@ -294,9 +294,8 @@ void main() {
     });
   });
 
-  group('HeroCurrentCard Underlined Change Location Action', () {
-    testWidgets('renders underlined Change button with location icon and triggers callback on tap', (tester) async {
-      bool changeTapped = false;
+  group('HeroCurrentCard Removal of Change Location Action', () {
+    testWidgets('renders hero card cleanly without Change button or tap target', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -304,7 +303,6 @@ void main() {
               body: HeroCurrentCard(
                 current: sampleDashboard.current,
                 hourly: sampleDashboard.hourly,
-                onChangeLocation: () => changeTapped = true,
               ),
             ),
           ),
@@ -312,14 +310,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final changeBtn = find.byKey(const Key('hero_change_location_button'));
-      expect(changeBtn, findsOneWidget);
-      expect(find.text('Change'), findsOneWidget);
-      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
-
-      await tester.tap(changeBtn);
-      await tester.pump();
-      expect(changeTapped, isTrue);
+      expect(find.byKey(const Key('hero_change_location_button')), findsNothing);
+      expect(find.text('Change'), findsNothing);
     });
   });
 

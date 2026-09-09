@@ -8,6 +8,16 @@ class ChatMessageRequest(BaseModel):
     longitude: float | None = Field(None, description="Optional longitude")
     lat: float | None = Field(None, description="Alternative latitude field")
     lon: float | None = Field(None, description="Alternative longitude field")
+    persona: str | None = Field(None, description="User persona type (e.g., Fitness, Commuter)")
+    health_concerns: list[str] | None = Field(None, description="User health concerns (e.g., Asthma, Allergies)")
+    weather_triggers: list[str] | None = Field(None, description="User weather sensitivities (e.g., High humidity, Extreme heat)")
+    what_matters_most: list[str] | None = Field(None, description="User primary priorities (e.g., Daily energy, Safe commute)")
+    activity_level: str | None = Field(None, description="User activity level (e.g., Low, Moderate, High)")
+    user_name: str | None = Field(None, description="User's display name for personal address")
+    active_location_name: str | None = Field(None, description="User's active location display name (e.g., 'Guntur')")
+    saved_locations: list[dict[str, Any]] | None = Field(None, description="User's saved locations list")
+    history: list[dict[str, str]] | None = Field(None, description="Recent conversation turns [{'role': 'user'|'assistant', 'content': '...'}]")
+    language: str | None = Field(None, description="Optional ISO language code or preference")
 
     @property
     def resolved_lat(self) -> float | None:
@@ -21,7 +31,12 @@ class ChatMessageRequest(BaseModel):
 class ChatMessageResponse(BaseModel):
     reply: str
     intent: str = "weather"
+    source: str = Field("template", description="Response source: 'gemini' or 'template'")
     weather_data: dict[str, Any] | None = None
+    card_data: dict[str, Any] | None = Field(None, description="Structured UI card data for mobile rendering")
+    facts: list[str] | None = Field(None, description="Extracted factual weather metrics")
+    recommendations: list[str] | None = Field(None, description="AI interpreted advisory points")
+    location_context: dict[str, Any] | None = Field(None, description="Resolved location metadata")
     suggested_actions: list[str] = Field(default_factory=list)
     reminder_created: bool = False
     reminder_details: dict[str, Any] | None = None

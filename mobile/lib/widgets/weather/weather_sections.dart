@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
+import '../../providers/units_provider.dart';
 import '../../theme/weather_palette.dart';
 import '../glass_surface.dart';
 import 'persona_home.dart';
@@ -21,13 +22,11 @@ export 'sun_moon_card.dart';
 class HeroCurrentCard extends ConsumerStatefulWidget {
   final CurrentConditions current;
   final List<HourlyForecastItem> hourly;
-  final VoidCallback? onChangeLocation;
 
   const HeroCurrentCard({
     super.key,
     required this.current,
     required this.hourly,
-    this.onChangeLocation,
   });
 
   @override
@@ -40,10 +39,11 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
   @override
   Widget build(BuildContext context) {
     final current = widget.current;
-    final temp = current.temperatureCelsius.round();
-    final high = current.highCelsius?.round();
-    final low = current.lowCelsius?.round();
-    final feels = current.feelsLikeCelsius?.round();
+    final units = ref.watch(unitsProvider);
+    final temp = units.formatTemp(current.temperatureCelsius);
+    final high = current.highCelsius != null ? units.formatTemp(current.highCelsius) : null;
+    final low = current.lowCelsius != null ? units.formatTemp(current.lowCelsius) : null;
+    final feels = current.feelsLikeCelsius != null ? units.formatTemp(current.feelsLikeCelsius) : null;
     final banner = precipBannerText(current: current, hourly: widget.hourly);
 
     final surfaceOpacity = ref.watch(cardSurfaceOpacityProvider);
@@ -187,7 +187,7 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
               children: [
                 _statChip('FEELS LIKE', feels == null ? '--' : '$feels°', isYellow: isYellow),
                 _statChip('HUMIDITY', '${current.humidityPercent}%', isYellow: isYellow),
-                _statChip('WIND', '${current.windSpeedKmh.round()} km/h', isYellow: isYellow),
+                _statChip('WIND', units.formatWind(current.windSpeedKmh), isYellow: isYellow),
               ],
             ),
 
@@ -274,14 +274,15 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
   }
 }
 
-class HourlyForecastStrip extends StatelessWidget {
+class HourlyForecastStrip extends ConsumerWidget {
   final List<HourlyForecastItem> hourly;
   final VoidCallback? onMore;
 
   const HourlyForecastStrip({super.key, required this.hourly, this.onMore});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final units = ref.watch(unitsProvider);
     final items = hourly.take(16).toList();
     return _sectionCard(
       title: 'HOURLY FORECAST',
@@ -349,7 +350,7 @@ class HourlyForecastStrip extends StatelessWidget {
                   else
                     const SizedBox(height: 12),
                   Text(
-                    '${slot.temperatureCelsius.round()}°',
+                    '${units.formatTemp(slot.temperatureCelsius)}°',
                     style: GoogleFonts.inter(
                       color: MausamPalette.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -367,7 +368,7 @@ class HourlyForecastStrip extends StatelessWidget {
   }
 }
 
-class DailyForecastPanel extends StatefulWidget {
+class DailyForecastPanel extends ConsumerStatefulWidget {
   final List<DailyForecastItem> days;
   final bool initiallyExpanded;
 
@@ -378,10 +379,10 @@ class DailyForecastPanel extends StatefulWidget {
   });
 
   @override
-  State<DailyForecastPanel> createState() => _DailyForecastPanelState();
+  ConsumerState<DailyForecastPanel> createState() => _DailyForecastPanelState();
 }
 
-class _DailyForecastPanelState extends State<DailyForecastPanel> {
+class _DailyForecastPanelState extends ConsumerState<DailyForecastPanel> {
   late bool _expanded;
 
   @override
@@ -392,6 +393,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final units = ref.watch(unitsProvider);
     final visible = _expanded || widget.days.length <= 7 ? widget.days : widget.days.take(7).toList();
 
     double minAll = 100;
@@ -484,7 +486,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Text(
-                        '${visible[i].lowCelsius.round()}°',
+                        '${units.formatTemp(visible[i].lowCelsius)}°',
                         style: GoogleFonts.inter(
                           color: MausamPalette.textSecondary,
                           fontSize: 12,
@@ -514,7 +516,7 @@ class _DailyForecastPanelState extends State<DailyForecastPanel> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '${visible[i].highCelsius.round()}°',
+                        '${units.formatTemp(visible[i].highCelsius)}°',
                         style: GoogleFonts.inter(
                           color: MausamPalette.textPrimary,
                           fontSize: 12,
@@ -780,21 +782,22 @@ class TodayMetricCard extends ConsumerWidget {
   }
 }
 
-class TodaysMetricsGrid extends StatelessWidget {
+class TodaysMetricsGrid extends ConsumerWidget {
   final WeatherDashboard dashboard;
   final String? persona;
 
   const TodaysMetricsGrid({super.key, required this.dashboard, this.persona});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final units = ref.watch(unitsProvider);
     final c = dashboard.current;
     final uv = c.uvIndex;
     final rainMm = (c.rainMm1h != null && c.rainMm1h! > 0)
         ? c.rainMm1h!
         : (dashboard.precipNext24hMm ?? 0.0);
     final rainP = dashboard.daily.firstOrNull?.rainProbabilityPercent ?? 0;
-    final feels = (c.feelsLikeCelsius ?? c.temperatureCelsius).round();
+    final feels = units.formatTemp(c.feelsLikeCelsius ?? c.temperatureCelsius);
 
     String uvCat;
     if (uv < 3) {
@@ -896,20 +899,21 @@ class StatGrid extends StatelessWidget {
   }
 }
 
-class AdditionalConditionsSection extends StatelessWidget {
+class AdditionalConditionsSection extends ConsumerWidget {
   final WeatherDashboard dashboard;
   final String? persona;
 
   const AdditionalConditionsSection({super.key, required this.dashboard, this.persona});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final units = ref.watch(unitsProvider);
     final c = dashboard.current;
     final today = dashboard.daily.firstOrNull;
     final windDir = PersonaHome.windDir(c.windDirectionDeg);
     final hpa = (c.pressureHpa ?? 1013).round();
     final vis = c.visibilityKm != null ? '${c.visibilityKm!.toStringAsFixed(1)} km' : '--';
-    final dew = c.dewPointCelsius != null ? 'Dew point ${c.dewPointCelsius!.round()}°' : 'Relative';
+    final dew = c.dewPointCelsius != null ? 'Dew point ${units.formatTemp(c.dewPointCelsius)}°' : 'Relative';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -936,7 +940,7 @@ class AdditionalConditionsSection extends StatelessWidget {
                 title: 'WIND',
                 icon: Icons.air_rounded,
                 iconColor: const Color(0xFF93C5FD),
-                value: '${c.windSpeedKmh.round()} km/h',
+                value: units.formatWind(c.windSpeedKmh),
                 subtitle: c.windDirectionDeg != null ? '${c.windDirectionDeg!.round()}° $windDir' : 'Calm',
               ),
             ),

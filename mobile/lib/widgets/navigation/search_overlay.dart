@@ -230,7 +230,8 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                     child: TextField(
                       controller: _searchController,
                       autofocus: false,
-                      cursorColor: Colors.white,
+                      cursorColor: const Color(0xFFE4E4E7),
+                      cursorWidth: 1.5,
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 14.5,

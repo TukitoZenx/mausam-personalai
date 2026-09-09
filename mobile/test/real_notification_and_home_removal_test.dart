@@ -123,8 +123,8 @@ void main() {
     });
   });
 
-  group('3. Developer Diagnostics in Profile Screen', () {
-    testWidgets('Profile screen contains Diagnostic & System Verification tools', (tester) async {
+  group('3. Profile Screen Verification', () {
+    testWidgets('Profile screen renders user settings and sign out action', (tester) async {
       tester.view.physicalSize = const Size(1080, 4000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -140,20 +140,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find section header
-      final diagFinder = find.text('DIAGNOSTICS & SYSTEM VERIFICATION');
-      expect(diagFinder, findsOneWidget);
-
-      // Find Schedule 12s Test button
-      final testButtonFinder = find.text('Schedule 12s Test');
-      expect(testButtonFinder, findsOneWidget);
-
-      // Tap test button in test mode (mocked)
-      await tester.tap(testButtonFinder);
-      await tester.pumpAndSettle();
-
-      // Verify SnackBar confirmation in developer mode
-      expect(find.textContaining('Test notification scheduled'), findsOneWidget);
+      // Find Sign Out button and app version
+      expect(find.text('Sign Out'), findsOneWidget);
+      expect(find.text('Mausam PersonalAI v1.2.0'), findsOneWidget);
     });
   });
 }

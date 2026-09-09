@@ -22,9 +22,9 @@ class AppearanceState {
     this.previewHour,
   });
 
-  /// Glass fill. 0% still frosted; 100% is more see-through.
+  /// Glass fill. 0% is solid OLED (0.96); 100% is translucent glass (0.28).
   double get cardOpacity {
-    return (0.58 - (transparencyPercent / 100.0) * 0.26).clamp(0.30, 0.58);
+    return (0.96 - (transparencyPercent / 100.0) * 0.68).clamp(0.25, 0.96);
   }
 
   double get glassBlur {
