@@ -919,13 +919,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
                     width: 1,
                   ),
                 ),
-                child: SelectableText(
-                  msg.text,
-                  style: GoogleFonts.inter(
-                    color: MausamPalette.textPrimary,
-                    fontSize: 14.5,
-                    height: 1.45,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SelectableText(
+                      msg.text,
+                      style: GoogleFonts.inter(
+                        color: MausamPalette.textPrimary,
+                        fontSize: 14.5,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTimestamp(msg.timestamp),
+                      style: GoogleFonts.inter(
+                        color: MausamPalette.textTertiary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -981,9 +994,25 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
                 // Post-message actions for completed responses
                 if (!msg.isStreaming && msg.text.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       _buildCopyButton(msg),
+                      _buildShareButton(msg),
+                      if (index == _messages.length - 1 && !_isThinking)
+                        _buildRegenerateButton(),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          _formatTimestamp(msg.timestamp),
+                          style: GoogleFonts.inter(
+                            color: MausamPalette.textTertiary,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   // Suggested follow-up prompt chips
@@ -1191,6 +1220,109 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
         ),
       ),
     );
+  }
+
+  Widget _buildShareButton(_ChatMessage msg) {
+    return Semantics(
+      label: 'Share response',
+      button: true,
+      child: Tooltip(
+        message: 'Share response',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: msg.text));
+            HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Response copied to clipboard ready to share!',
+                  style: GoogleFonts.inter(fontSize: 12),
+                ),
+                backgroundColor: const Color(0xFF1E2433),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.share_outlined,
+                  color: MausamPalette.textTertiary,
+                  size: 13,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Share',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegenerateButton() {
+    return Semantics(
+      label: 'Regenerate response',
+      button: true,
+      child: Tooltip(
+        message: 'Regenerate response',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () {
+            if (_lastUserQuery != null && !_isThinking && !_isStreaming) {
+              HapticFeedback.lightImpact();
+              if (_messages.isNotEmpty && _messages.last.isAssistant) {
+                setState(() {
+                  _messages.removeLast();
+                });
+              }
+              _handleSubmitted(_lastUserQuery!);
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.refresh_rounded,
+                  color: MausamPalette.textTertiary,
+                  size: 13,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Regenerate',
+                  style: GoogleFonts.inter(
+                    color: MausamPalette.textTertiary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime dt) {
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final min = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$min $ampm';
   }
 
   /// Progressive Dynamic Loading Indicator (Requirement 4):

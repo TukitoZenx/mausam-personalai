@@ -224,3 +224,23 @@ async def test_chat_service_user_centric_answers():
         assert "favorable for playing cricket" in res.reply.lower() or "cricket" in res.reply.lower()
         assert res.card_data is not None
 
+
+@pytest.mark.asyncio
+async def test_chat_service_concept_explanation():
+    user = {"id": "user_123"}
+    req_humidity = ChatMessageRequest(text="What is humidity?")
+    res_humidity = await ChatService.process_message(user, req_humidity)
+    assert res_humidity.intent == "concept"
+    assert "water vapor" in res_humidity.reply.lower()
+
+    req_heat = ChatMessageRequest(text="Why does 30°C feel like 35°C?")
+    res_heat = await ChatService.process_message(user, req_heat)
+    assert res_heat.intent == "concept"
+    assert "heat index" in res_heat.reply.lower() or "sweat" in res_heat.reply.lower()
+
+    req_dew = ChatMessageRequest(text="What is dew point?")
+    res_dew = await ChatService.process_message(user, req_dew)
+    assert res_dew.intent == "concept"
+    assert "dew point" in res_dew.reply.lower()
+
+

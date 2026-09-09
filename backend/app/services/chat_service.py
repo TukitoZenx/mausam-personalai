@@ -151,6 +151,12 @@ def classify_chat_intent(text: str) -> str:
         return "thanks"
     if _HELP_RE.match(stripped):
         return "help"
+    if any(p in lower for p in (
+        "what is humidity", "what is dew point", "why does it feel hotter", "why does 30",
+        "what causes thunderstorm", "what is atmospheric pressure", "what is wind chill",
+        "what does rain probability mean", "what does 80% rain", "explain humidity", "explain dew point"
+    )):
+        return "concept"
     if any(k in lower for k in ("remind", "reminder", "alarm", "schedule notification", "notify me")):
         return "reminder"
     if _extract_comparison_locations(stripped) is not None:
@@ -577,6 +583,64 @@ class ChatService:
                 intent=intent,
                 source="template",
                 suggested_actions=["What's the weather right now?", "Will it rain today?", "Is air quality good?"],
+            )
+
+        # 3. Meteorological Concept Educational Explanations
+        if intent == "concept":
+            lower_q = text.lower()
+            if "humidity" in lower_q:
+                concept_reply = (
+                    "**Humidity** is the amount of water vapor present in the atmosphere.\n\n"
+                    "• **Relative Humidity (RH)** indicates how close the air is to being completely saturated with water vapor (100%).\n"
+                    "• When humidity is high (above 65%), sweat cannot evaporate efficiently from your skin, making the air feel muggy, sticky, and hotter than the actual temperature.\n"
+                    "• When humidity is low (below 30%), the air feels dry and crisp, which can cause skin dryness or respiratory irritation."
+                )
+            elif "feel" in lower_q or "30" in lower_q:
+                concept_reply = (
+                    "**Why does 30°C feel like 35°C? (The Heat Index)**\n\n"
+                    "Your body cools itself down through the evaporation of sweat. When atmospheric humidity is elevated, the air is already laden with moisture, so sweat evaporates much more slowly.\n\n"
+                    "Because heat remains trapped on your skin, your body perceives a significantly higher temperature than the thermometer reads. Meteorologists calculate this as the **'Feels-Like' Temperature** or **Heat Index**."
+                )
+            elif "dew" in lower_q:
+                concept_reply = (
+                    "**Dew Point** is the temperature to which air must cool for water vapor to condense into liquid droplets (dew, mist, or clouds).\n\n"
+                    "• **Below 15°C**: Crisp, dry, and comfortable.\n"
+                    "• **15°C to 20°C**: Noticeable moisture in the air.\n"
+                    "• **Above 20°C**: Muggy and oppressive tropical humidity.\n\n"
+                    "Dew point is often a more reliable indicator of physical human comfort than relative humidity because it measures absolute atmospheric water content."
+                )
+            elif "thunderstorm" in lower_q:
+                concept_reply = (
+                    "**What causes Thunderstorms?**\n\n"
+                    "Thunderstorms form when three conditions align:\n"
+                    "1. **Surface Moisture**: Warm, humid air near the ground.\n"
+                    "2. **Atmospheric Instability**: Warm air rising rapidly into colder air above.\n"
+                    "3. **Lift Mechanism**: Solar heating or frontal boundaries pushing the warm air upward.\n\n"
+                    "As the rising moisture condenses into towering cumulonimbus clouds, ice crystals collide, creating electrical charges that discharge as **lightning and thunder**."
+                )
+            elif "pressure" in lower_q:
+                concept_reply = (
+                    "**Atmospheric Pressure** represents the weight of the air column pressing down on the Earth's surface.\n\n"
+                    "• **High Pressure**: Air gently sinks, inhibiting cloud formation and delivering clear, calm skies.\n"
+                    "• **Low Pressure**: Air rises, cools, and condenses into clouds and precipitation. A rapid drop in barometric pressure often heralds stormy weather."
+                )
+            elif "rain" in lower_q or "probability" in lower_q or "80%" in lower_q:
+                concept_reply = (
+                    "**What does an 80% chance of rain mean? (Probability of Precipitation)**\n\n"
+                    "Probability of Precipitation (PoP) combines meteorological certainty with spatial coverage (**PoP = Confidence × Area Fraction**).\n\n"
+                    "An 80% chance means that under these exact atmospheric parameters, there is an 8-in-10 likelihood that at least 0.1 mm of precipitation will fall anywhere within your local forecast area during that forecast period."
+                )
+            else:
+                concept_reply = (
+                    "**Meteorological Concepts in Mausam AI**\n\n"
+                    "Weather parameters like temperature, humidity, wind, and pressure interact continuously to create the conditions you experience outdoors. Ask me about any specific concept like *'What is humidity?'*, *'What is dew point?'*, or *'Why does 30°C feel like 35°C?'*!"
+                )
+
+            return ChatMessageResponse(
+                reply=concept_reply,
+                intent="concept",
+                source="template",
+                suggested_actions=["What is dew point?", "Why does 30°C feel hotter?", "Today's weather"],
             )
 
         # 3. Location Comparison Intent (e.g. "Hyderabad vs Guntur")
