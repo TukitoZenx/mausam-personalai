@@ -251,36 +251,23 @@ def _parse_response(raw_text: str) -> tuple[str, list[str], dict[str, Any] | Non
 class GeminiService:
     """Production Gemini LLM service with weather tool grounding and zero hallucination."""
 
-    _model = None
+    _client = None
 
     @classmethod
-    def _get_model(cls):
-        """Lazy-initialize the Gemini model."""
-        if cls._model is None:
+    def _get_client(cls):
+        """Lazy-initialize the Gemini client (google-genai SDK)."""
+        if cls._client is None:
             if not settings.GEMINI_API_KEY:
                 return None
-
             try:
-                import google.generativeai as genai
+                from google import genai  # google-genai >= 1.0.0
 
-                genai.configure(api_key=settings.GEMINI_API_KEY)
-                model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash")
-                cls._model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=_SYSTEM_PROMPT,
-                    generation_config={
-                        "temperature": 0.35,
-                        "max_output_tokens": 1200,
-                        "top_p": 0.9,
-                        "top_k": 40,
-                    },
-                )
-                logger.info("✅ Gemini model initialized: %s", model_name)
+                cls._client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                logger.info("✅ Gemini client initialized (google-genai SDK)")
             except Exception as exc:
-                logger.error("Failed to initialize Gemini model: %s", exc)
-                cls._model = None
-
-        return cls._model
+                logger.error("Failed to initialize Gemini client: %s", exc)
+                cls._client = None
+        return cls._client
 
     @classmethod
     def is_available(cls) -> bool:
@@ -305,11 +292,14 @@ class GeminiService:
 
         Returns (main_text, suggested_actions, card_data) or None on failure/unconfigured.
         """
-        model = cls._get_model()
-        if model is None:
+        client = cls._get_client()
+        if client is None:
             return None
 
         try:
+            from google import genai
+            from google.genai import types
+
             safe_input = _sanitize_input(user_message)
             grounding = _build_grounding_context(
                 weather_data=weather_data,
@@ -334,13 +324,24 @@ class GeminiService:
             prompt_sections.append(f"\nUser: {safe_input}\nAssistant:")
             full_prompt = "\n".join(prompt_sections)
 
-            response = await model.generate_content_async(
-                full_prompt,
-                request_options={"timeout": 15},
+            model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+
+            response = await client.aio.models.generate_content(
+                model=model_name,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=_SYSTEM_PROMPT,
+                    temperature=0.35,
+                    max_output_tokens=1200,
+                    top_p=0.9,
+                    top_k=40,
+                    http_options=types.HttpOptions(timeout=15000),
+                ),
             )
 
-            if response and response.text:
-                main_text, actions, card = _parse_response(response.text)
+            raw_text = response.text if response and response.text else None
+            if raw_text:
+                main_text, actions, card = _parse_response(raw_text)
                 if main_text:
                     logger.info("Gemini response generated (%d chars)", len(main_text))
                     return main_text, actions, card

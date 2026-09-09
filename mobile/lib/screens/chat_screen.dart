@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/weather_ai_card_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
+import '../providers/mausam_ai_state_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/weather_dashboard_provider.dart';
 import '../services/api_client.dart';
@@ -18,6 +21,7 @@ class ChatMessageItem {
   final DateTime timestamp;
   final Map<String, dynamic>? weatherData;
   final WeatherAiCardData? cardData;
+  final List<String> suggestedActions;
   final bool reminderCreated;
 
   ChatMessageItem({
@@ -27,6 +31,7 @@ class ChatMessageItem {
     required this.timestamp,
     this.weatherData,
     this.cardData,
+    this.suggestedActions = const [],
     this.reminderCreated = false,
   });
 }
@@ -38,12 +43,18 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessageItem> _messages = [];
+
+  /// Multi-turn conversation history sent to the backend (last 12 turns).
+  final List<Map<String, String>> _conversationHistory = [];
+
   bool _isLoading = false;
   late final ApiClient _apiClient;
+  late final AnimationController _typingController;
 
   // Active reminders list
   List<dynamic> _activeReminders = [];
@@ -53,6 +64,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _apiClient = ref.read(apiClientProvider);
+    _typingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
     _loadInitialGreeting();
     _loadReminders();
   }
@@ -61,6 +76,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+    _typingController.dispose();
     super.dispose();
   }
 
@@ -115,6 +131,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (query.isEmpty || _isLoading) return;
 
     _textController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     final userMsg = ChatMessageItem(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
@@ -128,6 +145,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _isLoading = true;
     });
     _scrollToBottom();
+    ref.read(mausamAiStateProvider.notifier).setThinking();
 
     final locState = ref.read(locationProvider);
     final auth = ref.read(authStateProvider);
@@ -140,14 +158,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? locState.cityName.split(',').first.trim()
         : null;
 
-    final history = _messages
-        .where((m) => m.id != 'initial_greeting')
-        .take(6)
-        .map((m) => {
-              'role': m.isUser ? 'user' : 'assistant',
-              'content': m.text,
-            })
-        .toList();
+    // Append user turn to history
+    _conversationHistory.add({'role': 'user', 'content': query});
+    if (_conversationHistory.length > 12) {
+      _conversationHistory.removeRange(0, _conversationHistory.length - 12);
+    }
 
     final savedLocationsPayload = locState.savedLocations
         .map((l) => {
@@ -170,7 +185,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         userName: (userState.displayName != null && userState.displayName!.trim().isNotEmpty) ? userState.displayName : null,
         activeLocationName: locName,
         savedLocations: savedLocationsPayload.isEmpty ? null : savedLocationsPayload,
-        history: history.isEmpty ? null : history,
+        history: _conversationHistory.length > 1
+            ? _conversationHistory.sublist(0, _conversationHistory.length - 1)
+            : null,
         idToken: idToken,
       );
 
@@ -184,6 +201,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         } catch (_) {}
       }
       final reminderCreated = res['reminder_created'] == true;
+      final rawActions = res['suggested_actions'];
+      final List<String> actions = rawActions is List
+          ? rawActions.whereType<String>().toList()
+          : [];
+
+      // Append assistant reply to history
+      _conversationHistory.add({'role': 'assistant', 'content': replyText});
 
       final botMsg = ChatMessageItem(
         id: 'bot_${DateTime.now().millisecondsSinceEpoch}',
@@ -192,6 +216,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         timestamp: DateTime.now(),
         weatherData: weatherData,
         cardData: cardData,
+        suggestedActions: actions,
         reminderCreated: reminderCreated,
       );
 
@@ -200,12 +225,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _messages.add(botMsg);
           _isLoading = false;
         });
-        if (reminderCreated) {
-          _loadReminders();
-        }
+        ref.read(mausamAiStateProvider.notifier).setResponding();
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) ref.read(mausamAiStateProvider.notifier).setIdle();
+        });
+        if (reminderCreated) _loadReminders();
         _scrollToBottom();
       }
     } catch (_) {
+      _conversationHistory.add({'role': 'assistant', 'content': 'Error'});
       final localReply = _localWeatherReply(query);
       if (mounted) {
         setState(() {
@@ -219,6 +247,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           );
           _isLoading = false;
         });
+        ref.read(mausamAiStateProvider.notifier).setIdle();
         _scrollToBottom();
       }
     }
@@ -684,23 +713,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
 
-            // Loading Indicator
+            // 3-dot animated typing indicator
             if (_isLoading)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                padding: const EdgeInsets.fromLTRB(20, 6, 16, 6),
                 alignment: Alignment.centerLeft,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: MausamPalette.textPrimary),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: MausamPalette.textPrimary.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: MausamPalette.textPrimary.withValues(alpha: 0.5)),
+                      ),
+                      child: const Icon(Icons.wb_cloudy_rounded, color: MausamPalette.textSecondary, size: 12),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: MausamPalette.cardSurface,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(18),
+                          bottomLeft: Radius.circular(18),
+                          bottomRight: Radius.circular(18),
+                        ),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _typingController,
+                        builder: (context, _) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(3, (i) {
+                              final phase = (_typingController.value - i * 0.33).clamp(0.0, 1.0);
+                              final opacity = (0.3 + 0.7 * (phase < 0.5 ? phase * 2 : (1 - phase) * 2)).clamp(0.3, 1.0);
+                              return Padding(
+                                padding: EdgeInsets.only(right: i < 2 ? 4.0 : 0),
+                                child: Opacity(
+                                  opacity: opacity,
+                                  child: Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: MausamPalette.textSecondary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Checking live radar & atmospheric data...',
-                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12),
+                      'Fetching live data…',
+                      style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
                     ),
                   ],
                 ),
@@ -916,14 +989,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    msg.text.replaceAll('**', ''),
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      fontSize: 14,
-                      height: 1.45,
-                    ),
-                  ),
+                  _buildMarkdownText(msg.text),
                   if (msg.cardData != null) ...[
                     const SizedBox(height: 10),
                     WeatherIntelligenceCard(cardData: msg.cardData!),
@@ -946,6 +1012,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           Flexible(child: _buildMiniStat('AQI', '${msg.weatherData!['aqi']} (${msg.weatherData!['aqi_category']})')),
                         ],
                       ),
+                    ),
+                  ],
+                  // Per-message suggested action chips from Gemini
+                  if (msg.suggestedActions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: msg.suggestedActions.map((action) {
+                        return GestureDetector(
+                          onTap: () => _handleSend(action),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: MausamPalette.textPrimary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                  color: MausamPalette.textPrimary.withValues(alpha: 0.35)),
+                            ),
+                            child: Text(
+                              action,
+                              style: GoogleFonts.inter(
+                                color: MausamPalette.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ],
@@ -978,5 +1074,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       ],
     );
+  }
+
+  /// Renders markdown bold (**text**) as bold [TextSpan]s inline.
+  Widget _buildMarkdownText(String text) {
+    final spans = <InlineSpan>[];
+    final regex = RegExp(r'\*\*(.+?)\*\*');
+    int lastEnd = 0;
+    for (final match in regex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+          style: GoogleFonts.inter(
+            color: Colors.white.withValues(alpha: 0.92),
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ));
+      }
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: GoogleFonts.inter(
+          color: Colors.white,
+          fontSize: 14,
+          height: 1.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ));
+      lastEnd = match.end;
+    }
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: GoogleFonts.inter(
+          color: Colors.white.withValues(alpha: 0.92),
+          fontSize: 14,
+          height: 1.5,
+        ),
+      ));
+    }
+    return RichText(text: TextSpan(children: spans));
   }
 }
