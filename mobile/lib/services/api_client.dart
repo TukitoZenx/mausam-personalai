@@ -540,6 +540,9 @@ class ApiClient {
         lastError = e;
       }
     }
+    if (lastError != null) {
+      debugPrint('Alerts fetch failed: $lastError');
+    }
     return [];
   }
 }
