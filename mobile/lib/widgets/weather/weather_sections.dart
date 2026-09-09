@@ -8,7 +8,6 @@ import '../../models/weather_dashboard.dart';
 import '../../providers/appearance_provider.dart';
 import '../../theme/weather_palette.dart';
 import '../glass_surface.dart';
-import '../navigation/search_overlay.dart';
 import 'persona_home.dart';
 import 'weather_card_atmosphere.dart';
 import 'weather_glyphs.dart';
@@ -63,78 +62,43 @@ class _HeroCurrentCardState extends ConsumerState<HeroCurrentCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Row: Condition Pill & Underlined Change Location Action
+            // Top Row: Condition Pill
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isYellow
+                        ? const Color(0x33F59E0B)
+                        : (isRain
+                            ? const Color(0x223B82F6)
+                            : (isThunder ? const Color(0x26FACC15) : MausamPalette.cardSurfaceLight)),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
                       color: isYellow
-                          ? const Color(0x33F59E0B)
+                          ? const Color(0x88F59E0B)
                           : (isRain
-                              ? const Color(0x223B82F6)
-                              : (isThunder ? const Color(0x26FACC15) : MausamPalette.cardSurfaceLight)),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isYellow
-                            ? const Color(0x88F59E0B)
-                            : (isRain
-                                ? const Color(0x4460A5FA)
-                                : (isThunder ? const Color(0x55FACC15) : MausamPalette.cardBorderSubtle)),
-                      ),
-                    ),
-                    child: Text(
-                      isYellow
-                          ? '☀️ SUNNY'
-                          : (isRain
-                              ? '🌧️ RAINING NOW'
-                              : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        color: isYellow
-                            ? const Color(0xFFFDE047)
-                            : (isRain
-                                ? const Color(0xFF93C5FD)
-                                : (isThunder ? const Color(0xFFFDE047) : MausamPalette.textSecondary)),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
+                              ? const Color(0x4460A5FA)
+                              : (isThunder ? const Color(0x55FACC15) : MausamPalette.cardBorderSubtle)),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  key: const Key('hero_change_location_button'),
-                  onTap: widget.onChangeLocation ?? () => showSearchOverlay(context: context, ref: ref),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 13,
-                          color: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Change',
-                          style: GoogleFonts.inter(
-                            color: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor: isYellow ? const Color(0xFFFDE047) : MausamPalette.accentCyan,
-                            decorationThickness: 1.2,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
+                  child: Text(
+                    isYellow
+                        ? '☀️ SUNNY'
+                        : (isRain
+                            ? '🌧️ RAINING NOW'
+                            : (isThunder ? '⚡ THUNDERSTORM' : current.condition.toUpperCase())),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: isYellow
+                          ? const Color(0xFFFDE047)
+                          : (isRain
+                              ? const Color(0xFF93C5FD)
+                              : (isThunder ? const Color(0xFFFDE047) : MausamPalette.textSecondary)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),

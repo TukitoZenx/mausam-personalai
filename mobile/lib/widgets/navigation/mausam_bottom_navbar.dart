@@ -37,6 +37,7 @@ class _MausamBottomNavbarState extends State<MausamBottomNavbar> {
   bool _isCenterPressed = false;
 
   bool get _isHome => widget.currentRoute == '/home';
+  bool get _isLocations => widget.currentRoute == '/saved-locations';
   bool get _isInsights => widget.currentRoute == '/insights';
   bool get _isProfile => widget.currentRoute == '/profile';
 
@@ -81,6 +82,18 @@ class _MausamBottomNavbarState extends State<MausamBottomNavbar> {
                             inactiveIcon: Icons.home_outlined,
                             isActive: _isHome,
                             onTap: () => widget.onNavigate('/home'),
+                          ),
+                        ),
+
+                        // LOCATIONS: Search & Saved Locations
+                        Expanded(
+                          child: _NavItem(
+                            key: const Key('bottom_nav_locations'),
+                            label: 'Locations',
+                            activeIcon: Icons.travel_explore_rounded,
+                            inactiveIcon: Icons.travel_explore_rounded,
+                            isActive: _isLocations,
+                            onTap: () => widget.onNavigate('/saved-locations'),
                           ),
                         ),
 

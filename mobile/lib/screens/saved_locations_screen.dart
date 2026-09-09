@@ -51,6 +51,11 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     super.dispose();
   }
 
+  void _dismissKeyboard() {
+    _focusNode.unfocus();
+    FocusScope.of(context).unfocus();
+  }
+
   Future<void> _selectCurrentLocation() async {
     final userState = ref.read(userProvider);
     final apiClient = ref.read(apiClientProvider);
@@ -68,6 +73,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
     ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
 
     if (mounted) {
+      _dismissKeyboard();
       final locState = ref.read(locationProvider);
       final display = locState.cityName.isNotEmpty && locState.cityName != 'Locating...'
           ? locState.cityName
@@ -139,6 +145,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
             placeName: place.displayName,
           );
       if (!mounted) return;
+      _dismissKeyboard();
       ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
       ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);
       _searchController.clear();
@@ -210,159 +217,165 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
     final weatherDash = ref.watch(weatherDashboardProvider);
-    final saved = locState.savedLocations.isNotEmpty
-        ? locState.savedLocations
-        : defaultStarterLocations;
+    final saved = locState.savedLocations;
 
-    return Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 72, 16, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ShellSectionTitle('MY LOCATIONS'),
-          ),
-        ),
-        // 1. Luxury Search Bar (Isolated loader capsule, elegant obsidian border, no merging into lines!)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF131317),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _isFocused
-                    ? Colors.white.withValues(alpha: 0.35)
-                    : const Color(0xFF26262E),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+    return GestureDetector(
+      onTap: _dismissKeyboard,
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 72, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ShellSectionTitle('MY LOCATIONS'),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search_rounded,
-                  color: _isFocused ? Colors.white : const Color(0xFF71717A),
-                  size: 20,
+          ),
+          // 1. Refined Search Bar (Consistent subtle obsidian border, isolated loader capsule)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              height: 46,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131317),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _isFocused
+                      ? const Color(0xFF383844)
+                      : const Color(0xFF24242C),
+                  width: 1.0,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _focusNode,
-                    cursorColor: Colors.white,
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search any city or locality…',
-                      hintStyle: GoogleFonts.inter(
-                        color: const Color(0xFF52525B),
-                        fontSize: 13.5,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onChanged: _onQueryChanged,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
-                ),
-                if (_isSearching || _isSubmitting)
-                  Container(
-                    width: 26,
-                    height: 26,
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E26),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF333340), width: 1),
-                    ),
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 2.0,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                else if (_searchController.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      _searchController.clear();
-                      _onQueryChanged('');
-                    },
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E24),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF2E2E38), width: 1),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    color: _isFocused ? Colors.white : const Color(0xFF71717A),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _focusNode,
+                      cursorColor: Colors.white,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.w500,
                       ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: Color(0xFFA1A1AA),
-                          size: 14,
+                      decoration: InputDecoration(
+                        hintText: 'Search any city or locality…',
+                        hintStyle: GoogleFonts.inter(
+                          color: const Color(0xFF52525B),
+                          fontSize: 13.0,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onChanged: _onQueryChanged,
+                    ),
+                  ),
+                  if (_isSearching || _isSubmitting)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        padding: const EdgeInsets.all(4.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF181820),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF2E2E38), width: 1.0),
+                        ),
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE4E4E7)),
+                        ),
+                      ),
+                    )
+                  else if (_searchController.text.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () {
+                          _searchController.clear();
+                          _onQueryChanged('');
+                        },
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF181820),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF2E2E38), width: 1.0),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: Color(0xFFA1A1AA),
+                              size: 13,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
 
-        // 2. Current Location Tile (Directly below search bar at all times)
-        _buildCurrentLocationCard(locState, weatherDash),
-            if (_results.isNotEmpty)
-              Flexible(
-                flex: 2,
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  itemCount: _results.length,
-                  separatorBuilder: (_, __) => const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
-                  itemBuilder: (context, index) {
-                    final place = _results[index];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      leading: const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 20),
-                      title: Text(
-                        place.name,
-                        style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                      subtitle: Text(
-                        place.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
-                      ),
-                      onTap: () => _selectPlace(place),
-                    );
-                  },
+          // 2. Current Location Tile (Directly below search bar at all times)
+          _buildCurrentLocationCard(locState, weatherDash),
+              if (_results.isNotEmpty)
+                Flexible(
+                  flex: 2,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    itemCount: _results.length,
+                    separatorBuilder: (_, __) => const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                    itemBuilder: (context, index) {
+                      final place = _results[index];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        leading: const Icon(Icons.location_on_outlined, color: MausamPalette.textSecondary, size: 20),
+                        title: Text(
+                          place.name,
+                          style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          place.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12),
+                        ),
+                        onTap: () => _selectPlace(place),
+                      );
+                    },
+                  ),
+                )
+              else if (_searchError != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Text(
+                    _searchError!,
+                    style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
+                  ),
                 ),
-              )
-            else if (_searchError != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Text(
-                  _searchError!,
-                  style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 13),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
                     'SAVED LOCATIONS (${saved.length})',
                     style: GoogleFonts.inter(
                       color: MausamPalette.textTertiary,
@@ -371,50 +384,69 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
                       letterSpacing: 1.2,
                     ),
                   ),
-                  if (locState.savedLocations.isEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        ref.read(locationProvider.notifier).setSavedLocations(defaultStarterLocations);
-                      },
-                      child: Text(
-                        'RESET DEFAULTS',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF60A5FA),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: saved.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.location_city_outlined,
+                                size: 36,
+                                color: MausamPalette.textTertiary.withValues(alpha: 0.35),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No saved locations yet',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textSecondary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Search and select any city above to save it here.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textTertiary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                itemCount: saved.length,
-                itemBuilder: (context, index) {
-                  final item = saved[index];
-                  final isSelected = (item.placeName ?? item.name).toLowerCase() == locState.cityName.toLowerCase() ||
-                      item.name.toLowerCase() == locState.cityName.toLowerCase() ||
-                      ((item.latitude - locState.activeLatitude).abs() < 0.05 &&
-                          (item.longitude - locState.activeLongitude).abs() < 0.05);
-                  final weather = _resolveLocationWeather(item, weatherDash, locState);
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                        itemCount: saved.length,
+                        itemBuilder: (context, index) {
+                          final item = saved[index];
+                          final isSelected = (item.placeName ?? item.name).toLowerCase() == locState.cityName.toLowerCase() ||
+                              item.name.toLowerCase() == locState.cityName.toLowerCase() ||
+                              ((item.latitude - locState.activeLatitude).abs() < 0.05 &&
+                                  (item.longitude - locState.activeLongitude).abs() < 0.05);
+                          final weather = _resolveLocationWeather(item, weatherDash, locState);
 
-                  return StaggeredItemWrapper(
-                    index: index,
-                    child: _buildSavedLocationWeatherCard(
-                      context: context,
-                      item: item,
-                      isSelected: isSelected,
-                      weather: weather,
-                    ),
-                  );
-                },
+                          return StaggeredItemWrapper(
+                            index: index,
+                            child: _buildSavedLocationWeatherCard(
+                              context: context,
+                              item: item,
+                              isSelected: isSelected,
+                              weather: weather,
+                            ),
+                          );
+                        },
+                      ),
               ),
-            ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -736,6 +768,7 @@ class _SavedLocationsScreenState extends ConsumerState<SavedLocationsScreen> {
           color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            _dismissKeyboard();
             ref.read(locationProvider.notifier).selectSavedLocation(item);
             ref.read(weatherDashboardProvider.notifier).fetchDashboard(forceRefresh: true);
             ref.read(homepageProvider.notifier).fetchHomeFeed(forceRefresh: true);

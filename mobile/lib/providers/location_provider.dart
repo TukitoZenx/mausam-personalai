@@ -184,7 +184,7 @@ class LocationNotifier extends Notifier<LocationState> {
   @override
   LocationState build() {
     return const LocationState(
-      savedLocations: defaultStarterLocations,
+      savedLocations: [],
     );
   }
 
@@ -211,7 +211,6 @@ class LocationNotifier extends Notifier<LocationState> {
         );
       }
 
-      final hasCustomized = prefs.getBool('has_customized_saved_locations') ?? false;
       final persistedLocations = prefs.getStringList('persisted_saved_locations');
       if (persistedLocations != null) {
         final loaded = persistedLocations.map((str) {
@@ -225,15 +224,7 @@ class LocationNotifier extends Notifier<LocationState> {
           );
         }).where((e) => e.name.isNotEmpty).toList();
 
-        if (loaded.isNotEmpty) {
-          state = state.copyWith(savedLocations: loaded);
-        } else if (hasCustomized) {
-          state = state.copyWith(savedLocations: const []);
-        } else {
-          state = state.copyWith(savedLocations: defaultStarterLocations);
-        }
-      } else if (!hasCustomized) {
-        state = state.copyWith(savedLocations: defaultStarterLocations);
+        state = state.copyWith(savedLocations: loaded);
       } else {
         state = state.copyWith(savedLocations: const []);
       }
@@ -486,8 +477,7 @@ class LocationNotifier extends Notifier<LocationState> {
   }
 
   void setSavedLocations(List<LocationItem> items) {
-    final list = items.isNotEmpty ? items : defaultStarterLocations;
-    state = state.copyWith(savedLocations: list);
+    state = state.copyWith(savedLocations: items);
     _persistSavedLocations();
   }
 

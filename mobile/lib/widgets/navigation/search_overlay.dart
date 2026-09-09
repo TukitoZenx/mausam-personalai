@@ -164,9 +164,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
-    final saved = locState.savedLocations.isNotEmpty
-        ? locState.savedLocations
-        : defaultStarterLocations;
+    final saved = locState.savedLocations;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -231,7 +229,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      autofocus: true,
+                      autofocus: false,
                       cursorColor: Colors.white,
                       style: GoogleFonts.inter(
                         color: Colors.white,

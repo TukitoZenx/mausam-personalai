@@ -39,17 +39,17 @@ class FloatingNavbar extends StatelessWidget {
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
               opacity: isScrolled ? 1.0 : 0.0,
-              child: ClipRect(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xCC0B0E14),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 0.5,
-                        ),
+                      color: const Color(0xFA090B10),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 0.5,
                       ),
                       boxShadow: [
                         BoxShadow(

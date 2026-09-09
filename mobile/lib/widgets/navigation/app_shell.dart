@@ -49,6 +49,8 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
   late final AnimationController _locationAnim;
   double _lastOffset = 0;
   bool _locationCollapsed = false;
+  bool _isScrolled = false;
+  int _lastIndex = 0;
 
   static const _spring = SpringDescription(mass: 0.85, stiffness: 220, damping: 18);
 
@@ -67,6 +69,10 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
   bool _onScroll(ScrollNotification notification) {
     if (notification is! ScrollUpdateNotification) return false;
     final offset = notification.metrics.pixels;
+    final scrolled = offset > 4;
+    if (scrolled != _isScrolled) {
+      setState(() => _isScrolled = scrolled);
+    }
     final delta = offset - _lastOffset;
     _lastOffset = offset;
     if (offset <= 2) {
@@ -93,6 +99,10 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final index = shellIndexForPath(path);
+    if (index != _lastIndex) {
+      _lastIndex = index;
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     final locState = ref.watch(locationProvider);
     final dash = ref.watch(weatherDashboardProvider);
     final appearance = ref.watch(appearanceProvider);
@@ -140,7 +150,11 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                   child: FloatingNavbar(
                     locationName: locationName,
                     locationAnimation: _locationAnim,
-                    onLocationTap: () => context.go('/saved-locations'),
+                    isScrolled: _isScrolled,
+                    onLocationTap: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      context.go('/saved-locations');
+                    },
                   ),
                 ),
                 Positioned(
@@ -155,7 +169,10 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                       ignoring: MediaQuery.viewInsetsOf(context).bottom > 0,
                       child: MausamBottomNavbar(
                         currentRoute: path,
-                        onNavigate: (route) => context.go(route),
+                        onNavigate: (route) {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          context.go(route);
+                        },
                       ),
                     ),
                   ),
