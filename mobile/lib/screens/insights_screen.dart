@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/routine_reminder.dart';
 import '../models/weather_ai_card_data.dart';
+import '../providers/auth_provider.dart';
 import '../providers/homepage_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/mausam_ai_state_provider.dart';
@@ -327,17 +328,89 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
           ? locationState.cityName.split(',').first.trim()
           : (dash.data?.current.location ?? 'Active Location');
 
-      final aiResponse = WeatherAiEngine.process(
+      // 1. Compute on-device offline fallback upfront
+      final offlineFallback = WeatherAiEngine.process(
         query: trimmed,
         userState: userState,
         dashboard: dash.data,
         locationName: locName,
       );
 
+      String responseText = offlineFallback.text;
+      List<String> responseFollowUps = offlineFallback.followUps;
+      WeatherAiCardData? responseCardData = offlineFallback.cardData;
+
+      // 2. Query backend Gemini LLM (in non-test mode or when custom mock ApiClient is provided)
+      final apiClient = ref.read(apiClientProvider);
+      final shouldUseBackend = !isTest || apiClient.runtimeType.toString() != 'ApiClient';
+
+      if (shouldUseBackend) {
+        try {
+          final lat = locationState.latitude != 0.0
+              ? locationState.latitude
+              : 12.9716;
+          final lon = locationState.longitude != 0.0
+              ? locationState.longitude
+              : 77.5946;
+          final idToken = userState.idToken ?? 'test_token';
+
+          // Extract last 6 conversation turns for multi-turn context
+          final history = _messages
+              .where((m) => !m.isError && m.text.isNotEmpty)
+              .take(6)
+              .map((m) => {
+                    'role': m.isUser ? 'user' : 'assistant',
+                    'content': m.text,
+                  })
+              .toList();
+
+          final savedLocationsPayload = locationState.savedLocations
+              .map((l) => {
+                    'name': l.name,
+                    'latitude': l.latitude,
+                    'longitude': l.longitude,
+                  })
+              .toList();
+
+          final backendRes = await apiClient.sendChatMessage(
+            text: trimmed,
+            lat: lat,
+            lon: lon,
+            persona: userState.selectedPersona,
+            healthConcerns: userState.healthConcerns,
+            activeLocationName: locName,
+            savedLocations: savedLocationsPayload,
+            history: history,
+            idToken: idToken,
+          );
+
+          final reply = backendRes['reply'] as String?;
+          if (reply != null && reply.trim().isNotEmpty) {
+            responseText = reply.trim();
+            final actions = backendRes['suggested_actions'];
+            if (actions is List && actions.isNotEmpty) {
+              responseFollowUps = actions.map((e) => e.toString()).toList();
+            }
+            final rawCard = backendRes['card_data'];
+            if (rawCard is Map<String, dynamic>) {
+              try {
+                responseCardData = WeatherAiCardData.fromJson(rawCard);
+              } catch (e) {
+                debugPrint('[InsightsScreen] Card parsing error: $e');
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('[InsightsScreen] Backend chat failed, falling back to offline engine: $e');
+        }
+      }
+
+      if (!mounted) return;
+
       _startStreamingResponse(
-        aiResponse.text,
-        followUps: aiResponse.followUps,
-        cardData: aiResponse.cardData,
+        responseText,
+        followUps: responseFollowUps,
+        cardData: responseCardData,
       );
     });
   }
@@ -687,10 +760,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
                                       constraints: BoxConstraints(
                                         minHeight: constraints.maxHeight,
                                       ),
-                                      child: const Center(
+                                      child: Center(
                                         child: Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                          child: InitialChatAnimatedLogo(),
+                                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                          child: InitialChatAnimatedLogo(
+                                            onPromptSelected: (query) => _handleSubmitted(query),
+                                          ),
                                         ),
                                       ),
                                     ),

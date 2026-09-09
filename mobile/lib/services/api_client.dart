@@ -393,6 +393,12 @@ class ApiClient {
     required String text,
     double? lat,
     double? lon,
+    String? persona,
+    List<String>? healthConcerns,
+    String? activeLocationName,
+    List<Map<String, dynamic>>? savedLocations,
+    List<Map<String, String>>? history,
+    String? language,
     required String idToken,
   }) async {
     Object? lastError;
@@ -409,8 +415,14 @@ class ApiClient {
             'text': text,
             if (lat != null) 'lat': lat,
             if (lon != null) 'lon': lon,
+            if (persona != null) 'persona': persona,
+            if (healthConcerns != null && healthConcerns.isNotEmpty) 'health_concerns': healthConcerns,
+            if (activeLocationName != null && activeLocationName.isNotEmpty) 'active_location_name': activeLocationName,
+            if (savedLocations != null && savedLocations.isNotEmpty) 'saved_locations': savedLocations,
+            if (history != null && history.isNotEmpty) 'history': history,
+            if (language != null && language.isNotEmpty) 'language': language,
           }),
-        ).timeout(const Duration(seconds: 6));
+        ).timeout(const Duration(seconds: 12));
 
         if (response.statusCode == 200) {
           return jsonDecode(response.body) as Map<String, dynamic>;

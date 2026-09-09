@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     WEATHER_API_KEY: str = "placeholder_weather_key"
     AQI_API_KEY: str = "placeholder_aqi_key"
     FIREBASE_CREDENTIALS_PATH: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -33,3 +35,5 @@ if settings.WEATHER_API_KEY and settings.WEATHER_API_KEY != "placeholder_weather
     logger.info("✅ WEATHER_API_KEY loaded: non-empty (%d chars)", len(settings.WEATHER_API_KEY))
 else:
     logger.warning("⚠️  WEATHER_API_KEY is missing or still a placeholder — external weather calls will fail")
+
+
