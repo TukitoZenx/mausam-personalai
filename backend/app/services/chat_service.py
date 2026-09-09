@@ -26,14 +26,19 @@ Architecture:
 
 from datetime import datetime, timezone
 import logging
+import math
 import re
+import time
 from typing import Any
+
+import httpx
 
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
     ReminderCreate,
 )
+from app.services.adapters import nominatim_adapter
 from app.services.gemini_service import GeminiService
 from app.services.reminder_service import ReminderService, normalize_time_str
 from app.services import weather_tools
@@ -81,6 +86,397 @@ _WEATHER_HINTS = (
     "tomorrow", "weekend", "briefing", "radar", "travel", "safe", "safest",
     "varsham", "varsham padutunda", "mausam", "kaisa", "hawa",
 )
+
+
+_KNOWN_CITY_COORDS: dict[str, tuple[float, float]] = {
+    "chennai": (13.0827, 80.2707),
+    "vijayawada": (16.5062, 80.6480),
+    "hyderabad": (17.3850, 78.4867),
+    "guntur": (16.3067, 80.4365),
+    "bangalore": (12.9716, 77.5946),
+    "bengaluru": (12.9716, 77.5946),
+    "mumbai": (19.0760, 72.8777),
+    "delhi": (28.6139, 77.2090),
+    "new delhi": (28.6139, 77.2090),
+    "kolkata": (22.5726, 88.3639),
+    "visakhapatnam": (17.6868, 83.2185),
+    "vizag": (17.6868, 83.2185),
+    "tirupati": (13.6288, 79.4192),
+    "pune": (18.5204, 73.8567),
+    "ahmedabad": (23.0225, 72.5714),
+    "jaipur": (26.9124, 75.7873),
+    "kochi": (9.9312, 76.2673),
+    "coimbatore": (11.0168, 76.9558),
+    "madurai": (9.9252, 78.1198),
+}
+
+
+def calculate_haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in kilometers using the Haversine formula."""
+    r = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return r * c
+
+
+def _clean_travel_place_name(name: str) -> str:
+    n = name.strip()
+    n = re.sub(r"^(?:the\s+city\s+of|the\s+town\s+of|the)\s+", "", n, flags=re.IGNORECASE)
+    n = re.sub(r"\s+(?:city|town|area|state)$", "", n, flags=re.IGNORECASE)
+    n = re.sub(r"\b(by\s+road|by\s+car|by\s+bus|by\s+train|road|highway|trip|route|weather|tomorrow|today|tonight)\b.*$", "", n, flags=re.IGNORECASE)
+    return n.strip().title()
+
+
+def _extract_travel_route_endpoints(text: str) -> tuple[str, str] | None:
+    """
+    Extract (origin, destination) from natural-language travel and route queries:
+      - 'I will go to Vijayawada from Chennai' -> ('Chennai', 'Vijayawada')
+      - 'Travel from Chennai to Vijayawada' -> ('Chennai', 'Vijayawada')
+      - 'Trip to Vijayawada from Chennai' -> ('Chennai', 'Vijayawada')
+      - 'Chennai to Vijayawada' -> ('Chennai', 'Vijayawada')
+      - 'Commute to Vijayawada from Chennai' -> ('Chennai', 'Vijayawada')
+    """
+    clean = text.strip()
+    if re.search(r"\b(compare|compared|vs\.?|versus)\b", clean, re.IGNORECASE):
+        return None
+    clean_core = re.sub(
+        r"^(?:i\s+will|i'm|i\s+am|we\s+will|we're|we\s+are|planning\s+to|plan\s+to|want\s+to|need\s+to|how\s+is\s+the|what\s+is\s+the|can\s+i|please|check\s+the)\s+",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # 1. "to <DEST> from <ORIGIN>"
+    m = re.search(
+        r"\b(?:go|going|travel|traveling|travelling|trip|commute|commuting|drive|driving)?\s*to\s+([A-Za-z\s]+?)\s+from\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)",
+        clean_core,
+        re.IGNORECASE,
+    )
+    if m:
+        dest = _clean_travel_place_name(m.group(1))
+        origin = _clean_travel_place_name(m.group(2))
+        if len(origin) >= 2 and len(dest) >= 2 and origin.lower() != dest.lower():
+            return origin, dest
+
+    # 2. "from <ORIGIN> to <DEST>"
+    m = re.search(
+        r"\b(?:travel|traveling|travelling|trip|commute|commuting|drive|driving|route|going|go)?\s*from\s+([A-Za-z\s]+?)\s+to\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)",
+        clean_core,
+        re.IGNORECASE,
+    )
+    if m:
+        origin = _clean_travel_place_name(m.group(1))
+        dest = _clean_travel_place_name(m.group(2))
+        if len(origin) >= 2 and len(dest) >= 2 and origin.lower() != dest.lower():
+            return origin, dest
+
+    # 3. "<ORIGIN> to <DEST>" (e.g. "Chennai to Vijayawada")
+    m = re.search(
+        r"^([A-Za-z\s]+?)\s+(?:to|->|→)\s+([A-Za-z\s]+?)(?:\s+(?:route|trip|drive|weather|by\s+road)|[?.!,]|$)",
+        clean_core,
+        re.IGNORECASE,
+    )
+    if m:
+        origin = _clean_travel_place_name(m.group(1))
+        dest = _clean_travel_place_name(m.group(2))
+        stopwords = {"how", "what", "where", "when", "why", "who", "welcome", "thanks"}
+        if (
+            len(origin) >= 2
+            and len(dest) >= 2
+            and origin.lower() not in stopwords
+            and dest.lower() not in stopwords
+            and origin.lower() != dest.lower()
+        ):
+            return origin, dest
+
+    # 4. "<DEST> from <ORIGIN>" (e.g. "Vijayawada from Chennai")
+    m = re.search(
+        r"^([A-Za-z\s]+?)\s+from\s+([A-Za-z\s]+?)(?:\s+(?:route|trip|drive|weather|by\s+road)|[?.!,]|$)",
+        clean_core,
+        re.IGNORECASE,
+    )
+    if m:
+        dest = _clean_travel_place_name(m.group(1))
+        origin = _clean_travel_place_name(m.group(2))
+        stopwords = {"how", "what", "where", "when", "why", "who", "welcome", "thanks"}
+        if (
+            len(origin) >= 2
+            and len(dest) >= 2
+            and origin.lower() not in stopwords
+            and dest.lower() not in stopwords
+            and origin.lower() != dest.lower()
+        ):
+            return origin, dest
+
+    return None
+
+
+async def _resolve_endpoint_coords(
+    location: str,
+    default_lat: float,
+    default_lon: float,
+    default_name: str,
+) -> tuple[float, float, str]:
+    """Resolve endpoint coordinates using real geocoding with known cache fallback."""
+    clean = location.strip().lower()
+    if clean in _KNOWN_CITY_COORDS:
+        lat, lon = _KNOWN_CITY_COORDS[clean]
+        return lat, lon, location.strip().title()
+
+    lat, lon, name = await weather_tools.resolve_location_coords(
+        location,
+        default_lat=default_lat,
+        default_lon=default_lon,
+        default_name=default_name,
+    )
+    return lat, lon, name
+
+
+_ROUTE_REVERSE_GEO_CACHE: dict[str, tuple[float, str]] = {}
+_ROUTE_WEATHER_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_GEO = 86400.0  # 24 hours
+_CACHE_TTL_WEATHER = 900.0  # 15 minutes
+
+
+async def _query_osrm_route(
+    origin_lat: float,
+    origin_lon: float,
+    dest_lat: float,
+    dest_lon: float,
+) -> tuple[list[list[float]] | None, float | None, float | None]:
+    """
+    Query OSRM driving route API over HTTPS for actual road distance, duration, and geometry.
+    Returns: (coordinates [[lon, lat], ...], distance_km, duration_minutes) or (None, None, None).
+    """
+    url = (
+        f"https://router.project-osrm.org/route/v1/driving/"
+        f"{origin_lon:.6f},{origin_lat:.6f};{dest_lon:.6f},{dest_lat:.6f}"
+        f"?overview=simplified&geometries=geojson"
+    )
+    headers = {"User-Agent": "MausamPersonalAI/1.0 (contact@mausam.ai)"}
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(4.0)) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("code") == "Ok" and data.get("routes"):
+                    route = data["routes"][0]
+                    dist_km = route.get("distance", 0.0) / 1000.0
+                    dur_mins = route.get("duration", 0.0) / 60.0
+                    coords = route.get("geometry", {}).get("coordinates", [])
+                    if dist_km > 0:
+                        return coords, dist_km, dur_mins
+    except Exception as exc:
+        logger.warning("OSRM route query failed, using geographic fallback: %s", exc)
+    return None, None, None
+
+
+async def _reverse_geocode_stop(lat: float, lon: float) -> str | None:
+    """Reverse geocode coordinate to a clean administrative town or city name."""
+    cache_key = f"{round(lat, 2)}:{round(lon, 2)}"
+    now = time.time()
+    if cache_key in _ROUTE_REVERSE_GEO_CACHE:
+        ts, name = _ROUTE_REVERSE_GEO_CACHE[cache_key]
+        if now - ts < _CACHE_TTL_GEO:
+            return name
+
+    name = None
+    try:
+        res = await nominatim_adapter.reverse_geocode(lat, lon)
+        raw_name = res.city or (res.place_name.split(",")[0] if res.place_name else "")
+        cleaned = re.sub(
+            r"\b(mandal|taluk|district|tehsil|division|county|municipality)\b",
+            "",
+            raw_name,
+            flags=re.IGNORECASE,
+        ).strip()
+        if len(cleaned) >= 3 and not re.match(r"^\d", cleaned):
+            name = cleaned.title()
+    except Exception as exc:
+        logger.debug("Reverse geocode failed for (%f, %f): %s", lat, lon, exc)
+
+    if name:
+        _ROUTE_REVERSE_GEO_CACHE[cache_key] = (now, name)
+    return name
+
+
+async def _fetch_cached_point_weather(name: str, lat: float, lon: float) -> dict[str, Any] | None:
+    """Fetch current weather for a stop along the route with in-memory caching and safe error isolation."""
+    cache_key = f"{round(lat, 2)}:{round(lon, 2)}"
+    now = time.time()
+    if cache_key in _ROUTE_WEATHER_CACHE:
+        ts, cached_w = _ROUTE_WEATHER_CACHE[cache_key]
+        if now - ts < _CACHE_TTL_WEATHER:
+            return cached_w
+
+    try:
+        w = await weather_tools.get_current_weather(
+            location=name,
+            default_lat=lat,
+            default_lon=lon,
+            default_name=name,
+        )
+        formatted = {
+            "temperature": w.get("temperature_celsius"),
+            "feelsLike": w.get("feels_like_celsius"),
+            "condition": w.get("condition"),
+            "humidity": w.get("humidity_percent"),
+            "windSpeed": w.get("wind_speed_kmh"),
+            "aqi": w.get("aqi"),
+            "aqiCategory": w.get("aqi_category"),
+            "rainMm": w.get("rain_mm_1h", 0.0),
+        }
+        _ROUTE_WEATHER_CACHE[cache_key] = (now, formatted)
+        return formatted
+    except Exception as exc:
+        logger.warning("Failed to fetch weather for route stop '%s': %s", name, exc)
+        return None
+
+
+async def _determine_route_locations(
+    origin: str,
+    dest: str,
+    origin_lat: float,
+    origin_lon: float,
+    dest_lat: float,
+    dest_lon: float,
+) -> tuple[list[dict[str, Any]], int, str, bool, str]:
+    """
+    Determine driving route, distance, duration, and intermediate cities.
+    Returns:
+      (route_points, distance_km, duration_text, is_estimated, route_source)
+    """
+    coords, osrm_dist_km, osrm_dur_mins = await _query_osrm_route(origin_lat, origin_lon, dest_lat, dest_lon)
+
+    if coords is not None and osrm_dist_km is not None and osrm_dist_km > 0:
+        distance_km = round(osrm_dist_km)
+        is_estimated = False
+        route_source = "osrm"
+        dur_mins = round(osrm_dur_mins if osrm_dur_mins is not None else ((distance_km / 60.0) * 60))
+        hours = dur_mins // 60
+        mins = dur_mins % 60
+        if hours > 0 and mins > 0:
+            duration_text = f"{hours}h {mins}m"
+        elif hours > 0:
+            duration_text = f"{hours}h"
+        else:
+            duration_text = f"{mins}m"
+    else:
+        crow_km = calculate_haversine_distance_km(origin_lat, origin_lon, dest_lat, dest_lon)
+        distance_km = max(1, round(crow_km * 1.22))
+        is_estimated = True
+        route_source = "estimated"
+        est_mins = round((distance_km / 60.0) * 60)
+        hours = est_mins // 60
+        mins = est_mins % 60
+        if hours > 0 and mins > 0:
+            duration_text = f"~{hours}h {mins}m (est. drive)"
+        elif hours > 0:
+            duration_text = f"~{hours}h (est. drive)"
+        else:
+            duration_text = f"~{mins}m (est. drive)"
+
+    intermediate_stops: list[dict[str, Any]] = []
+
+    if distance_km >= 60:
+        if distance_km < 180:
+            sample_fractions = [0.50]
+        elif distance_km < 450:
+            sample_fractions = [0.37, 0.63]
+        elif distance_km < 800:
+            sample_fractions = [0.25, 0.50, 0.75]
+        else:
+            sample_fractions = [0.20, 0.40, 0.60, 0.80]
+
+        sampled_coords: list[tuple[float, float]] = []
+        if coords and len(coords) >= len(sample_fractions) + 2:
+            cum_dists = [0.0]
+            for i in range(1, len(coords)):
+                d = calculate_haversine_distance_km(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0])
+                cum_dists.append(cum_dists[-1] + d)
+            total_poly_dist = cum_dists[-1] if cum_dists[-1] > 0 else float(distance_km)
+
+            for frac in sample_fractions:
+                target_d = total_poly_dist * frac
+                best_idx = min(range(len(coords)), key=lambda i: abs(cum_dists[i] - target_d))
+                lon_val, lat_val = coords[best_idx]
+                sampled_coords.append((lat_val, lon_val))
+        else:
+            for frac in sample_fractions:
+                lat_val = origin_lat + frac * (dest_lat - origin_lat)
+                lon_val = origin_lon + frac * (dest_lon - origin_lon)
+                sampled_coords.append((lat_val, lon_val))
+
+        seen_names = {origin.lower(), dest.lower()}
+        for s_lat, s_lon in sampled_coords:
+            if calculate_haversine_distance_km(s_lat, s_lon, origin_lat, origin_lon) < 25:
+                continue
+            if calculate_haversine_distance_km(s_lat, s_lon, dest_lat, dest_lon) < 25:
+                continue
+
+            place_name = await _reverse_geocode_stop(s_lat, s_lon)
+            if not place_name:
+                continue
+            if place_name.lower() in seen_names:
+                continue
+
+            too_close = False
+            for existing in intermediate_stops:
+                if calculate_haversine_distance_km(s_lat, s_lon, existing["lat"], existing["lon"]) < 30:
+                    too_close = True
+                    break
+            if too_close:
+                continue
+
+            seen_names.add(place_name.lower())
+            intermediate_stops.append({
+                "name": place_name,
+                "role": "intermediate",
+                "lat": round(s_lat, 4),
+                "lon": round(s_lon, 4),
+            })
+
+    all_points_spec = (
+        [{"name": origin, "role": "origin", "lat": origin_lat, "lon": origin_lon}]
+        + intermediate_stops
+        + [{"name": dest, "role": "destination", "lat": dest_lat, "lon": dest_lon}]
+    )
+
+    final_route_points: list[dict[str, Any]] = []
+    for pt in all_points_spec:
+        w_data = await _fetch_cached_point_weather(pt["name"], pt["lat"], pt["lon"])
+        final_route_points.append({
+            "name": pt["name"],
+            "role": pt["role"],
+            "lat": pt["lat"],
+            "lon": pt["lon"],
+            "weather": w_data if w_data is not None else {
+                "temperature": None,
+                "feelsLike": None,
+                "condition": None,
+                "humidity": None,
+                "windSpeed": None,
+                "aqi": None,
+                "aqiCategory": None,
+                "rainMm": None,
+            },
+        })
+
+    route_geometry: list[dict[str, float]] = []
+    if coords:
+        step = max(1, len(coords) // 80)
+        sampled = coords[::step]
+        if coords[-1] not in sampled:
+            sampled.append(coords[-1])
+        route_geometry = [{"lat": round(c[1], 4), "lon": round(c[0], 4)} for c in sampled]
+    else:
+        route_geometry = [{"lat": pt["lat"], "lon": pt["lon"]} for pt in all_points_spec]
+
+    return final_route_points, distance_km, duration_text, is_estimated, route_source, route_geometry
 
 
 def _extract_comparison_locations(text: str) -> tuple[str, str] | None:
@@ -320,11 +716,14 @@ def classify_chat_intent(text: str) -> str:
     if any(k in lower for k in ("remind", "reminder", "alarm", "schedule notification", "notify me")):
         return "OTHER"
 
-    # 2. Location comparison or travel commute inquiry -> TRAVEL
+    # 2. Location comparison or travel route/commute inquiry -> TRAVEL
+    if _extract_travel_route_endpoints(stripped) is not None:
+        return "TRAVEL"
     if _extract_comparison_locations(stripped) is not None:
         return "TRAVEL"
     if any(k in lower for k in (
         "travel to", "traveling to", "travelling to", "driving to", "trip to",
+        "go to", "going to", "route to", "route from",
         "road condition", "road conditions", "commute to", "commute from",
         "safe to drive", "safe to travel", "flight weather", "highway weather"
     )):
@@ -513,6 +912,90 @@ def _build_structured_card(
         "explanation": f"High of {temp}°C expected today with {cond.lower()}.",
         "actionLabel": "View 5-Day Forecast",
         "actionRoute": "/forecast",
+    }
+
+
+def _build_travel_route_card(
+    origin: str,
+    destination: str,
+    origin_lat: float,
+    origin_lon: float,
+    dest_lat: float,
+    dest_lon: float,
+    distance_km: int,
+    duration_text: str,
+    dest_weather: dict[str, Any],
+    route_points: list[dict[str, Any]] | None = None,
+    is_estimated: bool = True,
+    route_source: str = "estimated",
+    route_geometry: list[dict[str, float]] | None = None,
+) -> dict[str, Any]:
+    temp = dest_weather.get("temperature_celsius", dest_weather.get("temperature"))
+    temp = temp if temp is not None else 30
+    feels = dest_weather.get("feels_like_celsius", dest_weather.get("feelsLike", temp))
+    cond = dest_weather.get("condition") or "Clear"
+    aqi_val = dest_weather.get("aqi")
+    aqi_cat = dest_weather.get("aqi_category", dest_weather.get("aqiCategory")) or "Moderate"
+    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}"
+
+    points = route_points or []
+    intermediates = [p for p in points if p.get("role") == "intermediate"]
+
+    subtitle_dist = f"~{distance_km} km (est.)" if is_estimated else f"{distance_km} km"
+    subtitle_dur = duration_text if duration_text.startswith("~") or not is_estimated else f"~{duration_text} (est. drive)"
+    subtitle = f"{subtitle_dist} · {subtitle_dur}"
+
+    metrics = [
+        {"label": "Est. Distance" if is_estimated else "Distance", "value": f"~{distance_km} km" if is_estimated else f"{distance_km} km"},
+        {"label": "Est. Duration" if is_estimated else "Duration", "value": duration_text},
+        {"label": f"{destination} Temp", "value": f"{temp}°C"},
+    ]
+    if aqi_val is not None:
+        metrics.append({"label": f"{destination} AQI", "value": f"{aqi_val} ({aqi_cat})"})
+
+    if intermediates:
+        stops_str = ", ".join(p["name"] for p in intermediates)
+        explanation = (
+            f"Driving route from {origin} to {destination} passes through {stops_str}. "
+            f"Destination conditions ({destination}): {temp}°C, {cond.lower()}"
+            f"{f' with AQI {aqi_val} ({aqi_cat.lower()})' if aqi_val is not None else ''}. Safe travels!"
+        )
+    else:
+        explanation = (
+            f"Expected conditions in {destination}: {temp}°C, {cond.lower()}"
+            f"{f' with AQI {aqi_val} ({aqi_cat.lower()})' if aqi_val is not None else ''}. "
+            f"Route covers {distance_km} km. Travel safely!"
+        )
+
+    return {
+        "cardType": "travelRoute",
+        "category": "TRAVEL ROUTE INTELLIGENCE",
+        "headline": f"{origin} → {destination}",
+        "subtitle": subtitle,
+        "origin": origin,
+        "destination": destination,
+        "distanceKm": distance_km,
+        "durationText": duration_text,
+        "isEstimate": is_estimated,
+        "isEstimated": is_estimated,
+        "routeSource": route_source,
+        "originCoords": {"latitude": origin_lat, "longitude": origin_lon},
+        "destCoords": {"latitude": dest_lat, "longitude": dest_lon},
+        "routePoints": points,
+        "routeGeometry": route_geometry or [{"lat": p["lat"], "lon": p["lon"]} for p in points],
+        "destinationWeather": {
+            "temperature": temp,
+            "feelsLike": feels,
+            "condition": cond,
+            "humidity": dest_weather.get("humidity_percent", dest_weather.get("humidity", 55)),
+            "windSpeed": dest_weather.get("wind_speed_kmh", dest_weather.get("windSpeed", 12)),
+            "aqi": aqi_val if aqi_val is not None else 50,
+            "aqiCategory": aqi_cat,
+        },
+        "metrics": metrics,
+        "explanation": explanation,
+        "actionLabel": "View route on map",
+        "actionRoute": maps_url,
     }
 
 
@@ -824,8 +1307,108 @@ class ChatService:
                 suggested_actions=concept_actions,
             )
 
-        # 3. TRAVEL: Multi-City Comparison or Inter-city Commute
+        # 3. TRAVEL: Origin-Destination Route or Multi-City Comparison
         if intent == "TRAVEL":
+            route_endpoints = _extract_travel_route_endpoints(text)
+            if route_endpoints:
+                origin, dest = route_endpoints
+                try:
+                    # 1. Resolve coordinates for origin and destination
+                    origin_lat, origin_lon, res_origin = await _resolve_endpoint_coords(
+                        origin,
+                        default_lat=payload.resolved_lat or 17.3850,
+                        default_lon=payload.resolved_lon or 78.4867,
+                        default_name=origin,
+                    )
+                    dest_lat, dest_lon, res_dest = await _resolve_endpoint_coords(
+                        dest,
+                        default_lat=16.5062,
+                        default_lon=80.6480,
+                        default_name=dest,
+                    )
+
+                    (
+                        route_points,
+                        distance_km,
+                        duration_text,
+                        is_estimated,
+                        route_source,
+                        route_geometry,
+                    ) = await _determine_route_locations(
+                        origin=res_origin,
+                        dest=res_dest,
+                        origin_lat=origin_lat,
+                        origin_lon=origin_lon,
+                        dest_lat=dest_lat,
+                        dest_lon=dest_lon,
+                    )
+
+                    dest_point = next((p for p in route_points if p.get("role") == "destination"), None)
+                    dest_weather = dest_point.get("weather", {}) if dest_point else {}
+
+                    route_card = _build_travel_route_card(
+                        origin=res_origin,
+                        destination=res_dest,
+                        origin_lat=origin_lat,
+                        origin_lon=origin_lon,
+                        dest_lat=dest_lat,
+                        dest_lon=dest_lon,
+                        distance_km=distance_km,
+                        duration_text=duration_text,
+                        dest_weather=dest_weather,
+                        route_points=route_points,
+                        is_estimated=is_estimated,
+                        route_source=route_source,
+                        route_geometry=route_geometry,
+                    )
+
+                    intermediate_stops = [p for p in route_points if p.get("role") == "intermediate"]
+
+                    dest_temp = dest_weather.get("temperature")
+                    dest_cond = dest_weather.get("condition") or "Clear"
+                    dest_aqi = dest_weather.get("aqi")
+                    dest_aqi_cat = dest_weather.get("aqiCategory") or "Moderate"
+
+                    reply_text = (
+                        f"Got it! You’re planning to travel from **{res_origin}** to **{res_dest}**.\n\n"
+                        f"• **{'Estimated Distance' if is_estimated else 'Distance'}**: "
+                        f"{f'~{distance_km} km by road' if is_estimated else f'{distance_km} km (via highway)'}\n"
+                        f"• **{'Estimated Travel Time' if is_estimated else 'Travel Time'}**: {duration_text}\n"
+                    )
+
+                    if dest_temp is not None:
+                        reply_text += f"• **Destination Weather ({res_dest})**: **{dest_temp}°C**, {dest_cond}\n"
+                    if dest_aqi is not None:
+                        reply_text += f"• **Destination Air Quality**: AQI **{dest_aqi}** ({dest_aqi_cat})\n"
+
+                    if intermediate_stops:
+                        stops_preview = []
+                        for p in intermediate_stops:
+                            w = p.get("weather") or {}
+                            t = w.get("temperature")
+                            if t is not None:
+                                stops_preview.append(f"{p['name']} ({t}°C)")
+                            else:
+                                stops_preview.append(p["name"])
+                        reply_text += f"• **Stops Along Route**: {' → '.join(stops_preview)}\n"
+
+                    reply_text += "\nSafe travels! Tap **View route on map** below to see your route preview and live directions."
+
+                    return ChatMessageResponse(
+                        reply=reply_text,
+                        intent="TRAVEL",
+                        source="template",
+                        card_data=route_card,
+                        suggested_actions=[
+                            f"Weather in {res_dest}",
+                            f"Weather in {res_origin}",
+                            f"Will it rain in {res_dest}?",
+                            "Today's weather",
+                        ],
+                    )
+                except Exception as exc:
+                    logger.warning("Travel route computation failed: %s", exc)
+
             comp_locs = _extract_comparison_locations(text)
             if comp_locs:
                 loc1, loc2 = comp_locs

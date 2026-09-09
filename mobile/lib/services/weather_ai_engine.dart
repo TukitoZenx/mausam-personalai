@@ -47,7 +47,15 @@ class WeatherAiEngine {
       );
     }
 
-    // 2. Clothing & Wardrobe Intent
+    // 2. General Chat & Greetings Intent (e.g. "hi", "how are you", "thanks", "what can you do")
+    if (_isGeneralChat(lower)) {
+      return _handleGeneralChat(
+        query: query,
+        intent: routineIntent,
+      );
+    }
+
+    // 3. Clothing & Wardrobe Intent
     if (_isClothingQuery(lower)) {
       return _handleClothingQuery(
         query: query,
@@ -102,6 +110,121 @@ class WeatherAiEngine {
   }
 
   // --- Helpers for query categorization ---
+
+  static bool _isGeneralChat(String q) {
+    final clean = q.trim().replaceAll(RegExp(r'[!?.,]'), '');
+    final greetings = {
+      'hi',
+      'hii',
+      'hello',
+      'hey',
+      'yo',
+      'hola',
+      'namaste',
+      'good morning',
+      'good afternoon',
+      'good evening',
+      'good night',
+    };
+    if (greetings.contains(clean)) return true;
+    if (clean.startsWith('hi ') || clean.startsWith('hello ') || clean.startsWith('hey ')) {
+      if (!clean.contains('weather') &&
+          !clean.contains('rain') &&
+          !clean.contains('temp') &&
+          !clean.contains('aqi') &&
+          !clean.contains('forecast')) {
+        return true;
+      }
+    }
+    if (clean.contains('how are you') ||
+        clean.contains('hows it going') ||
+        clean.contains("how's it going") ||
+        clean.contains('whats up') ||
+        clean.contains("what's up")) {
+      return true;
+    }
+    if (clean == 'thanks' || clean == 'thank you' || clean == 'thx' || clean == 'ty' || clean == 'tysm') {
+      return true;
+    }
+    if (clean == 'what can you do' ||
+        clean == 'help' ||
+        clean == 'who are you' ||
+        clean == 'what are your capabilities') {
+      return true;
+    }
+    return false;
+  }
+
+  static WeatherAiResponse _handleGeneralChat({
+    required String query,
+    required RoutineIntentResult intent,
+  }) {
+    final lower = query.toLowerCase().trim();
+
+    if (lower.contains('how are you') ||
+        lower.contains('hows it going') ||
+        lower.contains("how's it going") ||
+        lower.contains("what's up") ||
+        lower.contains('whats up')) {
+      return WeatherAiResponse(
+        text: 'I’m doing great! 😊 What can I help you with?',
+        routineIntent: intent,
+        followUps: const [
+          "What's the weather today?",
+          'Will it rain today?',
+          'Check air quality',
+          'What can you do?',
+        ],
+      );
+    }
+
+    if (lower.contains('what can you do') ||
+        lower == 'help' ||
+        lower.contains('who are you') ||
+        lower.contains('capabilities')) {
+      return WeatherAiResponse(
+        text: "I'm **Mausam AI**, your personal weather intelligence assistant! 🌤️ Here is what I can do for you:\n\n"
+            "• **Live Weather**: Instant temperature, 'feels-like', humidity, wind, and conditions\n"
+            "• **Forecasts**: Hourly trends and 5-day daily forecasts\n"
+            "• **Air Quality (AQI)**: Live pollution levels and respiratory health guidance\n"
+            "• **Severe Weather Alerts**: Official storm, heatwave, and heavy rain warnings\n"
+            "• **Activity Intelligence**: Optimal windows for cricket, running, workouts, and outdoor sports\n"
+            "• **Travel & Commute**: Weather comparison across cities and road safety insights\n"
+            "• **Wardrobe & Routine**: Personalized outfit advice, umbrella reminders, and daily schedules\n\n"
+            "What would you like to check today?",
+        routineIntent: intent,
+        followUps: const [
+          "What's the weather in Hyderabad?",
+          'Will it rain today?',
+          'Check air quality',
+          'Can I play cricket today?',
+        ],
+      );
+    }
+
+    if (lower.contains('thank')) {
+      return WeatherAiResponse(
+        text: 'You’re welcome! 😊',
+        routineIntent: intent,
+        followUps: const [
+          "Today's weather",
+          'Air quality index',
+          '5-day forecast',
+        ],
+      );
+    }
+
+    return WeatherAiResponse(
+      text: 'Hello! 👋 How can I help you today?',
+      routineIntent: intent,
+      followUps: const [
+        "What's the weather today?",
+        'Will it rain today?',
+        'Air quality index',
+        '5-day forecast',
+      ],
+    );
+  }
 
   static bool _isClothingQuery(String q) {
     return q.contains('wear') ||
@@ -372,25 +495,164 @@ class WeatherAiEngine {
     required String locationName,
     required RoutineIntentResult intent,
   }) {
-    // Extract destination if specified
-    final words = query.split(RegExp(r'\s+'));
-    String destination = locationName;
-    for (int i = 0; i < words.length; i++) {
-      if ((words[i].toLowerCase() == 'to' || words[i].toLowerCase() == 'in') && i + 1 < words.length) {
-        destination = words.sublist(i + 1).join(' ').replaceAll(RegExp(r'[^a-zA-Z\s]'), '').trim();
-        break;
+    final clean = query.trim();
+    final cleanCore = clean.replaceAll(
+      RegExp(r"^(?:i\s+will|i'm|i\s+am|we\s+will|we're|we\s+are|planning\s+to|plan\s+to|want\s+to|need\s+to|how\s+is\s+the|what\s+is\s+the|can\s+i|please|check\s+the)\s+", caseSensitive: false),
+      '',
+    ).trim();
+
+    String cleanPlace(String p) {
+      var s = p.trim();
+      s = s.replaceAll(RegExp(r"^(?:the\s+city\s+of|the\s+town\s+of|the)\s+", caseSensitive: false), '');
+      s = s.replaceAll(RegExp(r"\s+(?:city|town|area|state)$", caseSensitive: false), '');
+      s = s.replaceAll(RegExp(r"\b(by\s+road|by\s+car|by\s+bus|by\s+train|road|highway|trip|route|weather|tomorrow|today|tonight)\b.*$", caseSensitive: false), '');
+      return s.trim();
+    }
+
+    String? origin;
+    String? destination;
+
+    // Pattern 1: to <dest> from <origin>
+    var m = RegExp(r"\b(?:go|going|travel|traveling|travelling|trip|commute|commuting|drive|driving)?\s*to\s+([A-Za-z\s]+?)\s+from\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+    if (m != null) {
+      destination = cleanPlace(m.group(1) ?? '');
+      origin = cleanPlace(m.group(2) ?? '');
+    }
+
+    // Pattern 2: from <origin> to <dest>
+    if (origin == null || destination == null) {
+      m = RegExp(r"\b(?:travel|traveling|travelling|trip|commute|commuting|drive|driving|route|going|go)?\s*from\s+([A-Za-z\s]+?)\s+to\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+      if (m != null) {
+        origin = cleanPlace(m.group(1) ?? '');
+        destination = cleanPlace(m.group(2) ?? '');
       }
     }
-    if (destination.isEmpty) destination = locationName;
+
+    // Pattern 3: <origin> to <dest>
+    if (origin == null || destination == null) {
+      m = RegExp(r"^([A-Za-z\s]+?)\s+(?:to|->|→)\s+([A-Za-z\s]+?)(?:\s+(?:route|trip|drive|weather|by\s+road)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+      if (m != null) {
+        origin = cleanPlace(m.group(1) ?? '');
+        destination = cleanPlace(m.group(2) ?? '');
+      }
+    }
 
     final curr = dashboard?.current;
     final temp = curr?.temperatureCelsius.round() ?? 28;
+    final cond = curr?.condition ?? 'Clear';
     final rainProb = dashboard?.daily.firstOrNull?.rainProbabilityPercent ?? 20;
+
+    // If both origin and destination are extracted -> Return structured travelRoute card
+    if (origin != null && destination != null && origin.isNotEmpty && destination.isNotEmpty && origin.toLowerCase() != destination.toLowerCase()) {
+      final card = WeatherAiCardData(
+        cardType: WeatherCardType.travelRoute,
+        category: 'TRAVEL ROUTE INTELLIGENCE',
+        headline: '$origin → $destination',
+        subtitle: '~450 km (est.) · ~7h 30m (est. drive)',
+        origin: origin,
+        destination: destination,
+        distanceKm: 450,
+        durationText: '7h 30m',
+        isEstimate: true,
+        isEstimated: true,
+        routeSource: 'estimated',
+        originCoords: const {'latitude': 13.0827, 'longitude': 80.2707},
+        destCoords: const {'latitude': 16.5062, 'longitude': 80.6480},
+        destinationWeather: {
+          'temperature': temp,
+          'condition': cond,
+          'aqi': 65,
+          'aqiCategory': 'Moderate',
+        },
+        routePoints: [
+          TravelRoutePoint(
+            name: origin,
+            role: 'origin',
+            lat: 13.0827,
+            lon: 80.2707,
+            weather: {
+              'temperature': temp,
+              'condition': cond,
+              'aqi': 55,
+              'aqiCategory': 'Good',
+            },
+          ),
+          TravelRoutePoint(
+            name: destination,
+            role: 'destination',
+            lat: 16.5062,
+            lon: 80.6480,
+            weather: {
+              'temperature': temp,
+              'condition': cond,
+              'aqi': 65,
+              'aqiCategory': 'Moderate',
+            },
+          ),
+        ],
+        routeGeometry: const [
+          {'lat': 13.0827, 'lon': 80.2707},
+          {'lat': 16.5062, 'lon': 80.6480},
+        ],
+        metrics: [
+          const WeatherAiMetricItem(
+            icon: Icons.navigation_rounded,
+            label: 'Est. Distance',
+            value: '~450 km',
+          ),
+          const WeatherAiMetricItem(
+            icon: Icons.schedule_rounded,
+            label: 'Est. Duration',
+            value: '7h 30m drive',
+          ),
+          WeatherAiMetricItem(
+            icon: Icons.thermostat_rounded,
+            label: '$destination Temp',
+            value: '$temp°C',
+          ),
+          const WeatherAiMetricItem(
+            icon: Icons.bubble_chart_rounded,
+            label: 'Air Quality',
+            value: 'AQI 65',
+          ),
+        ],
+        explanation: 'Destination conditions in $destination show $temp°C with $cond. Highway driving conditions are generally favorable. Drive safely!',
+        actionLabel: 'View route on map',
+        actionRoute: 'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination',
+      );
+
+      return WeatherAiResponse(
+        text: 'Got it! You’re planning to travel from **$origin** to **$destination**. Here’s your route overview:\n\n'
+            '• **Estimated Distance**: ~450 km by road\n'
+            '• **Estimated Travel Time**: ~7h 30m drive\n'
+            '• **Destination Weather ($destination)**: **$temp°C**, $cond\n'
+            '• **Air Quality**: AQI **65** (Moderate)\n\n'
+            'Safe travels! Tap **View route on map** below to see your route preview and live directions.',
+        cardData: card,
+        routineIntent: intent,
+        followUps: [
+          'Weather in $destination',
+          'Weather in $origin',
+          'Will it rain in $destination?',
+        ],
+      );
+    }
+
+    // Default single-city travel and packing brief
+    final words = query.split(RegExp(r'\s+'));
+    String singleDest = locationName;
+    for (int i = 0; i < words.length; i++) {
+      if ((words[i].toLowerCase() == 'to' || words[i].toLowerCase() == 'in') && i + 1 < words.length) {
+        singleDest = words.sublist(i + 1).join(' ').replaceAll(RegExp(r'[^a-zA-Z\s]'), '').trim();
+        break;
+      }
+    }
+    if (singleDest.isEmpty) singleDest = locationName;
 
     final card = WeatherAiCardData(
       cardType: WeatherCardType.travelPacking,
       category: 'TRAVEL & PACKING INTELLIGENCE',
-      headline: '$destination Outlook · $temp°C',
+      headline: '$singleDest Outlook · $temp°C',
       subtitle: 'Rain risk: $rainProb% · Travel comfort optimal',
       metrics: [
         WeatherAiMetricItem(
@@ -418,17 +680,17 @@ class WeatherAiEngine {
         'Universal portable battery pack & travel hydration bottle',
       ],
       explanation:
-          'Expected weather in $destination shows $temp°C with $rainProb% chance of light precipitation. Visibility is clear for flights and roads.',
-      actionLabel: 'Save $destination to My Locations',
+          'Expected weather in $singleDest shows $temp°C with $rainProb% chance of light precipitation. Visibility is clear for flights and roads.',
+      actionLabel: 'Save $singleDest to My Locations',
     );
 
     return WeatherAiResponse(
-      text: 'Here is your curated travel and packing brief for your upcoming trip to **$destination**:',
+      text: 'Here is your curated travel and packing brief for your upcoming trip to **$singleDest**:',
       cardData: card,
       routineIntent: intent,
       followUps: [
         'What should I pack?',
-        'Will it rain in $destination?',
+        'Will it rain in $singleDest?',
         'Best time to walk tomorrow',
       ],
     );

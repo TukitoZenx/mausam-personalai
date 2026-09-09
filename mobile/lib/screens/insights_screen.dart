@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/routine_reminder.dart';
@@ -112,8 +113,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
   Timer? _streamTimer;
   Timer? _focusScrollTimer;
   String? _lastUserQuery;
-
   bool _userScrolledAwayFromBottom = false;
+  ({String origin, String dest})? _currentTravelEndpoints;
 
   // Placeholder rotating animation
   int _placeholderIndex = 0;
@@ -259,6 +260,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
     if (trimmed.isEmpty || _isThinking || _isStreaming) return;
 
     _lastUserQuery = trimmed;
+    _currentTravelEndpoints = _detectTravelEndpoints(trimmed);
     _controller.clear();
 
     final userMsg = _ChatMessage(
@@ -278,9 +280,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
 
     _scrollToBottom();
 
-    // Progressive loading status timer
+    // Progressive loading status timer (smooth progression across actual tasks)
     _loadingTimer?.cancel();
-    _loadingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _loadingTimer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
       if (mounted && _isThinking) {
         setState(() {
           _loadingElapsedSeconds++;
@@ -295,7 +297,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
     _generationDelayTimer?.cancel();
     _generationDelayTimer = Timer(Duration(milliseconds: waitMs), () async {
       if (!mounted) return;
-      _loadingTimer?.cancel();
 
       // Check for direct notification permission query
       if (trimmed.toLowerCase() == 'enable notifications' || trimmed.toLowerCase() == 'allow notifications') {
@@ -586,6 +587,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
     RoutineReminder? reminder,
     WeatherAiCardData? cardData,
   }) {
+    _loadingTimer?.cancel();
     final assistantMsgId = 'ai_${DateTime.now().millisecondsSinceEpoch}';
 
     setState(() {
@@ -1144,7 +1146,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
             cardData: msg.cardData!,
             onActionTap: () {
               final action = msg.cardData!.actionLabel ?? '';
-              if (action.toLowerCase().contains('remind')) {
+              if (action.toLowerCase().contains('map') ||
+                  action.toLowerCase().contains('route') ||
+                  msg.cardData!.cardType == WeatherCardType.travelRoute) {
+                context.push('/weather-map', extra: msg.cardData!);
+              } else if (action.toLowerCase().contains('remind')) {
                 _handleSubmitted('Every day at 9:00 PM, remind me what time I should walk tomorrow.');
               } else if (action.toLowerCase().contains('7-day') || action.toLowerCase().contains('forecast')) {
                 _handleSubmitted('What is the full weather forecast for tomorrow?');
@@ -1327,16 +1333,96 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
 
   /// Progressive Dynamic Loading Indicator (Requirement 4):
   /// - 0–3s: "Checking the weather..."
-  /// - 3–6s: "Analyzing the forecast..."
-  /// - 6+s: "Still checking the latest forecast..."
+  ({String origin, String dest})? _detectTravelEndpoints(String text) {
+    final clean = text.trim();
+    final cleanCore = clean.replaceAll(
+      RegExp(r"^(?:i\s+will|i'm|i\s+am|we\s+will|we're|we\s+are|planning\s+to|plan\s+to|want\s+to|need\s+to|how\s+is\s+the|what\s+is\s+the|can\s+i|please|check\s+the)\s+", caseSensitive: false),
+      '',
+    ).trim();
+
+    String cleanPlace(String p) {
+      var s = p.trim();
+      s = s.replaceAll(RegExp(r"^(?:the\s+city\s+of|the\s+town\s+of|the)\s+", caseSensitive: false), '');
+      s = s.replaceAll(RegExp(r"\s+(?:city|town|area|state)$", caseSensitive: false), '');
+      s = s.replaceAll(RegExp(r"\b(by\s+road|by\s+car|by\s+bus|by\s+train|road|highway|trip|route|weather|tomorrow|today|tonight)\b.*$", caseSensitive: false), '');
+      return s.trim();
+    }
+
+    // 1. "to <DEST> from <ORIGIN>"
+    var m = RegExp(r"\b(?:go|going|travel|traveling|travelling|trip|commute|commuting|drive|driving)?\s*to\s+([A-Za-z\s]+?)\s+from\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+    if (m != null) {
+      final dest = cleanPlace(m.group(1) ?? '');
+      final origin = cleanPlace(m.group(2) ?? '');
+      if (origin.length >= 2 && dest.length >= 2 && origin.toLowerCase() != dest.toLowerCase()) {
+        return (origin: origin, dest: dest);
+      }
+    }
+
+    // 2. "from <ORIGIN> to <DEST>"
+    m = RegExp(r"\b(?:travel|traveling|travelling|trip|commute|commuting|drive|driving|route|going|go)?\s*from\s+([A-Za-z\s]+?)\s+to\s+([A-Za-z\s]+?)(?:\s+(?:by|on|via|with|tomorrow|today|tonight|next)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+    if (m != null) {
+      final origin = cleanPlace(m.group(1) ?? '');
+      final dest = cleanPlace(m.group(2) ?? '');
+      if (origin.length >= 2 && dest.length >= 2 && origin.toLowerCase() != dest.toLowerCase()) {
+        return (origin: origin, dest: dest);
+      }
+    }
+
+    // 3. "<ORIGIN> to <DEST>"
+    m = RegExp(r"^([A-Za-z\s]+?)\s+(?:to|->|→)\s+([A-Za-z\s]+?)(?:\s+(?:route|trip|drive|weather|by\s+road)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+    if (m != null) {
+      final origin = cleanPlace(m.group(1) ?? '');
+      final dest = cleanPlace(m.group(2) ?? '');
+      final stopwords = {'how', 'what', 'where', 'when', 'why', 'who', 'welcome', 'thanks'};
+      if (origin.length >= 2 && dest.length >= 2 &&
+          !stopwords.contains(origin.toLowerCase()) &&
+          !stopwords.contains(dest.toLowerCase()) &&
+          origin.toLowerCase() != dest.toLowerCase()) {
+        return (origin: origin, dest: dest);
+      }
+    }
+
+    // 4. "<DEST> from <ORIGIN>"
+    m = RegExp(r"^([A-Za-z\s]+?)\s+from\s+([A-Za-z\s]+?)(?:\s+(?:route|trip|drive|weather|by\s+road)|[?.!,]|$)", caseSensitive: false).firstMatch(cleanCore);
+    if (m != null) {
+      final dest = cleanPlace(m.group(1) ?? '');
+      final origin = cleanPlace(m.group(2) ?? '');
+      final stopwords = {'how', 'what', 'where', 'when', 'why', 'who', 'welcome', 'thanks'};
+      if (origin.length >= 2 && dest.length >= 2 &&
+          !stopwords.contains(origin.toLowerCase()) &&
+          !stopwords.contains(dest.toLowerCase()) &&
+          origin.toLowerCase() != dest.toLowerCase()) {
+        return (origin: origin, dest: dest);
+      }
+    }
+
+    return null;
+  }
+
+  /// ChatGPT / Meta AI-style progressive loading state.
+  /// Shows real actual processing stages:
+  /// - Stage 1: "Understanding your trip…"
+  /// - Stage 2: "Checking the route from Chennai to Vijayawada…"
+  /// - Stage 3: "Preparing your travel overview…"
   Widget _buildProgressiveLoadingIndicator() {
     String statusText;
-    if (_loadingElapsedSeconds < 3) {
-      statusText = 'Checking the weather...';
-    } else if (_loadingElapsedSeconds < 6) {
-      statusText = 'Analyzing the forecast...';
+    final endpoints = _currentTravelEndpoints;
+    if (endpoints != null) {
+      if (_loadingElapsedSeconds == 0) {
+        statusText = 'Understanding your trip…';
+      } else if (_loadingElapsedSeconds == 1) {
+        statusText = 'Checking the route from ${endpoints.origin} to ${endpoints.dest}…';
+      } else {
+        statusText = 'Preparing your travel overview…';
+      }
     } else {
-      statusText = 'Still checking the latest forecast...';
+      if (_loadingElapsedSeconds < 2) {
+        statusText = 'Checking the weather...';
+      } else if (_loadingElapsedSeconds < 4) {
+        statusText = 'Analyzing the forecast...';
+      } else {
+        statusText = 'Preparing your weather overview...';
+      }
     }
 
     return Padding(
@@ -1349,9 +1435,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
             width: 26,
             height: 26,
             margin: const EdgeInsets.only(right: 12),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF10B981),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                  blurRadius: 8,
+                ),
+              ],
             ),
             child: const Center(
               child: Icon(
@@ -1371,9 +1467,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
                 children: List.generate(3, (index) {
                   final opacity = (math.sin((_pulseAnim.value * math.pi * 2) + (index * 0.8)) + 1) / 2;
                   return Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                    width: 4.5,
+                    height: 4.5,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: const Color(0xFF10B981).withValues(alpha: 0.3 + (0.7 * opacity)),
@@ -1385,19 +1481,63 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> with TickerProv
           ),
           const SizedBox(width: 10),
 
-          // Dynamic Progressive Loading Status Text
+          // Subtle ChatGPT/Meta-style status pill positioned smoothly on the right side of the response row
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: Text(
-                statusText,
-                key: ValueKey<String>(statusText),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  color: MausamPalette.textTertiary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w400,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, anim) {
+                  return FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.04, 0),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Container(
+                  key: ValueKey<String>(statusText),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF181E2C).withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF2C374E),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5.5,
+                        height: 5.5,
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          statusText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFFCBD5E1),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

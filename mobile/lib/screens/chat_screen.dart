@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/weather_ai_card_data.dart';
@@ -926,7 +927,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   if (msg.cardData != null) ...[
                     const SizedBox(height: 10),
-                    WeatherIntelligenceCard(cardData: msg.cardData!),
+                    WeatherIntelligenceCard(
+                      cardData: msg.cardData!,
+                      onActionTap: () {
+                        if (msg.cardData!.cardType == WeatherCardType.travelRoute) {
+                          context.push('/weather-map', extra: msg.cardData!);
+                        }
+                      },
+                    ),
                   ] else if (msg.weatherData != null) ...[
                     const SizedBox(height: 10),
                     Container(

@@ -7,6 +7,7 @@ enum WeatherCardType {
   travelPacking,
   dailyPlan,
   forecastSummary,
+  travelRoute,
 }
 
 class WeatherAiMetricItem {
@@ -41,6 +42,72 @@ class DailyPlanPeriodItem {
   });
 }
 
+class TravelRoutePoint {
+  final String name;
+  final String role; // 'origin', 'intermediate', 'destination'
+  final double lat;
+  final double lon;
+  final Map<String, dynamic>? weather;
+
+  const TravelRoutePoint({
+    required this.name,
+    required this.role,
+    required this.lat,
+    required this.lon,
+    this.weather,
+  });
+
+  bool get isOrigin => role == 'origin';
+  bool get isIntermediate => role == 'intermediate';
+  bool get isDestination => role == 'destination';
+
+  int? get temperature {
+    if (weather == null) return null;
+    final t = weather!['temperature'] ?? weather!['temperature_celsius'];
+    if (t is num) return t.round();
+    return null;
+  }
+
+  String? get condition => weather?['condition']?.toString();
+  String? get icon => weather?['icon']?.toString();
+
+  int? get aqi {
+    if (weather == null) return null;
+    final a = weather!['aqi'];
+    if (a is num) return a.round();
+    return null;
+  }
+
+  String? get aqiCategory =>
+      weather?['aqiCategory']?.toString() ?? weather?['aqi_category']?.toString();
+
+  factory TravelRoutePoint.fromJson(Map<String, dynamic> json) {
+    final rawWeather = json['weather'];
+    Map<String, dynamic>? w;
+    if (rawWeather is Map<String, dynamic>) {
+      w = rawWeather;
+    } else if (rawWeather is Map) {
+      w = Map<String, dynamic>.from(rawWeather);
+    }
+
+    return TravelRoutePoint(
+      name: json['name']?.toString() ?? '',
+      role: json['role']?.toString() ?? 'intermediate',
+      lat: (json['lat'] ?? json['latitude'] as num?)?.toDouble() ?? 0.0,
+      lon: (json['lon'] ?? json['longitude'] as num?)?.toDouble() ?? 0.0,
+      weather: w,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'role': role,
+        'lat': lat,
+        'lon': lon,
+        'weather': weather,
+      };
+}
+
 class WeatherAiCardData {
   final WeatherCardType cardType;
   final String category;
@@ -52,6 +119,18 @@ class WeatherAiCardData {
   final String? actionRoute;
   final List<DailyPlanPeriodItem>? dailyPlanPeriods;
   final List<String>? checklistItems;
+  final String? origin;
+  final String? destination;
+  final int? distanceKm;
+  final String? durationText;
+  final bool isEstimate;
+  final bool isEstimated;
+  final String? routeSource;
+  final Map<String, double>? originCoords;
+  final Map<String, double>? destCoords;
+  final Map<String, dynamic>? destinationWeather;
+  final List<TravelRoutePoint>? routePoints;
+  final List<Map<String, double>>? routeGeometry;
 
   const WeatherAiCardData({
     required this.cardType,
@@ -64,6 +143,18 @@ class WeatherAiCardData {
     this.actionRoute,
     this.dailyPlanPeriods,
     this.checklistItems,
+    this.origin,
+    this.destination,
+    this.distanceKm,
+    this.durationText,
+    this.isEstimate = true,
+    this.isEstimated = true,
+    this.routeSource,
+    this.originCoords,
+    this.destCoords,
+    this.destinationWeather,
+    this.routePoints,
+    this.routeGeometry,
   });
 
   factory WeatherAiCardData.fromJson(Map<String, dynamic> json) {
@@ -91,6 +182,54 @@ class WeatherAiCardData {
       }
     }
 
+    Map<String, double>? parseCoords(dynamic raw) {
+      if (raw is Map) {
+        final lat = (raw['latitude'] ?? raw['lat']);
+        final lon = (raw['longitude'] ?? raw['lon']);
+        if (lat is num && lon is num) {
+          return {'latitude': lat.toDouble(), 'longitude': lon.toDouble()};
+        }
+      }
+      return null;
+    }
+
+    final originCoords = parseCoords(json['originCoords']);
+    final destCoords = parseCoords(json['destCoords']);
+    final destinationWeather = json['destinationWeather'] is Map<String, dynamic>
+        ? json['destinationWeather'] as Map<String, dynamic>
+        : (json['destinationWeather'] is Map
+            ? Map<String, dynamic>.from(json['destinationWeather'] as Map)
+            : null);
+
+    final isEstimateVal =
+        json['isEstimated'] as bool? ?? json['isEstimate'] as bool? ?? true;
+    final routeSource = json['routeSource'] as String?;
+
+    final rawPoints = json['routePoints'];
+    final routePoints = <TravelRoutePoint>[];
+    if (rawPoints is List) {
+      for (final rp in rawPoints) {
+        if (rp is Map) {
+          routePoints.add(
+              TravelRoutePoint.fromJson(Map<String, dynamic>.from(rp)));
+        }
+      }
+    }
+
+    final rawGeometry = json['routeGeometry'];
+    final routeGeometry = <Map<String, double>>[];
+    if (rawGeometry is List) {
+      for (final g in rawGeometry) {
+        if (g is Map) {
+          final lat = (g['lat'] ?? g['latitude']);
+          final lon = (g['lon'] ?? g['longitude']);
+          if (lat is num && lon is num) {
+            routeGeometry.add({'lat': lat.toDouble(), 'lon': lon.toDouble()});
+          }
+        }
+      }
+    }
+
     return WeatherAiCardData(
       cardType: cardType,
       category: json['category'] as String? ?? 'WEATHER INTELLIGENCE',
@@ -100,6 +239,18 @@ class WeatherAiCardData {
       explanation: json['explanation'] as String?,
       actionLabel: json['actionLabel'] as String?,
       actionRoute: json['actionRoute'] as String?,
+      origin: json['origin'] as String?,
+      destination: json['destination'] as String?,
+      distanceKm: json['distanceKm'] is num ? (json['distanceKm'] as num).toInt() : null,
+      durationText: json['durationText'] as String?,
+      isEstimate: isEstimateVal,
+      isEstimated: isEstimateVal,
+      routeSource: routeSource,
+      originCoords: originCoords,
+      destCoords: destCoords,
+      destinationWeather: destinationWeather,
+      routePoints: routePoints.isNotEmpty ? routePoints : null,
+      routeGeometry: routeGeometry.isNotEmpty ? routeGeometry : null,
     );
   }
 

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/weather_ai_card_data.dart';
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/weather_map_screen.dart';
 import '../theme/mausam_transitions.dart';
 import '../widgets/navigation/app_shell.dart';
 
@@ -11,6 +13,17 @@ GoRouter createRouter({String initialLocation = '/splash'}) {
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
+      GoRoute(
+        path: '/weather-map',
+        name: 'weather_map',
+        pageBuilder: (context, state) {
+          final routeData = state.extra as WeatherAiCardData?;
+          return mausamFadePage(
+            key: state.pageKey,
+            child: WeatherMapScreen(routeData: routeData),
+          );
+        },
+      ),
       GoRoute(
         path: '/splash',
         name: 'splash',

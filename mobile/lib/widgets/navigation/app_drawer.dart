@@ -78,6 +78,13 @@ class MausamAppDrawer extends ConsumerWidget {
                       route: '/alerts',
                       isActive: currentRoute == '/alerts',
                     ),
+                    _drawerItem(
+                      context: context,
+                      title: 'Weather Map',
+                      icon: Icons.map_rounded,
+                      route: '/weather-map',
+                      isActive: currentRoute == '/weather-map',
+                    ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Divider(color: MausamPalette.drawerDivider, height: 1),

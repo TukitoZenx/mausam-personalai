@@ -21,6 +21,8 @@ from app.services.chat_service import (
     classify_chat_intent,
     _extract_comparison_locations,
     _extract_location_mention,
+    _extract_travel_route_endpoints,
+    calculate_haversine_distance_km,
 )
 from app.services.gemini_service import _sanitize_input, _parse_response, _build_grounding_context
 
@@ -347,5 +349,179 @@ async def test_chat_service_concept_explanation():
     res_dew = await ChatService.process_message(user, req_dew)
     assert res_dew.intent == "OTHER"
     assert "dew point" in res_dew.reply.lower()
+
+
+def test_travel_route_endpoint_extraction():
+    # 1. "I will go to Vijayawada from Chennai"
+    res1 = _extract_travel_route_endpoints("I will go to Vijayawada from Chennai")
+    assert res1 == ("Chennai", "Vijayawada")
+
+    # 2. "Travel from Chennai to Vijayawada"
+    res2 = _extract_travel_route_endpoints("Travel from Chennai to Vijayawada")
+    assert res2 == ("Chennai", "Vijayawada")
+
+    # 3. "Trip to Vijayawada from Chennai"
+    res3 = _extract_travel_route_endpoints("Trip to Vijayawada from Chennai")
+    assert res3 == ("Chennai", "Vijayawada")
+
+    # 4. "Chennai to Vijayawada"
+    res4 = _extract_travel_route_endpoints("Chennai to Vijayawada")
+    assert res4 == ("Chennai", "Vijayawada")
+
+    # 5. "Commute to Vijayawada from Chennai"
+    res5 = _extract_travel_route_endpoints("Commute to Vijayawada from Chennai")
+    assert res5 == ("Chennai", "Vijayawada")
+
+    # Intent classification for all 5 phrases
+    assert classify_chat_intent("I will go to Vijayawada from Chennai") == "TRAVEL"
+    assert classify_chat_intent("Travel from Chennai to Vijayawada") == "TRAVEL"
+    assert classify_chat_intent("Trip to Vijayawada from Chennai") == "TRAVEL"
+    assert classify_chat_intent("Chennai to Vijayawada") == "TRAVEL"
+    assert classify_chat_intent("Commute to Vijayawada from Chennai") == "TRAVEL"
+
+
+@pytest.mark.asyncio
+async def test_travel_route_processing_and_card():
+    user = {"id": "user_travel_1"}
+    req = ChatMessageRequest(text="I will go to Vijayawada from Chennai")
+
+    mock_dest_weather = {
+        "location": "Vijayawada",
+        "temperature_celsius": 32,
+        "feels_like_celsius": 35,
+        "condition": "Partly Cloudy",
+        "humidity_percent": 65,
+        "wind_speed_kmh": 14,
+        "uv_index": 6,
+        "rain_mm_1h": 0.0,
+        "aqi": 68,
+        "aqi_category": "Moderate",
+        "latitude": 16.5062,
+        "longitude": 80.6480,
+    }
+
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_weather:
+        mock_weather.return_value = mock_dest_weather
+
+        res = await ChatService.process_message(user, req)
+
+        assert res.intent == "TRAVEL"
+        assert "Got it! You’re planning to travel from **Chennai** to **Vijayawada**" in res.reply
+        assert res.card_data is not None
+        card = res.card_data
+        assert card["cardType"] == "travelRoute"
+        assert card["origin"] == "Chennai"
+        assert card["destination"] == "Vijayawada"
+        assert card["distanceKm"] > 300  # Expected ~454 km (OSRM) or ~467 km (estimate)
+        assert card["routeSource"] in ("osrm", "estimated")
+        assert "routePoints" in card
+        assert len(card["routePoints"]) >= 2
+        assert card["routePoints"][0]["role"] == "origin"
+        assert card["routePoints"][0]["name"] == "Chennai"
+        assert card["routePoints"][-1]["role"] == "destination"
+        assert card["routePoints"][-1]["name"] == "Vijayawada"
+        assert "isEstimated" in card
+        if card["isEstimated"]:
+            assert "est." in card["subtitle"]
+        else:
+            assert "km" in card["subtitle"]
+        assert card["originCoords"]["latitude"] == pytest.approx(13.0827, rel=1e-2)
+        assert card["destCoords"]["latitude"] == pytest.approx(16.5062, rel=1e-2)
+        assert card["destinationWeather"]["temperature"] == 32
+        assert card["destinationWeather"]["aqi"] == 68
+        assert "google.com/maps" in card["actionRoute"]
+        assert card["actionLabel"] == "View route on map"
+
+
+@pytest.mark.asyncio
+async def test_travel_route_short_distance_zero_stops():
+    """Short distance trips (< 60 km) should have 0 intermediate stops."""
+    user = {"id": "user_short_1"}
+    req = ChatMessageRequest(text="Hyderabad to Secunderabad")
+
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_w:
+        mock_w.return_value = {
+            "location": "Secunderabad",
+            "temperature_celsius": 29,
+            "feels_like_celsius": 31,
+            "condition": "Clear",
+            "humidity_percent": 50,
+            "wind_speed_kmh": 10,
+            "aqi": 45,
+            "aqi_category": "Good",
+            "latitude": 17.4399,
+            "longitude": 78.4983,
+        }
+
+        res = await ChatService.process_message(user, req)
+        assert res.intent == "TRAVEL"
+        assert res.card_data is not None
+        pts = res.card_data.get("routePoints", [])
+        intermediates = [p for p in pts if p.get("role") == "intermediate"]
+        # Distance between Hyderabad and Secunderabad is < 20 km -> 0 intermediate stops
+        assert len(intermediates) == 0
+        assert len(pts) == 2  # Origin and Destination only
+
+
+@pytest.mark.asyncio
+async def test_travel_route_intermediate_api_failure_isolation():
+    """One failed intermediate weather request must not fail the travel response."""
+    from app.services.chat_service import _ROUTE_WEATHER_CACHE
+    _ROUTE_WEATHER_CACHE.clear()
+
+    user = {"id": "user_fail_iso"}
+    req = ChatMessageRequest(text="Travel from Chennai to Vijayawada")
+
+    async def mock_w_side_effect(location=None, default_lat=0, default_lon=0, default_name=""):
+        if "Nellore" in str(location) or "Nellore" in str(default_name):
+            raise RuntimeError("Nellore station upstream timeout")
+        return {
+            "location": location or default_name,
+            "temperature_celsius": 31,
+            "feels_like_celsius": 33,
+            "condition": "Sunny",
+            "humidity_percent": 55,
+            "wind_speed_kmh": 12,
+            "aqi": 55,
+            "aqi_category": "Good",
+            "latitude": default_lat,
+            "longitude": default_lon,
+        }
+
+    with patch("app.services.weather_tools.get_current_weather", side_effect=mock_w_side_effect):
+        res = await ChatService.process_message(user, req)
+        assert res.intent == "TRAVEL"
+        assert res.card_data is not None
+        pts = res.card_data["routePoints"]
+        assert len(pts) >= 2
+        # Destination still has valid weather
+        dest_pt = next(p for p in pts if p["role"] == "destination")
+        assert dest_pt["weather"]["temperature"] == 31
+        # Intermediate stop that failed has null weather rather than crashing
+        failed_pt = next((p for p in pts if "Nellore" in p["name"]), None)
+        if failed_pt:
+            assert failed_pt["weather"]["temperature"] is None
+
+
+@pytest.mark.asyncio
+async def test_general_chat_strict_api_isolation():
+    user = {"id": "user_isolation_1"}
+
+    with patch("app.services.weather_tools.get_current_weather", new_callable=AsyncMock) as mock_cur, \
+         patch("app.services.weather_tools.resolve_location_coords", new_callable=AsyncMock) as mock_resolve, \
+         patch("app.services.weather_tools.get_weather_alerts", new_callable=AsyncMock) as mock_alerts:
+
+        # Test greetings and smalltalk
+        for phrase in ["Hi", "Hello!", "Hey, how are you?", "Thanks a lot", "What can you do?"]:
+            req = ChatMessageRequest(text=phrase)
+            res = await ChatService.process_message(user, req)
+            assert res.intent == "GENERAL_CHAT"
+            assert res.card_data is None
+
+        # Confirm ZERO calls were made to weather, geocoding, or alerts
+        assert mock_cur.call_count == 0
+        assert mock_resolve.call_count == 0
+        assert mock_alerts.call_count == 0
+
 
 
