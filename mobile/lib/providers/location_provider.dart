@@ -83,36 +83,8 @@ const _kActiveLon = 'active_longitude';
 const _kActiveName = 'active_city_name';
 const _kCustomSelected = 'is_custom_selected';
 
-const defaultStarterLocations = [
-  LocationItem(
-    id: 'loc_delhi',
-    name: 'New Delhi',
-    latitude: 28.6139,
-    longitude: 77.2090,
-    placeName: 'National Capital Region, India',
-  ),
-  LocationItem(
-    id: 'loc_mumbai',
-    name: 'Mumbai',
-    latitude: 19.0760,
-    longitude: 72.8777,
-    placeName: 'Maharashtra, India',
-  ),
-  LocationItem(
-    id: 'loc_bengaluru',
-    name: 'Bengaluru',
-    latitude: 12.9716,
-    longitude: 77.5946,
-    placeName: 'Karnataka, India',
-  ),
-  LocationItem(
-    id: 'loc_darjeeling',
-    name: 'Darjeeling',
-    latitude: 27.0410,
-    longitude: 88.2663,
-    placeName: 'West Bengal, India',
-  ),
-];
+const defaultStarterLocations = <LocationItem>[];
+
 
 String? _resolveRegionalCityName(double lat, double lon) {
   if (lat == 0.0 && lon == 0.0) return null;
@@ -170,13 +142,9 @@ String? _resolveRegionalCityName(double lat, double lon) {
   // Bhubaneswar
   if ((lat - 20.2961).abs() < 0.5 && (lon - 85.8245).abs() < 0.5) return 'Bhubaneswar';
   // Dehradun
-  if ((lat - 30.3165).abs() < 0.4 && (lon - 78.0322).abs() < 0.4) return 'Dehradun';
-  // Shimla
-  if ((lat - 31.1048).abs() < 0.4 && (lon - 77.1734).abs() < 0.4) return 'Shimla';
-  // Srinagar
-  if ((lat - 34.0837).abs() < 0.5 && (lon - 74.7973).abs() < 0.5) return 'Srinagar';
-  // Goa (Panaji)
-  if ((lat - 15.4909).abs() < 0.4 && (lon - 73.8278).abs() < 0.4) return 'Goa';
+  if ((lat - 13.0827).abs() < 0.6 && (lon - 80.2707).abs() < 0.6) {
+    return 'Chennai';
+  }
   return null;
 }
 
@@ -184,7 +152,7 @@ class LocationNotifier extends Notifier<LocationState> {
   @override
   LocationState build() {
     return const LocationState(
-      savedLocations: defaultStarterLocations,
+      savedLocations: [],
     );
   }
 
@@ -211,7 +179,6 @@ class LocationNotifier extends Notifier<LocationState> {
         );
       }
 
-      final hasCustomized = prefs.getBool('has_customized_saved_locations') ?? false;
       final persistedLocations = prefs.getStringList('persisted_saved_locations');
       if (persistedLocations != null) {
         final loaded = persistedLocations.map((str) {
@@ -225,15 +192,7 @@ class LocationNotifier extends Notifier<LocationState> {
           );
         }).where((e) => e.name.isNotEmpty).toList();
 
-        if (loaded.isNotEmpty) {
-          state = state.copyWith(savedLocations: loaded);
-        } else if (hasCustomized) {
-          state = state.copyWith(savedLocations: const []);
-        } else {
-          state = state.copyWith(savedLocations: defaultStarterLocations);
-        }
-      } else if (!hasCustomized) {
-        state = state.copyWith(savedLocations: defaultStarterLocations);
+        state = state.copyWith(savedLocations: loaded);
       } else {
         state = state.copyWith(savedLocations: const []);
       }
@@ -355,10 +314,15 @@ class LocationNotifier extends Notifier<LocationState> {
 
   void _ensureValidCoordinatesFallback() {
     if (state.activeLatitude == 0.0 && state.activeLongitude == 0.0) {
-      final starter = state.savedLocations.firstOrNull ?? defaultStarterLocations.first;
-      setDeviceLocation(starter.latitude, starter.longitude, starter.name);
+      final starter = state.savedLocations.firstOrNull;
+      if (starter != null) {
+        setDeviceLocation(starter.latitude, starter.longitude, starter.name);
+      } else {
+        setDeviceLocation(28.6139, 77.2090, 'New Delhi');
+      }
     }
   }
+
 
   Future<void> _fetchReverseGeocode(
     ApiClient apiClient,
@@ -470,10 +434,16 @@ class LocationNotifier extends Notifier<LocationState> {
     }
 
     if (lat == 0.0 && lon == 0.0) {
-      final firstSaved = state.savedLocations.firstOrNull ?? defaultStarterLocations.first;
-      lat = firstSaved.latitude;
-      lon = firstSaved.longitude;
-      city = firstSaved.name;
+      final firstSaved = state.savedLocations.firstOrNull;
+      if (firstSaved != null) {
+        lat = firstSaved.latitude;
+        lon = firstSaved.longitude;
+        city = firstSaved.name;
+      } else {
+        lat = 28.6139;
+        lon = 77.2090;
+        city = 'New Delhi';
+      }
     }
 
     state = state.copyWith(
@@ -486,10 +456,10 @@ class LocationNotifier extends Notifier<LocationState> {
   }
 
   void setSavedLocations(List<LocationItem> items) {
-    final list = items.isNotEmpty ? items : defaultStarterLocations;
-    state = state.copyWith(savedLocations: list);
+    state = state.copyWith(savedLocations: items);
     _persistSavedLocations();
   }
+
 
   void addSavedLocation(LocationItem item) {
     final exists = state.savedLocations.any((loc) =>

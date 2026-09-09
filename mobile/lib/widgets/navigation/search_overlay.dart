@@ -164,9 +164,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
-    final saved = locState.savedLocations.isNotEmpty
-        ? locState.savedLocations
-        : defaultStarterLocations;
+    final saved = locState.savedLocations;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -208,79 +206,88 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
             ),
             const SizedBox(height: 12),
 
-            // Luxury Search Bar
+            // Sleek Search Bar
             Container(
-              height: 52,
+              height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF15151B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF272730), width: 1.2),
+                color: const Color(0xFF141419),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF222228), width: 1.0),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: Color(0xFF71717A), size: 20),
+                  const Icon(Icons.search_rounded, color: Color(0xFF71717A), size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      autofocus: true,
-                      cursorColor: Colors.white,
+                      autofocus: false,
+                      cursorColor: const Color(0xFFE4E4E7),
+                      cursorWidth: 1.5,
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w400,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Search any city or locality…',
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xFF52525B),
                           fontSize: 13.5,
+                          fontWeight: FontWeight.w400,
                         ),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        filled: false,
+                        fillColor: Colors.transparent,
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
                   if (_isSearching || _isSubmitting)
                     Container(
-                      width: 26,
-                      height: 26,
-                      padding: const EdgeInsets.all(5),
+                      width: 20,
+                      height: 20,
+                      padding: const EdgeInsets.all(3.5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E26),
+                        color: const Color(0xFF1C1C24),
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF333340), width: 1),
+                        border: Border.all(color: const Color(0xFF2E2E38), width: 0.8),
                       ),
                       child: const CircularProgressIndicator(
-                        strokeWidth: 2.0,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        strokeWidth: 1.8,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA1A1AA)),
                       ),
                     )
                   else if (_searchController.text.isNotEmpty)
                     GestureDetector(
                       onTap: () => _searchController.clear(),
                       child: Container(
-                        width: 26,
-                        height: 26,
+                        width: 20,
+                        height: 20,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E24),
+                          color: const Color(0xFF202028),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF2E2E38), width: 1),
+                          border: Border.all(color: const Color(0xFF2E2E38), width: 0.8),
                         ),
                         child: const Center(
                           child: Icon(
                             Icons.close_rounded,
                             color: Color(0xFFA1A1AA),
-                            size: 14,
+                            size: 12,
                           ),
                         ),
                       ),
@@ -288,6 +295,7 @@ class _SearchOverlayModalState extends ConsumerState<SearchOverlayModal> {
                 ],
               ),
             ),
+
             const SizedBox(height: 12),
 
             // Current Location Tile (Below Search Bar)

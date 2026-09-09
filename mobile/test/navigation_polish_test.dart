@@ -35,13 +35,19 @@ void main() {
 
       // Verify presence of keys
       expect(find.byKey(const Key('bottom_nav_home')), findsOneWidget);
+      expect(find.byKey(const Key('bottom_nav_locations')), findsOneWidget);
       expect(find.byKey(const Key('bottom_nav_insights')), findsOneWidget);
       expect(find.byKey(const Key('bottom_nav_settings')), findsOneWidget);
 
       // Verify no text labels in bottom navbar (icon-only design per user requirement)
       expect(find.text('Home'), findsNothing);
+      expect(find.text('Locations'), findsNothing);
       expect(find.text('Mausam'), findsNothing);
       expect(find.text('Settings'), findsNothing);
+
+      // Tap locations action
+      await tester.tap(find.byKey(const Key('bottom_nav_locations')));
+      expect(navigatedRoute, '/saved-locations');
 
       // Tap center action
       await tester.tap(find.byKey(const Key('bottom_nav_insights')));

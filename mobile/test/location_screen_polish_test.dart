@@ -57,7 +57,7 @@ void main() {
     );
   });
 
-  testWidgets('SavedLocationsScreen renders saved location cards with weather degrees and conditions', (tester) async {
+  testWidgets('SavedLocationsScreen renders empty state for new users when saved list is empty', (tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -73,21 +73,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify section title with count
-    expect(find.textContaining('SAVED LOCATIONS'), findsOneWidget);
+    // Verify section title with count (0 for new users)
+    expect(find.textContaining('SAVED LOCATIONS (0)'), findsOneWidget);
 
-    // Verify default starter locations are visible
-    expect(find.text('New Delhi'), findsOneWidget);
-    expect(find.text('Mumbai'), findsOneWidget);
-    expect(find.text('Bengaluru'), findsOneWidget);
-
-    // Verify temperature degrees are rendered on cards
-    expect(find.text('32°'), findsOneWidget); // New Delhi
-    expect(find.text('29°'), findsOneWidget); // Mumbai
-    expect(find.text('24°'), findsOneWidget); // Bengaluru
-
-    // Verify weather conditions and high/low ranges
-    expect(find.textContaining('Sunny & Solar Glow'), findsOneWidget);
-    expect(find.textContaining('H:36° L:25°'), findsOneWidget);
+    // Verify empty state is rendered
+    expect(find.text('No Saved Locations'), findsOneWidget);
+    expect(find.byIcon(Icons.location_city_rounded), findsOneWidget);
   });
 }

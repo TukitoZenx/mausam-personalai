@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,10 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/units_provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
-import '../services/notification_service.dart';
 import '../widgets/navigation/shell_section_title.dart';
 import '../widgets/staggered_item_wrapper.dart';
 
@@ -25,25 +23,12 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final bool _notifications = true;
   bool _locationAccess = true;
-  bool _tempIsCelsius = true;
-  bool _windIsKmh = true;
   bool _offlineCacheEnabled = true;
   bool _notifyRain = true;
   bool _notifyHeat = true;
   bool _notifyAqi = true;
   bool _morningBrief = true;
   String _cacheSize = '1.4 MB';
-  bool _notifPermissionGranted = false;
-  String _notifTz = '';
-  bool _isSchedulingTest = false;
-  int _testCountdown = 0;
-  Timer? _countdownTimer;
-
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
 
   static const List<Map<String, dynamic>> _personas = [
     {
@@ -160,8 +145,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
-        _tempIsCelsius = prefs.getBool('pref_temp_celsius') ?? true;
-        _windIsKmh = prefs.getBool('pref_wind_kmh') ?? true;
         _offlineCacheEnabled = prefs.getBool('pref_offline_cache') ?? true;
         _notifyRain = prefs.getBool('notify_rain') ?? true;
         _notifyHeat = prefs.getBool('notify_heat') ?? true;
@@ -175,96 +158,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _cacheSize = '$kb KB';
         }
       });
-      _loadNotificationDiagnostics();
     } catch (_) {}
-  }
-
-  Future<void> _loadNotificationDiagnostics() async {
-    final granted = await NotificationService.checkPermissionStatus();
-    if (mounted) {
-      setState(() {
-        _notifPermissionGranted = granted;
-        _notifTz = NotificationService.currentTimeZone;
-      });
-    }
-  }
-
-  Future<void> _trigger12sDiagnosticTest() async {
-    setState(() => _isSchedulingTest = true);
-    final hasPerm = await NotificationService.checkPermissionStatus();
-    if (!hasPerm) {
-      final granted = await NotificationService.requestPermissions();
-      if (!granted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Notification permission is disabled in system settings. Please enable notifications.'),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
-        }
-        setState(() => _isSchedulingTest = false);
-        return;
-      }
-    }
-
-    final success = await NotificationService.scheduleTestNotification(delaySeconds: 12);
-    if (!mounted) return;
-
-    if (success) {
-      _countdownTimer?.cancel();
-      final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-      if (isTest) {
-        setState(() {
-          _isSchedulingTest = false;
-          _testCountdown = 0;
-        });
-      } else {
-        setState(() => _testCountdown = 12);
-        _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (!mounted) {
-            timer.cancel();
-            return;
-          }
-          setState(() {
-            if (_testCountdown > 1) {
-              _testCountdown--;
-            } else {
-              _testCountdown = 0;
-              _isSchedulingTest = false;
-              timer.cancel();
-            }
-          });
-        });
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Test notification scheduled! Close or minimize app now to verify lockscreen/status bar delivery in 12s.'),
-          duration: Duration(seconds: 8),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-    } else {
-      setState(() => _isSchedulingTest = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to schedule test notification. Check system exact alarm settings.'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
-      );
-    }
-  }
-
-  Future<void> _triggerImmediateTest() async {
-    final hasPerm = await NotificationService.checkPermissionStatus();
-    if (!hasPerm) {
-      await NotificationService.requestPermissions();
-    }
-    await NotificationService.showSystemNotification(
-      title: 'MAUSAM TEST',
-      body: 'Notification delivery is working. Local timezone: ${NotificationService.currentTimeZone}',
-    );
   }
 
   Future<void> _saveBoolPref(String key, bool val) async {
@@ -898,118 +792,119 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
         StaggeredItemWrapper(
           index: 6,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MausamPalette.cardBorder),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Consumer(
+            builder: (context, ref, child) {
+              final units = ref.watch(unitsProvider);
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: MausamPalette.cardSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MausamPalette.cardBorder),
+                ),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Temperature',
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textPrimary,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Temperature',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                units.isCelsius ? 'Metric (°Celsius)' : 'Imperial (°Fahrenheit)',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                          Text(
-                            _tempIsCelsius ? 'Metric (°Celsius)' : 'Imperial (°Fahrenheit)',
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textSecondary,
-                              fontSize: 11.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141417),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF27272A)),
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            children: [
+                              _unitButton('°C', units.isCelsius, () {
+                                ref.read(unitsProvider.notifier).setTempCelsius(true);
+                              }),
+                              _unitButton('°F', !units.isCelsius, () {
+                                ref.read(unitsProvider.notifier).setTempCelsius(false);
+                              }),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141417),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF27272A)),
-                      ),
-                      child: Row(
-                        children: [
-                          _unitButton('°C', _tempIsCelsius, () {
-                            setState(() => _tempIsCelsius = true);
-                            _saveBoolPref('pref_temp_celsius', true);
-                          }),
-                          _unitButton('°F', !_tempIsCelsius, () {
-                            setState(() => _tempIsCelsius = false);
-                            _saveBoolPref('pref_temp_celsius', false);
-                          }),
-                        ],
-                      ),
+                    const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Wind & Speed',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                units.isKmh ? 'Kilometers/hour (km/h)' : 'Miles/hour (mph)',
+                                style: GoogleFonts.inter(
+                                  color: MausamPalette.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141417),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF27272A)),
+                          ),
+                          child: Row(
+                            children: [
+                              _unitButton('km/h', units.isKmh, () {
+                                ref.read(unitsProvider.notifier).setWindKmh(true);
+                              }),
+                              _unitButton('mph', !units.isKmh, () {
+                                ref.read(unitsProvider.notifier).setWindKmh(false);
+                              }),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Wind & Speed',
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textPrimary,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            _windIsKmh ? 'Kilometers/hour (km/h)' : 'Miles/hour (mph)',
-                            style: GoogleFonts.inter(
-                              color: MausamPalette.textSecondary,
-                              fontSize: 11.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141417),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF27272A)),
-                      ),
-                      child: Row(
-                        children: [
-                          _unitButton('km/h', _windIsKmh, () {
-                            setState(() => _windIsKmh = true);
-                            _saveBoolPref('pref_wind_kmh', true);
-                          }),
-                          _unitButton('mph', !_windIsKmh, () {
-                            setState(() => _windIsKmh = false);
-                            _saveBoolPref('pref_wind_kmh', false);
-                          }),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
 
@@ -1365,8 +1260,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Solid (OLED)', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
-                        Text('Glass (Translucent)', style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11)),
+                        Flexible(
+                          child: Text(
+                            'Solid (OLED)',
+                            style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            'Glass (Translucent)',
+                            style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
                       ],
                     ),
                     SliderTheme(
@@ -1398,27 +1306,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           const Icon(Icons.cloud_queue_rounded, color: MausamPalette.textPrimary, size: 24),
                           const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isDynamic
-                                    ? 'Live Dynamic Wallpaper active'
-                                    : 'Fixed Obsidian Black active',
-                                style: GoogleFonts.inter(
-                                  color: MausamPalette.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isDynamic
+                                      ? 'Live Dynamic Wallpaper active'
+                                      : 'Fixed Obsidian Black active',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Card surface opacity ${(opacity * 100).round()}% preview',
-                                style: GoogleFonts.inter(
-                                  color: MausamPalette.textSecondary,
-                                  fontSize: 11,
+                                Text(
+                                  'Card surface opacity ${(opacity * 100).round()}% preview',
+                                  style: GoogleFonts.inter(
+                                    color: MausamPalette.textSecondary,
+                                    fontSize: 11,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -1517,232 +1427,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
 
-        const SizedBox(height: 24),
-
-        // SECTION 9: DATA SOURCES & TRANSPARENCY
-        _buildSectionHeader('DATA SOURCES & TRANSPARENCY', 'SYSTEM INFRASTRUCTURE'),
-        const SizedBox(height: 12),
-
-        StaggeredItemWrapper(
-          index: 8,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MausamPalette.cardBorder),
-            ),
-            child: Column(
-              children: [
-                _sourceRow(
-                  'Indian Central Pollution Control Board',
-                  'Official Indian National AQI station network (PM2.5, PM10, NO2, SO2, CO, O3)',
-                  Icons.account_balance_rounded,
-                ),
-                const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
-                _sourceRow(
-                  'Open-Meteo Weather APIs',
-                  'High-resolution ECMWF / GFS ensemble global meteorological forecast',
-                  Icons.cloud_sync_rounded,
-                ),
-                const Divider(color: MausamPalette.cardBorderSubtle, height: 20),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      'Mausam PersonalAI Version',
-                      style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'v1.2.0 • Production Release',
-                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // SECTION 10: DIAGNOSTICS & SYSTEM VERIFICATION (DEVELOPER ONLY)
-        _buildSectionHeader('DIAGNOSTICS & SYSTEM VERIFICATION', 'DEVELOPER ONLY'),
-        const SizedBox(height: 12),
-
-        StaggeredItemWrapper(
-          index: 9,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: MausamPalette.cardSurface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MausamPalette.cardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1B4B),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.bug_report_rounded, color: Color(0xFF818CF8), size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'OS Notification Delivery Test',
-                            style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            'Test real background notification on this mobile device',
-                            style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF14141A),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF27272E)),
-                  ),
-                  child: Column(
-                    children: [
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text('Device Local Timezone:',
-                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
-                          Text(_notifTz.isNotEmpty ? _notifTz : NotificationService.currentTimeZone,
-                              style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text('OS Notification Permission:',
-                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_notifPermissionGranted ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                                  color: _notifPermissionGranted ? const Color(0xFF10B981) : const Color(0xFFF87171), size: 14),
-                              const SizedBox(width: 5),
-                              Text(_notifPermissionGranted ? 'Granted' : 'Denied / Disabled',
-                                  style: GoogleFonts.inter(
-                                      color: _notifPermissionGranted ? const Color(0xFF10B981) : const Color(0xFFF87171),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text('Exact Alarm Capability:',
-                              style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12)),
-                          Text(NotificationService.exactAlarmsAllowed ? 'Allowed' : 'Restricted (Fallback Active)',
-                              style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        key: const Key('dev_test_schedule_10s_button'),
-                        onPressed: _isSchedulingTest ? null : _trigger12sDiagnosticTest,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.timer_outlined, size: 16),
-                        label: Text(
-                          _testCountdown > 0 ? 'Firing in ${_testCountdown}s...' : 'Schedule 12s Test',
-                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        key: const Key('dev_test_immediate_button'),
-                        onPressed: _triggerImmediateTest,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: MausamPalette.textPrimary,
-                          side: const BorderSide(color: Color(0xFF3F3F46)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.notifications_active_outlined, size: 16),
-                        label: Text(
-                          'Test Now',
-                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap "Schedule 12s Test", then close or minimize the app. The OS notification will appear on your device lockscreen/status bar in 12 seconds.',
-                  style: GoogleFonts.inter(color: MausamPalette.textTertiary, fontSize: 11, height: 1.35),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         const SizedBox(height: 32),
 
-        // Logout Button
+        // Logout Button & App Version Footer
         StaggeredItemWrapper(
-          index: 9,
-          child: Center(
-            child: TextButton.icon(
-              onPressed: _logout,
-              style: TextButton.styleFrom(
-                foregroundColor: MausamPalette.textSecondary,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          index: 8,
+          child: Column(
+            children: [
+              Center(
+                child: TextButton.icon(
+                  onPressed: _logout,
+                  style: TextButton.styleFrom(
+                    foregroundColor: MausamPalette.textSecondary,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: Text(
+                    'Sign Out',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
               ),
-              icon: const Icon(Icons.logout_rounded, size: 18),
-              label: Text(
-                'Sign Out',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+              const SizedBox(height: 12),
+              Text(
+                'Mausam PersonalAI v1.2.0',
+                style: GoogleFonts.inter(
+                  color: MausamPalette.textTertiary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ],
@@ -1936,48 +1651,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _sourceRow(String title, String subtitle, IconData icon) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: MausamPalette.cardSurfaceLight,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: MausamPalette.cardBorderSubtle),
-          ),
-          child: Icon(icon, color: MausamPalette.textPrimary, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  color: MausamPalette.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  color: MausamPalette.textSecondary,
-                  fontSize: 11.5,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _personaTile({
     required String title,
     required String subtitle,
@@ -1998,8 +1671,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
+                  color: color.withValues(alpha: isSelected ? 0.22 : 0.12),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: color.withValues(alpha: isSelected ? 0.45 : 0.15),
+                    width: 1,
+                  ),
                 ),
                 child: Icon(icon, color: color, size: 22),
               ),
@@ -2011,7 +1688,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Text(
                       title,
                       style: GoogleFonts.inter(
-                        color: MausamPalette.textPrimary,
+                        color: isSelected ? color : MausamPalette.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2019,7 +1696,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 12, height: 1.3),
+                      style: GoogleFonts.inter(
+                        color: isSelected ? color.withValues(alpha: 0.75) : MausamPalette.textSecondary,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),

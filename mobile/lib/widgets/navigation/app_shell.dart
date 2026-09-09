@@ -49,6 +49,7 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
   late final AnimationController _locationAnim;
   double _lastOffset = 0;
   bool _locationCollapsed = false;
+  bool _isScrolled = false;
 
   static const _spring = SpringDescription(mass: 0.85, stiffness: 220, damping: 18);
 
@@ -69,6 +70,14 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
     final offset = notification.metrics.pixels;
     final delta = offset - _lastOffset;
     _lastOffset = offset;
+
+    final scrolled = offset > 6;
+    if (scrolled != _isScrolled) {
+      setState(() {
+        _isScrolled = scrolled;
+      });
+    }
+
     if (offset <= 2) {
       _setLocationCollapsed(false);
       return false;
@@ -134,12 +143,13 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                   ),
                 ),
                 Positioned(
-                  top: 8,
-                  left: 14,
-                  right: 14,
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   child: FloatingNavbar(
                     locationName: locationName,
                     locationAnimation: _locationAnim,
+                    isScrolled: _isScrolled,
                     onLocationTap: () => context.go('/saved-locations'),
                   ),
                 ),
