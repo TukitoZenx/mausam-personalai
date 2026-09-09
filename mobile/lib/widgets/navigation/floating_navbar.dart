@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -31,28 +33,34 @@ class FloatingNavbar extends StatelessWidget {
       height: 52,
       child: Stack(
         children: [
-          // 1. Opaque near-black background on scroll (solid, no content bleed-through)
+          // 1. Scrolling Shadow & Glass Backdrop (Fades in smoothly only while scrolling)
           Positioned.fill(
             child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
               opacity: isScrolled ? 1.0 : 0.0,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0C0D12),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Color(0xFF1F2028),
-                      width: 0.8,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFA090B10),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 0.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 16,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
                 ),
               ),
             ),

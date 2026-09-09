@@ -85,13 +85,13 @@ class _MausamBottomNavbarState extends State<MausamBottomNavbar> {
                           ),
                         ),
 
-                        // Locations
+                        // LOCATIONS: Search & Saved Locations
                         Expanded(
                           child: _NavItem(
                             key: const Key('bottom_nav_locations'),
                             label: 'Locations',
-                            activeIcon: Icons.location_on_rounded,
-                            inactiveIcon: Icons.location_on_outlined,
+                            activeIcon: Icons.travel_explore_rounded,
+                            inactiveIcon: Icons.travel_explore_rounded,
                             isActive: _isLocations,
                             onTap: () => widget.onNavigate('/saved-locations'),
                           ),

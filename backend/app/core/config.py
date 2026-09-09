@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     AQI_API_KEY: str = "placeholder_aqi_key"
     FIREBASE_CREDENTIALS_PATH: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -35,5 +35,11 @@ if settings.WEATHER_API_KEY and settings.WEATHER_API_KEY != "placeholder_weather
     logger.info("✅ WEATHER_API_KEY loaded: non-empty (%d chars)", len(settings.WEATHER_API_KEY))
 else:
     logger.warning("⚠️  WEATHER_API_KEY is missing or still a placeholder — external weather calls will fail")
+
+gemini_key = (settings.GEMINI_API_KEY or "").strip()
+if gemini_key and not gemini_key.startswith("your_") and gemini_key not in ("placeholder", "placeholder_gemini_key"):
+    logger.info("✅ GEMINI_API_KEY loaded (%d chars, model: %s)", len(gemini_key), settings.GEMINI_MODEL)
+else:
+    logger.warning("⚠️  GEMINI_API_KEY is missing or placeholder — AI chat will use deterministic fallback engine")
 
 
