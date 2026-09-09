@@ -26,6 +26,7 @@ mobile/android/build/
 mobile/android/.gradle/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
+*.apk
 
 # IDEs & System
 .idea/
