@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +9,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/auth_service.dart';
 import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/animated_logo_container.dart';
@@ -112,10 +112,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+  String _friendlyAuthError(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'operation-not-allowed':
+          return 'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.';
+        case 'unsupported-desktop-platform':
+          return 'Google Sign-In is only available on Mobile (Android & iOS) and Web. On Windows desktop, please sign in with Email & Password or Continue as Guest.';
+        case 'user-not-found':
+          return 'No account found with this email address. Tap "Create an account" below to register.';
+        case 'wrong-password':
+          return 'Incorrect password. Please try again or tap "Forgot password?".';
+        case 'invalid-credential':
+          return 'Invalid email or password. Please verify your credentials or tap "Forgot password?".';
+        case 'email-already-in-use':
+          return 'An account already exists with this email. Please switch to "Sign in".';
+        case 'weak-password':
+          return 'Password must be at least 6 characters.';
+        case 'invalid-email':
+          return 'Please enter a valid email address.';
+        case 'user-disabled':
+          return 'This user account has been disabled.';
+        case 'too-many-requests':
+          return 'Too many attempts. Please wait a few minutes and try again.';
+        case 'network-request-failed':
+          return 'Network connection failed. Please check your internet connection.';
+        default:
+          final msg = error.message ?? error.code;
+          if (msg.contains('PASSWORD_LOGIN_DISABLED') ||
+              msg.contains('OPERATION_NOT_ALLOWED')) {
+            return 'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.';
+          }
+          return msg;
+      }
+    }
+    final errStr = error.toString();
+    if (errStr.contains('MissingPluginException') ||
+        errStr.contains('No implementation found')) {
+      return 'Google Sign-In is only available on Mobile (Android & iOS) and Web. On Windows desktop, please sign in with Email & Password or Continue as Guest.';
+    }
+    if (errStr.contains('PASSWORD_LOGIN_DISABLED') ||
+        errStr.contains('OPERATION_NOT_ALLOWED')) {
+      return 'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.';
+    }
+    if (errStr.contains('ApiException: 10')) {
+      return 'Google Sign-In configuration mismatch. Try Email or Guest Sign In.';
+    }
+    if (errStr.contains('TimeoutException') || errStr.contains('Timeout')) {
+      return 'Connection timed out. Please check your internet and try again.';
+    }
+    return errStr;
+  }
+
   Future<void> _handleGoogleAuth() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+
     setState(() {
       _isSubmitting = true;
       _inlineError = null;
+      _submittingMessage = isDesktop
+          ? 'Opening Google Sign-In in your browser...'
+          : null;
     });
 
     try {
@@ -149,7 +208,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501') return;
-      final msg = e.message ?? e.code;
+      final msg = _friendlyAuthError(e);
       setState(() {
         _inlineError = msg;
       });
@@ -157,11 +216,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       final errStr = e.toString();
       if (errStr.contains('12501') || errStr.contains('CANCELED')) return;
-      final friendlyMsg = errStr.contains('ApiException: 10')
-          ? 'Google Sign-In configuration mismatch. Try Email or Guest Sign In.'
-          : errStr.contains('TimeoutException') || errStr.contains('Timeout')
-              ? 'Connection timed out. Please try again.'
-              : 'Google Sign-In failed ($errStr). Try Email or Guest Sign In.';
+      final friendlyMsg = _friendlyAuthError(e);
       setState(() {
         _inlineError = friendlyMsg;
       });
@@ -170,6 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
+          _submittingMessage = null;
         });
       }
     }
@@ -195,19 +251,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
-      late final AuthUser user;
-
-      try {
-        user = await authService.signInWithEmail(email: email, password: password);
-      } catch (e) {
-        if (e is FirebaseAuthException &&
-            (e.code == 'user-not-found' || e.code == 'invalid-credential')) {
-          user = await authService.registerWithEmail(email: email, password: password);
-        } else {
-          rethrow;
-        }
-      }
-
+      final user = await authService.signInWithEmail(email: email, password: password);
       final idToken = user.idToken ?? await authService.getIdToken();
 
       final apiClient = ref.read(apiClientProvider);
@@ -235,18 +279,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/onboarding');
       }
     } on FirebaseAuthException catch (e) {
+      final msg = _friendlyAuthError(e);
       setState(() {
-        _inlineError = e.message ?? e.code;
+        _inlineError = msg;
       });
-      _showErrorSnackBar(e.message ?? e.code);
+      _showErrorSnackBar(msg);
     } catch (e) {
-      final errStr = e.toString();
+      final msg = _friendlyAuthError(e);
       setState(() {
-        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
-            ? 'Connection timed out. Please try again.'
-            : errStr;
+        _inlineError = msg;
       });
-      _showErrorSnackBar(e.toString());
+      _showErrorSnackBar(msg);
     } finally {
       if (mounted) {
         setState(() {
@@ -306,18 +349,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       context.go('/onboarding');
     } on FirebaseAuthException catch (e) {
+      final msg = _friendlyAuthError(e);
       setState(() {
-        _inlineError = e.message ?? e.code;
+        _inlineError = msg;
       });
-      _showErrorSnackBar(e.message ?? e.code);
+      _showErrorSnackBar(msg);
     } catch (e) {
-      final errStr = e.toString();
+      final msg = _friendlyAuthError(e);
       setState(() {
-        _inlineError = errStr.contains('TimeoutException') || errStr.contains('Timeout')
-            ? 'Connection timed out. Please try again.'
-            : errStr;
+        _inlineError = msg;
       });
-      _showErrorSnackBar(e.toString());
+      _showErrorSnackBar(msg);
     } finally {
       if (mounted) {
         setState(() {
@@ -348,6 +390,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
+        case 'operation-not-allowed':
+          errorMessage =
+              'Password reset is disabled in your Firebase project. Please enable Email/Password provider in the Firebase Console.';
+          break;
         case 'user-not-found':
           errorMessage = 'No account found with this email address.';
           break;
@@ -364,11 +410,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           errorMessage = 'This user account has been disabled.';
           break;
         default:
-          errorMessage = e.message ?? 'Failed to send password reset email.';
+          errorMessage = _friendlyAuthError(e);
       }
       _showErrorSnackBar(errorMessage);
     } catch (e) {
-      _showErrorSnackBar('Unable to send reset email: ${e.toString()}');
+      _showErrorSnackBar('Unable to send reset email: ${_friendlyAuthError(e)}');
     } finally {
       if (mounted) {
         setState(() {
@@ -998,13 +1044,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Full Screen Submitting Indicator
               if (_isSubmitting)
                 Container(
-                  color: Colors.black.withValues(alpha: 0.6),
+                  color: Colors.black.withValues(alpha: 0.65),
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                       decoration: BoxDecoration(
                         color: MausamPalette.cardSurface,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: MausamPalette.cardBorder),
                         boxShadow: MausamPalette.heroShadow,
                       ),
@@ -1012,23 +1059,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(
-                            width: 22,
-                            height: 22,
+                            width: 26,
+                            height: 26,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2.0,
-                              valueColor: AlwaysStoppedAnimation<Color>(MausamPalette.textPrimary),
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF58A6FF)),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           Text(
-                            _submittingMessage ??
-                                (isSignIn ? 'Signing you in...' : 'Creating your account...'),
+                            _submittingMessage != null
+                                ? 'Opening Google in Browser'
+                                : (isSignIn ? 'Signing you in...' : 'Creating your account...'),
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: MausamPalette.textPrimary,
                             ),
                           ),
+                          if (_submittingMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'A Google Sign-In window has opened in your default browser. Please select your Google account in that window to continue.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.0,
+                                fontWeight: FontWeight.w400,
+                                color: MausamPalette.textSecondary,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isSubmitting = false;
+                                  _submittingMessage = null;
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: MausamPalette.textMuted,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

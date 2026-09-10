@@ -1,8 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// SharedPreferences keys for guest session persistence.
+/// SharedPreferences keys for session persistence.
 const _kGuestSessionActive = 'guest_session_active';
+const _kAuthSessionActive = 'auth_session_active';
+const _kAuthUserId = 'auth_user_id';
+const _kAuthEmail = 'auth_email';
+const _kAuthDisplayName = 'auth_display_name';
+const _kAuthIdToken = 'auth_id_token';
 const _kOnboardingCompleted = 'onboarding_completed';
 const _kSelectedPersona = 'selected_persona';
 const _kGuestUserId = 'guest_user_id';
@@ -141,6 +146,12 @@ class UserNotifier extends Notifier<UserState> {
       isAuthenticated: true,
       isGuest: false,
     );
+    _persistAuthSession(
+      userId: userId,
+      email: email,
+      displayName: displayName,
+      idToken: idToken,
+    );
   }
 
   void setPersona(String persona) {
@@ -278,6 +289,56 @@ class UserNotifier extends Notifier<UserState> {
     return false;
   }
 
+  /// Restore authenticated session from SharedPreferences.
+  /// Returns true if an authenticated user session was restored.
+  Future<bool> restoreAuthSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isAuth = prefs.getBool(_kAuthSessionActive) ?? false;
+      final userId = prefs.getString(_kAuthUserId);
+      final email = prefs.getString(_kAuthEmail);
+
+      if (isAuth && userId != null && email != null) {
+        final displayName = prefs.getString(_kAuthDisplayName);
+        final idToken = prefs.getString(_kAuthIdToken);
+        final persona = prefs.getString(_kSelectedPersona) ?? 'Fitness';
+        final personas = prefs.getStringList(_kSelectedPersonas) ?? [persona];
+        final triggers = prefs.getStringList(_kWeatherTriggers) ?? const [];
+        final concerns = prefs.getStringList(_kHealthConcerns) ?? const [];
+        final matters = prefs.getStringList(_kWhatMattersMost) ?? const ['Daily energy'];
+        final activity = prefs.getString(_kActivityLevel) ?? 'Low';
+        final onboarded = prefs.getBool(_kOnboardingCompleted) ?? false;
+
+        state = state.copyWith(
+          userId: userId,
+          email: email,
+          displayName: displayName,
+          idToken: idToken,
+          isAuthenticated: true,
+          isGuest: false,
+          onboardingCompleted: onboarded,
+          selectedPersona: persona,
+          selectedPersonas: personas,
+          weatherTriggers: triggers,
+          healthConcerns: concerns,
+          whatMattersMost: matters,
+          activityLevel: activity,
+          notifyRain: prefs.getBool(_kNotifyRain) ?? true,
+          notifyHeat: prefs.getBool(_kNotifyHeat) ?? true,
+          notifyAqi: prefs.getBool(_kNotifyAqi) ?? true,
+          age: prefs.getInt(_kUserAge),
+          gender: prefs.getString(_kUserGender),
+          height: prefs.getDouble(_kUserHeight),
+          weight: prefs.getDouble(_kUserWeight),
+          heightUnit: prefs.getString(_kUserHeightUnit) ?? 'cm',
+          weightUnit: prefs.getString(_kUserWeightUnit) ?? 'kg',
+        );
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   void signOut() {
     state = const UserState();
     _clearPersistedSession();
@@ -373,9 +434,39 @@ class UserNotifier extends Notifier<UserState> {
     } catch (_) {}
   }
 
+  Future<void> _persistAuthSession({
+    required String userId,
+    required String email,
+    String? displayName,
+    String? idToken,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kAuthSessionActive, true);
+      await prefs.remove(_kGuestSessionActive);
+      await prefs.setString(_kAuthUserId, userId);
+      await prefs.setString(_kAuthEmail, email);
+      if (displayName != null) {
+        await prefs.setString(_kAuthDisplayName, displayName);
+      } else {
+        await prefs.remove(_kAuthDisplayName);
+      }
+      if (idToken != null) {
+        await prefs.setString(_kAuthIdToken, idToken);
+      } else {
+        await prefs.remove(_kAuthIdToken);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _clearPersistedSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAuthSessionActive);
+      await prefs.remove(_kAuthUserId);
+      await prefs.remove(_kAuthEmail);
+      await prefs.remove(_kAuthDisplayName);
+      await prefs.remove(_kAuthIdToken);
       await prefs.remove(_kGuestSessionActive);
       await prefs.remove(_kOnboardingCompleted);
       await prefs.remove(_kSelectedPersona);

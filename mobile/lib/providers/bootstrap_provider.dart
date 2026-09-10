@@ -209,6 +209,21 @@ class BootstrapNotifier extends Notifier<BootstrapState> {
         return true;
       }
 
+      final restoredAuth = await ref.read(userProvider.notifier).restoreAuthSession();
+      if (restoredAuth) {
+        final userState = ref.read(userProvider);
+        if (userState.selectedPersona == null) {
+          try {
+            final me = await ref.read(apiClientProvider).getMe(idToken: userState.idToken ?? 'test_token');
+            final persona = me['persona'] as String? ?? me['persona_type'] as String? ?? 'Fitness';
+            ref.read(userProvider.notifier).setPersona(persona);
+          } catch (_) {
+            ref.read(userProvider.notifier).setPersona('Fitness');
+          }
+        }
+        return true;
+      }
+
       return await ref.read(userProvider.notifier).restoreGuestSession();
     } catch (e) {
       debugPrint('Session restore failed: $e');

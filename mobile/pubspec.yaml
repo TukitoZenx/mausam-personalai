@@ -1,7 +1,7 @@
 name: mobile
 description: "Mausam PersonalAI mobile app."
 publish_to: 'none'
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ^3.13.1
@@ -23,6 +23,7 @@ dependencies:
   timezone: ^0.9.4
   flutter_timezone: ^5.1.0
   flutter_svg: ^2.3.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

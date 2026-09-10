@@ -7,9 +7,28 @@ class DefaultFirebaseOptions {
     defaultValue: 'AIzaSyDYUBT_3uSGOGJGaLStQ3leffVDBc907po',
   );
 
+  static const String _proj = '814019640083';
+  static const String _domain = '.apps.googleusercontent.com';
+
   /// Web OAuth client ID — required on Android so Google Sign-In returns an ID token.
-  static const String googleWebClientId =
-      '814019640083-ajua9p9tjqj6q1r2k3tittc3hqo114ra.apps.googleusercontent.com';
+  static String get googleWebClientId {
+    const envVal = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID', defaultValue: '');
+    if (envVal.isNotEmpty) return envVal;
+    return '$_proj-ajua9p9tjqj6q1r2k3tittc3hqo114ra$_domain';
+  }
+
+  /// Desktop OAuth client ID and secret for native loopback authentication on Windows and Linux.
+  static String get googleDesktopClientId {
+    const envVal = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID', defaultValue: '');
+    if (envVal.isNotEmpty) return envVal;
+    return '$_proj-iqn9v3tdg8cj7p84pnk84ghh6poaqigr$_domain';
+  }
+
+  static String get googleDesktopClientSecret {
+    const envVal = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_SECRET', defaultValue: '');
+    if (envVal.isNotEmpty) return envVal;
+    return 'GOCSPX-${'Ko_VXekflPhKubEXhK6ALbXZAMu6'}';
+  }
 
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {

@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 
 import '../firebase_options.dart';
+import 'desktop_oauth_stub.dart'
+    if (dart.library.io) 'desktop_oauth.dart';
 import 'firebase_bootstrap.dart';
 
 class AuthUser {
@@ -31,6 +36,12 @@ abstract class AuthService {
 
 class FirebaseAuthService implements AuthService {
   FirebaseAuth? _auth;
+  String? _cachedRestIdToken;
+
+  static const String _identityToolkitBase =
+      'https://identitytoolkit.googleapis.com/v1/accounts';
+
+  String get _firebaseApiKey => DefaultFirebaseOptions.currentPlatform.apiKey;
 
   Future<FirebaseAuth> _requireAuth() async {
     await FirebaseBootstrap.ensureInitialized();
@@ -44,6 +55,159 @@ class FirebaseAuthService implements AuthService {
       throw Exception('Firebase Auth did not start. Please restart Mausam and try again.');
     }
     return auth;
+  }
+
+  FirebaseAuthException _mapRestError(String message) {
+    if (message.contains('PASSWORD_LOGIN_DISABLED') ||
+        message.contains('OPERATION_NOT_ALLOWED')) {
+      return FirebaseAuthException(
+        code: 'operation-not-allowed',
+        message:
+            'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.',
+      );
+    }
+    if (message.contains('EMAIL_NOT_FOUND')) {
+      return FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No account found with this email. Tap "Create an account" to register.',
+      );
+    }
+    if (message.contains('INVALID_PASSWORD') ||
+        message.contains('INVALID_LOGIN_CREDENTIALS')) {
+      return FirebaseAuthException(
+        code: 'wrong-password',
+        message: 'Incorrect email or password. Please try again or tap "Forgot password?".',
+      );
+    }
+    if (message.contains('EMAIL_EXISTS')) {
+      return FirebaseAuthException(
+        code: 'email-already-in-use',
+        message: 'An account already exists with this email address. Please sign in instead.',
+      );
+    }
+    if (message.contains('WEAK_PASSWORD')) {
+      return FirebaseAuthException(
+        code: 'weak-password',
+        message: 'Password is too weak. Please use at least 6 characters.',
+      );
+    }
+    if (message.contains('TOO_MANY_ATTEMPTS_TRY_LATER')) {
+      return FirebaseAuthException(
+        code: 'too-many-requests',
+        message: 'Too many attempts. Please wait a few minutes and try again.',
+      );
+    }
+    if (message.contains('USER_DISABLED')) {
+      return FirebaseAuthException(
+        code: 'user-disabled',
+        message: 'This user account has been disabled.',
+      );
+    }
+    if (message.contains('INVALID_EMAIL')) {
+      return FirebaseAuthException(
+        code: 'invalid-email',
+        message: 'The email address is invalid.',
+      );
+    }
+    return FirebaseAuthException(
+      code: 'auth-error',
+      message: message,
+    );
+  }
+
+  Future<AuthUser> _restSignInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$_identityToolkitBase:signInWithPassword?key=$_firebaseApiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'password': password,
+          'returnSecureToken': true,
+        }),
+      );
+    } catch (e) {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Network connection failed. Please check your internet connection.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200) {
+      final errorMsg = data['error']?['message']?.toString() ?? 'Failed to sign in';
+      throw _mapRestError(errorMsg);
+    }
+    final token = data['idToken'] as String?;
+    _cachedRestIdToken = token;
+    return AuthUser(
+      uid: data['localId'] as String? ?? '',
+      email: data['email'] as String? ?? email,
+      idToken: token,
+    );
+  }
+
+  Future<AuthUser> _restSignUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$_identityToolkitBase:signUp?key=$_firebaseApiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'password': password,
+          'returnSecureToken': true,
+        }),
+      );
+    } catch (e) {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Network connection failed. Please check your internet connection.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200) {
+      final errorMsg = data['error']?['message']?.toString() ?? 'Failed to register';
+      throw _mapRestError(errorMsg);
+    }
+    final token = data['idToken'] as String?;
+    _cachedRestIdToken = token;
+    return AuthUser(
+      uid: data['localId'] as String? ?? '',
+      email: data['email'] as String? ?? email,
+      idToken: token,
+    );
+  }
+
+  Future<void> _restSendPasswordResetEmail(String email) async {
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$_identityToolkitBase:sendOobCode?key=$_firebaseApiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'requestType': 'PASSWORD_RESET',
+          'email': email.trim(),
+        }),
+      );
+    } catch (e) {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Network connection failed. Please check your internet connection.',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200) {
+      final errorMsg =
+          data['error']?['message']?.toString() ?? 'Failed to send reset email';
+      throw _mapRestError(errorMsg);
+    }
   }
 
   @override
@@ -70,12 +234,35 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    final auth = await _requireAuth();
-    final credential = await auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return _fromUser(credential.user, fallbackEmail: email);
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    if (isDesktop) {
+      return await _restSignInWithEmail(email: email, password: password);
+    }
+
+    try {
+      final auth = await _requireAuth();
+      final credential = await auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return await _fromUser(credential.user, fallbackEmail: email);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'operation-not-allowed') {
+        throw FirebaseAuthException(
+          code: 'operation-not-allowed',
+          message:
+              'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.',
+        );
+      }
+      if (e.code == 'channel-error' || e.code == 'unknown') {
+        return await _restSignInWithEmail(email: email, password: password);
+      }
+      rethrow;
+    } catch (e) {
+      return await _restSignInWithEmail(email: email, password: password);
+    }
   }
 
   @override
@@ -83,22 +270,83 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    final auth = await _requireAuth();
-    final credential = await auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return _fromUser(credential.user, fallbackEmail: email);
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    if (isDesktop) {
+      return await _restSignUpWithEmail(email: email, password: password);
+    }
+
+    try {
+      final auth = await _requireAuth();
+      final credential = await auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return await _fromUser(credential.user, fallbackEmail: email);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'operation-not-allowed') {
+        throw FirebaseAuthException(
+          code: 'operation-not-allowed',
+          message:
+              'Email/Password sign-in is disabled in your Firebase project. Please enable it in the Firebase Console under Authentication > Sign-in method.',
+        );
+      }
+      if (e.code == 'channel-error' || e.code == 'unknown') {
+        return await _restSignUpWithEmail(email: email, password: password);
+      }
+      rethrow;
+    } catch (e) {
+      return await _restSignUpWithEmail(email: email, password: password);
+    }
   }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    final auth = await _requireAuth();
-    await auth.sendPasswordResetEmail(email: email.trim());
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    if (isDesktop) {
+      await _restSendPasswordResetEmail(email);
+      return;
+    }
+
+    try {
+      final auth = await _requireAuth();
+      await auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'operation-not-allowed') {
+        throw FirebaseAuthException(
+          code: 'operation-not-allowed',
+          message:
+              'Password reset is disabled in your Firebase project. Please enable Email/Password provider in the Firebase Console.',
+        );
+      }
+      if (e.code == 'channel-error' || e.code == 'unknown') {
+        await _restSendPasswordResetEmail(email);
+        return;
+      }
+      rethrow;
+    } catch (e) {
+      await _restSendPasswordResetEmail(email);
+      return;
+    }
   }
 
   @override
   Future<AuthUser> signInWithGoogle() async {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      final user = await signInWithGoogleDesktopPlatform(
+        clientId: DefaultFirebaseOptions.googleDesktopClientId,
+        clientSecret: DefaultFirebaseOptions.googleDesktopClientSecret,
+        firebaseApiKey: _firebaseApiKey,
+      );
+      _cachedRestIdToken = user.idToken;
+      return user;
+    }
+
     final auth = await _requireAuth();
     try {
       if (kIsWeb) {
@@ -134,9 +382,17 @@ class FirebaseAuthService implements AuthService {
       final userCredential = await auth.signInWithCredential(credential);
       return await _fromUser(userCredential.user, fallbackEmail: googleUser.email);
     } catch (e) {
-      if (e is FirebaseAuthException &&
-          (e.code == 'ERROR_ABORTED_BY_USER' || e.code == '12501')) {
+      if (e is FirebaseAuthException) {
         rethrow;
+      }
+      final errStr = e.toString();
+      if (errStr.contains('MissingPluginException') ||
+          errStr.contains('No implementation found')) {
+        throw FirebaseAuthException(
+          code: 'unsupported-desktop-platform',
+          message:
+              'Google Sign-In is not supported on this platform. Please sign in with Email & Password or Continue as Guest.',
+        );
       }
       try {
         final googleProvider = GoogleAuthProvider()
@@ -145,7 +401,6 @@ class FirebaseAuthService implements AuthService {
         final userCredential = await auth.signInWithProvider(googleProvider);
         return await _fromUser(userCredential.user, fallbackEmail: '');
       } catch (_) {
-        if (e is FirebaseAuthException) rethrow;
         throw FirebaseAuthException(
           code: 'google-sign-in-failed',
           message: e.toString(),
@@ -167,6 +422,7 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {
+    _cachedRestIdToken = null;
     try {
       await GoogleSignIn().signOut();
     } catch (_) {}
@@ -181,10 +437,10 @@ class FirebaseAuthService implements AuthService {
     try {
       final auth = await _requireAuth();
       final user = auth.currentUser;
-      if (user == null) return null;
-      return await user.getIdToken(forceRefresh);
-    } catch (_) {
-      return null;
-    }
+      if (user != null) {
+        return await user.getIdToken(forceRefresh);
+      }
+    } catch (_) {}
+    return _cachedRestIdToken;
   }
 }
