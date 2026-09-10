@@ -8,6 +8,7 @@ import '../providers/appearance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/units_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/environment_theme.dart';
 import '../theme/weather_palette.dart';
 import '../widgets/navigation/shell_section_title.dart';
@@ -777,6 +778,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       'Automatically resolves nearest weather station as you travel',
                       style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
                     ),
+                  ),
+                  const Divider(color: MausamPalette.cardBorderSubtle, height: 1),
+                  ListTile(
+                    key: const Key('test_notification_tile'),
+                    onTap: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      await NotificationService.scheduleTestNotification(delaySeconds: 5);
+                      messenger.hideCurrentSnackBar();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Test notification dispatched! Check your system notification tray.',
+                                  style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFF132219),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: const BorderSide(color: Color(0xFF10B981), width: 1),
+                          ),
+                        ),
+                      );
+                    },
+                    leading: const Icon(Icons.notifications_active_rounded, color: Color(0xFF58A6FF), size: 20),
+                    title: Text(
+                      'Send Test Notification',
+                      style: GoogleFonts.inter(color: MausamPalette.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      'Triggers an immediate test notification in Windows / Mobile system tray',
+                      style: GoogleFonts.inter(color: MausamPalette.textSecondary, fontSize: 11.5),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: MausamPalette.textMuted, size: 20),
                   ),
                 ],
               ),

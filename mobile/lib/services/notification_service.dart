@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -356,6 +357,19 @@ class NotificationService {
         'query': "Tomorrow's ${reminder.activity} recommendation",
       };
 
+      if (!kIsWeb && Platform.isWindows) {
+        final duration = nextOccurrence.difference(tz.TZDateTime.now(tz.local));
+        final safeDuration = duration.isNegative ? const Duration(seconds: 5) : duration;
+        Timer(safeDuration, () {
+          _showWindowsToast(
+            title: reminder.activityTitle,
+            body: bodyText,
+          );
+        });
+        debugPrint('[MausamNotification] Windows routine timer scheduled for ${reminder.id}');
+        return true;
+      }
+
       // Try exact alarm first, fallback to inexact if restricted
       try {
         await plugin.zonedSchedule(
@@ -403,6 +417,21 @@ class NotificationService {
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (isTest || kIsWeb) {
       debugPrint('Test environment: Mocked scheduleTestNotification ($delaySeconds s)');
+      return true;
+    }
+
+    if (!kIsWeb && Platform.isWindows) {
+      showSystemNotification(
+        title: 'Mausam Weather Alert ⚡',
+        body: 'Immediate notification test on Windows desktop!',
+      );
+      Timer(Duration(seconds: delaySeconds), () {
+        showSystemNotification(
+          title: 'MAUSAM TEST NOTIFICATION ⚡',
+          body: 'Scheduled notification delivery working on Windows! Timezone: $_currentTimeZone',
+        );
+      });
+      debugPrint('[MausamNotification] Scheduled Windows test notification ($delaySeconds s)');
       return true;
     }
 
@@ -484,6 +513,53 @@ class NotificationService {
     }
   }
 
+  /// Windows native toast notification helper using PowerShell WinRT Toast API
+  static Future<void> _showWindowsToast({
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb || !Platform.isWindows) return;
+    try {
+      final cleanTitle = title.replaceAll("'", "''").replaceAll('"', '`"');
+      final cleanBody = body.replaceAll("'", "''").replaceAll('"', '`"');
+
+      final script = '''
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+\$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+\$template = @"
+<toast>
+  <visual>
+    <binding template="ToastGeneric">
+      <text>$cleanTitle</text>
+      <text>$cleanBody</text>
+    </binding>
+  </visual>
+</toast>
+"@
+\$xml.LoadXml(\$template)
+\$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Mausam PersonalAI").Show(\$toast)
+''';
+
+      await Process.start(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          script,
+        ],
+        mode: ProcessStartMode.detached,
+      );
+      debugPrint('[NotificationService] Windows toast dispatched: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Windows toast error: $e');
+    }
+  }
+
   /// Displays an immediate system tray notification (e.g. for urgent alerts or test).
   static Future<void> showSystemNotification({
     required String title,
@@ -493,6 +569,11 @@ class NotificationService {
   }) async {
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (isTest || kIsWeb) return;
+
+    if (!kIsWeb && Platform.isWindows) {
+      await _showWindowsToast(title: title, body: body);
+      return;
+    }
 
     await init();
 
