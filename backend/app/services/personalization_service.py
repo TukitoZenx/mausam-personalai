@@ -41,6 +41,25 @@ def _uv_band(uv: float) -> str:
     return "Low"
 
 
+def _normalize_persona(raw: str | None) -> str:
+    if not raw:
+        return "Fitness"
+    v = raw.strip().lower()
+    if any(k in v for k in ["health", "sensitive"]):
+        return "Health"
+    if any(k in v for k in ["traveler", "travel", "sightseeing"]):
+        return "Traveler"
+    if any(k in v for k in ["commuter", "commute", "transit", "drive"]):
+        return "Commuter"
+    if any(k in v for k in ["family", "parent", "parents", "kid", "children"]):
+        return "Family"
+    if any(k in v for k in ["garden", "gardener", "farm", "farmer", "agri"]):
+        return "Garden"
+    if any(k in v for k in ["event", "events", "planner", "party", "host"]):
+        return "Events"
+    return "Fitness"
+
+
 class PersonalizationService:
     @staticmethod
     async def get_home_feed(
@@ -50,14 +69,15 @@ class PersonalizationService:
         saved_location_id: str | None = None,
         hour: int | None = None,
         tz: str | None = None,
+        persona: str | None = None,
     ) -> PersonalizedHomeResponse:
         user_id = user.get("uid") if isinstance(user, dict) else None
         
-        # 1. Determine User Persona from DB if not passed in dict claims
-        persona = "Fitness"
-        if isinstance(user, dict) and user.get("persona"):
-            persona = user["persona"]
-        elif user_id:
+        # 1. Determine User Persona from explicitly passed query param, token claim, or DB fallback
+        raw_persona = persona
+        if not raw_persona and isinstance(user, dict) and user.get("persona"):
+            raw_persona = user["persona"]
+        elif not raw_persona and user_id:
             try:
                 async with AsyncSessionLocal() as session:
                     res = await session.execute(
@@ -67,9 +87,11 @@ class PersonalizationService:
                     row = res.fetchone()
                     if row:
                         r = row._mapping
-                        persona = r.get("persona_type") or "Fitness"
+                        raw_persona = r.get("persona_type")
             except Exception:
-                persona = "Fitness"
+                pass
+
+        persona = _normalize_persona(raw_persona)
 
         # 2. Validate coordinates (prevent 0,0 Null Island)
         if lat is None or (abs(lat) < 0.001 and (lon is None or abs(lon) < 0.001)):
@@ -156,7 +178,6 @@ class PersonalizationService:
                 health_aqi_title = "Clean Air Quality Status"
                 health_aqi_sub = f"AQI {aqi_label} ({aqi_cat_label}) • Great condition for outdoor breathing"
 
-            # Heat & Humidity Index calculation
             heat_index_str = "Moderate"
             if temp is not None and temp > 33:
                 heat_index_str = "High Heat Caution — Stay Hydrated"
@@ -306,6 +327,279 @@ class PersonalizationService:
                     subtitle=f"AQI {aqi_label} • {aqi_cat_label}",
                     category="Health",
                     action_label="AQI Details",
+                    data={"aqi_value": aqi_value, "category": aqi_category, "is_estimated": aqi_is_estimated},
+                ),
+            ]
+
+        elif persona == "Commuter":
+            # COMMUTER PERSONA: Prioritizes Road Visibility, Storm/Rain Commute Hazard, Temperature/Wind, AQI
+            is_rain = condition and any(w in condition.lower() for w in ["rain", "drizzle", "shower", "thunder"])
+            is_fog = condition and any(w in condition.lower() for w in ["fog", "mist", "haze", "smog"])
+            road_status = "Dry Roads & Clear Sight"
+            if is_rain:
+                road_status = "Wet Roads — Slick Conditions & Rain Delays"
+            elif is_fog:
+                road_status = "Low Visibility Warning — Drive with Fog Lights"
+
+            cards = [
+                HomeCard(
+                    id="card_commute_vis_01",
+                    card_type="weather",
+                    score=4.9,
+                    rank=1,
+                    reason_codes=["#CommuteVisibility", "#RoadSafety"],
+                    reason=f"Commute conditions in {place}: {road_status}.",
+                    human_readable_reason=f"Commute conditions in {place}: {road_status}.",
+                    title="Road & Transit Visibility",
+                    subtitle=f"{road_status} • Wind {wind_label}",
+                    category="Commuter",
+                    action_label="Commute Details",
+                    data={"condition": condition, "wind_speed_kmh": wind},
+                ),
+                HomeCard(
+                    id="card_commute_rain_02",
+                    card_type="weather",
+                    score=4.5,
+                    rank=2,
+                    reason_codes=["#StormHazard", "#RainProtection"],
+                    reason=f"Precipitation check: {condition_label} at {temp_label}.",
+                    human_readable_reason=f"Precipitation check: {condition_label} at {temp_label}.",
+                    title="Commute Rain & Storm Hazard",
+                    subtitle=f"{'Keep umbrella in car/bag' if is_rain else 'No rain hazard expected during commute'}",
+                    category="Commuter",
+                    action_label="Hourly Radar",
+                    data={"temperature_celsius": temp, "condition": condition},
+                ),
+                HomeCard(
+                    id="card_wx_03",
+                    card_type="weather",
+                    score=4.0,
+                    rank=3,
+                    reason_codes=["#CurrentWeather"],
+                    reason=f"{temp_label} • {condition_label}. Humidity: {humidity_label}.",
+                    human_readable_reason=f"{temp_label} • {condition_label}. Humidity: {humidity_label}.",
+                    title="Current Temperature & Wind",
+                    subtitle=f"{temp_label} • {condition_label}",
+                    category="Weather",
+                    action_label="Full Forecast",
+                    data={
+                        "temperature_celsius": temp,
+                        "condition": condition,
+                        "wind_speed_kmh": wind,
+                    },
+                ),
+                HomeCard(
+                    id="card_aqi_04",
+                    card_type="aqi",
+                    score=3.6,
+                    rank=4,
+                    reason_codes=["#TransitAir", "#AQICheck"],
+                    reason=f"In-transit AQI is {aqi_label} ({aqi_cat_label}).",
+                    human_readable_reason=f"In-transit AQI is {aqi_label} ({aqi_cat_label}).",
+                    title="In-Transit Air Quality",
+                    subtitle=f"AQI {aqi_label} • {aqi_cat_label}",
+                    category="Health",
+                    action_label="Air Details",
+                    data={"aqi_value": aqi_value, "category": aqi_category, "is_estimated": aqi_is_estimated},
+                ),
+            ]
+
+        elif persona == "Family":
+            # FAMILY / PARENTS PERSONA: School Run & Rain Warning, Kids Outdoor Play Comfort, Children Sun UV Advisory
+            is_rain = condition and any(w in condition.lower() for w in ["rain", "drizzle", "shower"])
+            is_hot = temp is not None and temp > 33
+            school_run_str = "Clear Morning for School Run"
+            if is_rain:
+                school_run_str = "Pack Umbrellas & Raincoats for Kids"
+            elif is_hot:
+                school_run_str = "Hot Afternoon Pickup — Pack Water Bottles"
+
+            cards = [
+                HomeCard(
+                    id="card_family_school_01",
+                    card_type="weather",
+                    score=4.9,
+                    rank=1,
+                    reason_codes=["#SchoolRun", "#FamilyRainCheck"],
+                    reason=f"School run forecast in {place}: {school_run_str}.",
+                    human_readable_reason=f"School run forecast in {place}: {school_run_str}.",
+                    title="School Run & Rain Warning",
+                    subtitle=f"{school_run_str} • {temp_label}",
+                    category="Family",
+                    action_label="Rain Forecast",
+                    data={"temperature_celsius": temp, "condition": condition},
+                ),
+                HomeCard(
+                    id="card_family_outdoor_02",
+                    card_type="activity_window",
+                    score=4.6,
+                    rank=2,
+                    reason_codes=["#KidsPlay", "#ParkComfort"],
+                    reason=f"Kids outdoor play suitability: {'Favorable' if not is_rain and not is_hot else 'Caution'}.",
+                    human_readable_reason=f"Kids outdoor play suitability: {'Favorable' if not is_rain and not is_hot else 'Caution'}.",
+                    title="Kids Outdoor Play & Park Window",
+                    subtitle=f"{'Pleasant for park & playground' if not is_rain and not is_hot else 'Limit outdoor play during peak hours'}",
+                    category="Family",
+                    action_label="Play Window",
+                    data={"temperature_celsius": temp, "humidity_percent": humidity},
+                ),
+                HomeCard(
+                    id="card_uv_03",
+                    card_type="uv",
+                    score=4.1,
+                    rank=3,
+                    reason_codes=["#ChildrenUV", "#SunSafety"],
+                    reason=f"Children's UV protection level: {uv_band} (UV {uv_label}).",
+                    human_readable_reason=f"Children's UV protection level: {uv_band} (UV {uv_label}).",
+                    title="Children Sun & UV Protection",
+                    subtitle=f"{uv_band} UV {uv_label} • Sun hats & SPF recommended",
+                    category="Health",
+                    action_label="Sun Tips",
+                    data={"uv_index": uv, "uv_band": uv_band},
+                ),
+                HomeCard(
+                    id="card_wx_04",
+                    card_type="weather",
+                    score=3.7,
+                    rank=4,
+                    reason_codes=["#CurrentWeather"],
+                    reason=f"{temp_label} • {condition_label}.",
+                    human_readable_reason=f"{temp_label} • {condition_label}.",
+                    title="Current Weather",
+                    subtitle=f"{temp_label} • {condition_label}",
+                    category="Weather",
+                    action_label="Full Forecast",
+                    data={"temperature_celsius": temp, "condition": condition},
+                ),
+            ]
+
+        elif persona == "Garden":
+            # GARDEN / FARM PERSONA: Soil Moisture & Rainfall Tracker, Frost Risk & Overnight Low, Evapotranspiration
+            is_rain = condition and "rain" in condition.lower()
+            frost_risk = "Low Frost Risk"
+            if temp is not None and temp <= 4:
+                frost_risk = "Frost Warning — Protect Sensitive Crops/Plants"
+
+            cards = [
+                HomeCard(
+                    id="card_garden_moisture_01",
+                    card_type="weather",
+                    score=4.9,
+                    rank=1,
+                    reason_codes=["#SoilMoisture", "#RainfallTracker"],
+                    reason=f"Rainfall check for plants/farm: {'Natural watering active' if is_rain else 'Irrigation recommended'}.",
+                    human_readable_reason=f"Rainfall check for plants/farm: {'Natural watering active' if is_rain else 'Irrigation recommended'}.",
+                    title="Soil Moisture & Rainfall Tracker",
+                    subtitle=f"{'Active rainfall watering crops' if is_rain else 'Dry conditions — Water gardens today'} • Hum {humidity_label}",
+                    category="Garden",
+                    action_label="Rain Tracker",
+                    data={"humidity_percent": humidity, "condition": condition},
+                ),
+                HomeCard(
+                    id="card_garden_frost_02",
+                    card_type="weather",
+                    score=4.5,
+                    rank=2,
+                    reason_codes=["#FrostRisk", "#CropProtection"],
+                    reason=f"Overnight temperature check: {temp_label}. Status: {frost_risk}.",
+                    human_readable_reason=f"Overnight temperature check: {temp_label}. Status: {frost_risk}.",
+                    title="Overnight Low & Frost Watch",
+                    subtitle=f"{frost_risk} • Current {temp_label}",
+                    category="Garden",
+                    action_label="Temperature Trend",
+                    data={"temperature_celsius": temp},
+                ),
+                HomeCard(
+                    id="card_garden_humidity_03",
+                    card_type="weather",
+                    score=4.1,
+                    rank=3,
+                    reason_codes=["#Humidity", "#Evapotranspiration"],
+                    reason=f"Relative humidity: {humidity_label}. Atmospheric pressure: steady.",
+                    human_readable_reason=f"Relative humidity: {humidity_label}. Atmospheric pressure: steady.",
+                    title="Humidity & Transpiration Rate",
+                    subtitle=f"Humidity {humidity_label} • Favorable growing atmosphere",
+                    category="Garden",
+                    action_label="Humidity Details",
+                    data={"humidity_percent": humidity},
+                ),
+                HomeCard(
+                    id="card_wx_04",
+                    card_type="weather",
+                    score=3.7,
+                    rank=4,
+                    reason_codes=["#WindSpeed", "#FoliageProtection"],
+                    reason=f"Wind speed {wind_label}. Ideal for foliage spraying.",
+                    human_readable_reason=f"Wind speed {wind_label}. Ideal for foliage spraying.",
+                    title="Wind Speed for Crop Spraying",
+                    subtitle=f"Wind {wind_label} • {condition_label}",
+                    category="Garden",
+                    action_label="Wind Details",
+                    data={"wind_speed_kmh": wind, "condition": condition},
+                ),
+            ]
+
+        elif persona == "Events":
+            # EVENT PLANNER / OUTDOOR HOST PERSONA: Outdoor Event Rain Risk, Guest Thermal Comfort, Canopy Wind Speed
+            is_rain = condition and any(w in condition.lower() for w in ["rain", "drizzle", "shower"])
+            is_windy = wind is not None and wind > 25
+            is_hot = temp is not None and temp > 32
+
+            cards = [
+                HomeCard(
+                    id="card_event_rain_01",
+                    card_type="weather",
+                    score=4.9,
+                    rank=1,
+                    reason_codes=["#EventRainRisk", "#CoverAdvisory"],
+                    reason=f"Outdoor event rain check in {place}: {'Cover needed urgently' if is_rain else 'Dry & suitable for setup'}.",
+                    human_readable_reason=f"Outdoor event rain check in {place}: {'Cover needed urgently' if is_rain else 'Dry & suitable for setup'}.",
+                    title="Outdoor Event Rain Risk & Cover",
+                    subtitle=f"{'Rain expected — Arrange tents/canopies' if is_rain else 'Favorable open-air conditions'} • {temp_label}",
+                    category="Events",
+                    action_label="Event Radar",
+                    data={"temperature_celsius": temp, "condition": condition},
+                ),
+                HomeCard(
+                    id="card_event_heat_02",
+                    card_type="health_caution",
+                    score=4.5,
+                    rank=2,
+                    reason_codes=["#GuestThermalComfort", "#HeatIndex"],
+                    reason=f"Guest heat comfort check: {temp_label} with {humidity_label} humidity.",
+                    human_readable_reason=f"Guest heat comfort check: {temp_label} with {humidity_label} humidity.",
+                    title="Guest Thermal Comfort Index",
+                    subtitle=f"{'Provide misting/fans & shade' if is_hot else 'Comfortable ambient temperature for guests'}",
+                    category="Events",
+                    action_label="Comfort Advice",
+                    data={"temperature_celsius": temp, "humidity_percent": humidity},
+                ),
+                HomeCard(
+                    id="card_event_wind_03",
+                    card_type="weather",
+                    score=4.1,
+                    rank=3,
+                    reason_codes=["#WindSpeed", "#CanopySafety"],
+                    reason=f"Wind speed {wind_label}: {'Secure outdoor tents & stages' if is_windy else 'Safe canopy conditions'}.",
+                    human_readable_reason=f"Wind speed {wind_label}: {'Secure outdoor tents & stages' if is_windy else 'Safe canopy conditions'}.",
+                    title="Wind Speed for Tents & Canopies",
+                    subtitle=f"Wind {wind_label} • {'High wind caution for stages' if is_windy else 'Calm breeze'}",
+                    category="Events",
+                    action_label="Wind Forecast",
+                    data={"wind_speed_kmh": wind},
+                ),
+                HomeCard(
+                    id="card_aqi_04",
+                    card_type="aqi",
+                    score=3.6,
+                    rank=4,
+                    reason_codes=["#GuestAirQuality"],
+                    reason=f"Outdoor guest AQI is {aqi_label} ({aqi_cat_label}).",
+                    human_readable_reason=f"Outdoor guest AQI is {aqi_label} ({aqi_cat_label}).",
+                    title="Air Quality for Outdoor Guests",
+                    subtitle=f"AQI {aqi_label} • {aqi_cat_label}",
+                    category="Health",
+                    action_label="Air Details",
                     data={"aqi_value": aqi_value, "category": aqi_category, "is_estimated": aqi_is_estimated},
                 ),
             ]

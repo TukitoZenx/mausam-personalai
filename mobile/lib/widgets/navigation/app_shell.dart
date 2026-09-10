@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/appearance_provider.dart';
 import '../../providers/location_provider.dart';
@@ -15,6 +18,7 @@ import '../../screens/home_screen.dart';
 import '../../screens/insights_screen.dart';
 import '../../screens/profile_screen.dart';
 import '../../screens/saved_locations_screen.dart';
+import '../../services/notification_service.dart';
 import '../weather_environment_background.dart';
 import 'app_drawer.dart';
 import 'fading_indexed_stack.dart';
@@ -158,6 +162,18 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                   ),
                 ),
                 Positioned(
+                  top: 76,
+                  left: 14,
+                  right: 14,
+                  child: ValueListenableBuilder<Map<String, String>?>(
+                    valueListenable: NotificationService.activeInAppNotification,
+                    builder: (context, notification, _) {
+                      if (notification == null) return const SizedBox.shrink();
+                      return _InAppNotificationOverlay(data: notification);
+                    },
+                  ),
+                ),
+                Positioned(
                   bottom: 0,
                   left: 0,
                   right: 0,
@@ -179,6 +195,140 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InAppNotificationOverlay extends StatefulWidget {
+  final Map<String, String> data;
+
+  const _InAppNotificationOverlay({required this.data});
+
+  @override
+  State<_InAppNotificationOverlay> createState() => _InAppNotificationOverlayState();
+}
+
+class _InAppNotificationOverlayState extends State<_InAppNotificationOverlay> {
+  Timer? _dismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _InAppNotificationOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _startTimer();
+    }
+  }
+
+  void _startTimer() {
+    _dismissTimer?.cancel();
+    _dismissTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) {
+        NotificationService.activeInAppNotification.value = null;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.data['title'] ?? 'Mausam Notification';
+    final body = widget.data['body'] ?? '';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          NotificationService.activeInAppNotification.value = null;
+          try {
+            context.go('/insights');
+          } catch (_) {}
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xF0131722),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.4), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF7B2CBF), Color(0xFF00E5FF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      body,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 18),
+                onPressed: () {
+                  NotificationService.activeInAppNotification.value = null;
+                },
+              ),
+            ],
           ),
         ),
       ),

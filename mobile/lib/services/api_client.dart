@@ -56,6 +56,7 @@ class ApiClient {
     String? savedLocationId,
     int? hour,
     String? tz,
+    String? persona,
     required String idToken,
   }) async {
     final queryParams = <String, String>{
@@ -66,6 +67,9 @@ class ApiClient {
     };
     if (savedLocationId != null && savedLocationId.isNotEmpty) {
       queryParams['saved_location_id'] = savedLocationId;
+    }
+    if (persona != null && persona.isNotEmpty) {
+      queryParams['persona'] = persona;
     }
 
     Object? lastError;

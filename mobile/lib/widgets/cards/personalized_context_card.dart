@@ -161,16 +161,25 @@ class PersonalizedContextCard extends ConsumerWidget {
 
     // Persona-informed default when conditions are mild
     if (triggers.isEmpty) {
+      final pLower = activePersona.toLowerCase();
       if (isNight) {
         triggers.add('Air Quality');
-      } else if (activePersona == 'Health') {
+      } else if (pLower.contains('health') || pLower.contains('sensitive')) {
         triggers.add(aqi > 0 ? 'Air Quality' : 'Clean Air');
-      } else if (activePersona == 'Fitness') {
+      } else if (pLower.contains('fitness') || pLower.contains('run')) {
         triggers.add((localHour >= 6 && localHour < 10) || (localHour >= 16 && localHour < 19)
             ? 'Running Window'
             : 'Clear Skies');
-      } else if (activePersona == 'Traveler') {
-        triggers.add('Commute Comfort');
+      } else if (pLower.contains('travel')) {
+        triggers.add('Sightseeing Comfort');
+      } else if (pLower.contains('commut') || pLower.contains('drive')) {
+        triggers.add('Transit Visibility');
+      } else if (pLower.contains('family') || pLower.contains('parent')) {
+        triggers.add('School Run Safety');
+      } else if (pLower.contains('garden') || pLower.contains('farm')) {
+        triggers.add('Soil Moisture');
+      } else if (pLower.contains('event') || pLower.contains('party')) {
+        triggers.add('Outdoor Event Comfort');
       } else {
         triggers.add('Clear Skies');
       }

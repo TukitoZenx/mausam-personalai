@@ -15,36 +15,26 @@ class PersonaHome {
   static const events = 'Events';
 
   static String normalize(String? raw) {
-    final v = (raw ?? fitness).trim();
-    switch (v.toLowerCase()) {
-      case 'health':
-      case 'health-conscious':
-      case 'health sensitive':
-        return health;
-      case 'traveler':
-      case 'travel':
-        return traveler;
-      case 'commuter':
-      case 'commute':
-        return commuter;
-      case 'family':
-      case 'parents':
-      case 'parent':
-        return family;
-      case 'garden':
-      case 'agriculture':
-      case 'gardener':
-        return garden;
-      case 'events':
-      case 'event':
-      case 'event planner':
-        return events;
-      case 'beach':
-      case 'surf':
-        return fitness;
-      default:
-        return fitness;
+    final v = (raw ?? fitness).trim().toLowerCase();
+    if (v.contains('health') || v.contains('sensitive')) {
+      return health;
     }
+    if (v.contains('travel') || v.contains('sightseeing')) {
+      return traveler;
+    }
+    if (v.contains('commut') || v.contains('transit') || v.contains('drive')) {
+      return commuter;
+    }
+    if (v.contains('family') || v.contains('parent') || v.contains('kid') || v.contains('children')) {
+      return family;
+    }
+    if (v.contains('garden') || v.contains('farm') || v.contains('agri') || v.contains('plant')) {
+      return garden;
+    }
+    if (v.contains('event') || v.contains('party') || v.contains('planner') || v.contains('host')) {
+      return events;
+    }
+    return fitness;
   }
 
   static bool showCommute(String persona) {

@@ -15,6 +15,7 @@ async def get_personalized_home(
     saved_location_id: str | None = None,
     hour: int | None = None,
     tz: str | None = None,
+    persona: str | None = None,
     current_user: dict[str, Any] = Depends(get_current_user),
 ):
     return await PersonalizationService.get_home_feed(
@@ -24,6 +25,7 @@ async def get_personalized_home(
         saved_location_id=saved_location_id,
         hour=hour,
         tz=tz,
+        persona=persona,
     )
 
 @router.post("/interactions")

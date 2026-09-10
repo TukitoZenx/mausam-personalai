@@ -33,6 +33,10 @@ class NotificationService {
   /// Holds pending query to be consumed when navigating to Mausam AI Assistant via notification tap
   static final ValueNotifier<String?> pendingNotificationQuery = ValueNotifier<String?>(null);
 
+  /// Holds active floating in-app notification payload for real-time banner display
+  static final ValueNotifier<Map<String, String>?> activeInAppNotification =
+      ValueNotifier<Map<String, String>?>(null);
+
   static String get currentTimeZone => _currentTimeZone;
   static bool get exactAlarmsAllowed => _exactAlarmsAllowed;
 
@@ -513,7 +517,7 @@ class NotificationService {
     }
   }
 
-  /// Windows native toast notification helper using PowerShell WinRT Toast API
+  /// Windows native toast notification helper using PowerShell WinRT Toast API with System Tray fallback
   static Future<void> _showWindowsToast({
     required String title,
     required String body,
@@ -523,11 +527,14 @@ class NotificationService {
       final cleanTitle = title.replaceAll("'", "''").replaceAll('"', '`"');
       final cleanBody = body.replaceAll("'", "''").replaceAll('"', '`"');
 
+      // Powershell script using PowerShell's official registered AUMID to guarantee Windows Action Center delivery,
+      // with a fallback to System.Windows.Forms.NotifyIcon Balloon Tip if WinRT Toast is blocked/restricted.
       final script = '''
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-\$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-\$template = @"
+try {
+  [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+  [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+  \$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+  \$template = @"
 <toast>
   <visual>
     <binding template="ToastGeneric">
@@ -537,9 +544,21 @@ class NotificationService {
   </visual>
 </toast>
 "@
-\$xml.LoadXml(\$template)
-\$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Mausam PersonalAI").Show(\$toast)
+  \$xml.LoadXml(\$template)
+  \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
+  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe").Show(\$toast)
+} catch {
+  Add-Type -AssemblyName System.Windows.Forms
+  \$global:balloon = New-Object System.Windows.Forms.NotifyIcon
+  \$path = Get-Process -id \$pid | Select-Object -ExpandProperty Path
+  \$icon = [System.Drawing.Icon]::ExtractAssociatedIcon(\$path)
+  \$global:balloon.Icon = \$icon
+  \$global:balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+  \$global:balloon.BalloonTipTitle = "$cleanTitle"
+  \$global:balloon.BalloonTipText = "$cleanBody"
+  \$global:balloon.Visible = \$true
+  \$global:balloon.ShowBalloonTip(5000)
+}
 ''';
 
       await Process.start(
@@ -567,6 +586,9 @@ class NotificationService {
     String? payload,
     String channelId = channelAlerts,
   }) async {
+    // Trigger in-app floating banner for instant visual confirmation across platforms
+    activeInAppNotification.value = {'title': title, 'body': body};
+
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (isTest || kIsWeb) return;
 

@@ -117,6 +117,7 @@ class HomepageNotifier extends Notifier<HomepageState> {
         savedLocationId: savedLocationId,
         hour: DateTime.now().hour,
         tz: DateTime.now().timeZoneName,
+        persona: userState.selectedPersona,
         idToken: idToken,
       );
 
