@@ -77,11 +77,24 @@ class ActivityRecommendationEngine {
     final aqiCat = dashboardData.aqi?.category ?? 'Good';
     final curr = dashboardData.current;
 
-    // Filter hourly items for the target period
-    // Morning: hours 5 to 10
-    // Afternoon: hours 12 to 16
-    // Evening: hours 17 to 20
-    final targetHours = _getTargetHours(targetPeriod);
+    // Filter hourly items for the target period with persona-aware timing preferences
+    final targetHours = _getTargetHours(targetPeriod, userState.selectedPersona);
+
+    final personaLower = (userState.selectedPersona ?? '').toLowerCase();
+    String fallbackWindow = '6:15–7:15 AM';
+    if (personaLower.contains('commut') || personaLower.contains('drive')) {
+      fallbackWindow = '7:30–8:45 AM';
+    } else if (personaLower.contains('family') || personaLower.contains('parent')) {
+      fallbackWindow = '7:15–8:30 AM';
+    } else if (personaLower.contains('garden') || personaLower.contains('farm')) {
+      fallbackWindow = '5:45–7:15 AM';
+    } else if (personaLower.contains('event') || personaLower.contains('planner')) {
+      fallbackWindow = '4:30–9:30 PM';
+    } else if (personaLower.contains('travel')) {
+      fallbackWindow = '8:00–11:30 AM';
+    } else if (personaLower.contains('health')) {
+      fallbackWindow = '6:30–8:30 AM';
+    }
 
     List<HourlyForecastItem> candidateHours = [];
     if (hourlyList.isNotEmpty) {
@@ -96,7 +109,7 @@ class ActivityRecommendationEngine {
       final baseTemp = curr.temperatureCelsius.round();
       return ActivityRecommendation(
         activity: activity,
-        recommendedWindow: '6:15–7:15 AM',
+        recommendedWindow: fallbackWindow,
         temperatureCelsius: math.max(16, baseTemp - 3),
         feelsLikeCelsius: math.max(15, baseTemp - 4),
         aqiValue: aqiVal,
@@ -197,15 +210,25 @@ class ActivityRecommendationEngine {
     );
   }
 
-  static Set<int> _getTargetHours(String period) {
+  static Set<int> _getTargetHours(String period, [String? persona]) {
+    final pLower = (persona ?? '').toLowerCase();
     switch (period.toLowerCase()) {
       case 'evening':
+        if (pLower.contains('family')) return {16, 17, 18};
+        if (pLower.contains('garden')) return {17, 18};
+        if (pLower.contains('event')) return {16, 17, 18, 19, 20, 21};
         return {17, 18, 19, 20};
       case 'afternoon':
         return {12, 13, 14, 15, 16};
       case 'morning':
       default:
-        return {5, 6, 7, 8, 9, 10};
+        if (pLower.contains('health')) return {6, 7, 8};
+        if (pLower.contains('travel')) return {8, 9, 10, 11};
+        if (pLower.contains('commut')) return {7, 8, 9};
+        if (pLower.contains('family')) return {7, 8};
+        if (pLower.contains('garden')) return {5, 6, 7};
+        if (pLower.contains('event')) return {9, 10, 11};
+        return {5, 6, 7, 8};
     }
   }
 

@@ -706,46 +706,265 @@ class WeatherAiEngine {
     final curr = dashboard?.current;
     final temp = curr?.temperatureCelsius.round() ?? 26;
 
+    final persona = userState?.selectedPersona ?? 'Fitness';
+    final pLower = persona.toLowerCase();
+
+    List<DailyPlanPeriodItem> periods;
+
+    if (pLower.contains('commut') || pLower.contains('drive') || pLower.contains('transit')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Morning Commute',
+          timeRange: '7:15 – 9:15 AM',
+          temp: '${temp - 2}°C',
+          condition: 'Morning Rush',
+          advice: 'Check road visibility and morning precipitation',
+          icon: Icons.directions_car_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Midday Transit',
+          timeRange: '12:00 – 2:00 PM',
+          temp: '${temp + 3}°C',
+          condition: 'Peak Solar Heat',
+          advice: 'AC transit recommended; park in shaded spots',
+          icon: Icons.thermostat_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Evening Return',
+          timeRange: '5:00 – 7:15 PM',
+          temp: '$temp°C',
+          condition: 'Dusk Rush Hour',
+          advice: 'Watch for twilight road glare and evening showers',
+          icon: Icons.commute_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Night Rest',
+          timeRange: '9:00 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Calm Night',
+          advice: 'Check tomorrow morning\'s commute forecast',
+          icon: Icons.bedtime_outlined,
+        ),
+      ];
+    } else if (pLower.contains('family') || pLower.contains('parent') || pLower.contains('kid')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'School Run',
+          timeRange: '7:15 – 8:30 AM',
+          temp: '${temp - 3}°C',
+          condition: 'Fresh Morning',
+          advice: 'Ensure kids have raincoats & water bottles',
+          icon: Icons.family_restroom_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'School Pickup',
+          timeRange: '2:30 – 4:00 PM',
+          temp: '${temp + 3}°C',
+          condition: 'Peak UV & Warm Air',
+          advice: 'Keep kids hydrated; seek shaded waiting areas',
+          icon: Icons.thermostat_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Park & Playground',
+          timeRange: '4:30 – 6:30 PM',
+          temp: '$temp°C',
+          condition: 'Pleasant Park Breeze',
+          advice: 'Optimal time for outdoor play and sports',
+          icon: Icons.park_outlined,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Family Evening',
+          timeRange: '8:00 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Cool & Relaxed',
+          advice: 'Indoor family time & bedtime prep',
+          icon: Icons.home_rounded,
+        ),
+      ];
+    } else if (pLower.contains('garden') || pLower.contains('farm') || pLower.contains('plant')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Dawn Irrigation',
+          timeRange: '5:45 – 7:30 AM',
+          temp: '${temp - 4}°C',
+          condition: 'Morning Dew',
+          advice: 'Best soil water absorption before solar heating',
+          icon: Icons.grass_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Midday Protection',
+          timeRange: '12:00 – 3:30 PM',
+          temp: '${temp + 3}°C',
+          condition: 'High Evapotranspiration',
+          advice: 'Provide shade cloth for delicate potted flora',
+          icon: Icons.wb_sunny_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Twilight Garden Care',
+          timeRange: '5:00 – 6:45 PM',
+          temp: '$temp°C',
+          condition: 'Cool Air Settling',
+          advice: 'Foliage inspection & weed maintenance',
+          icon: Icons.water_drop_outlined,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Overnight Frost Watch',
+          timeRange: '3:00 – 6:00 AM',
+          temp: '${temp - 3}°C',
+          condition: 'Minimum Low',
+          advice: 'Monitor overnight low temperature & frost risk',
+          icon: Icons.ac_unit_rounded,
+        ),
+      ];
+    } else if (pLower.contains('event') || pLower.contains('party') || pLower.contains('planner')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Vendor Setup',
+          timeRange: '9:30 – 11:30 AM',
+          temp: '${temp - 1}°C',
+          condition: 'Moderate Breeze',
+          advice: 'Verify stage canopy tie-downs & morning wind',
+          icon: Icons.build_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Pre-Event Thermal Check',
+          timeRange: '1:00 – 3:30 PM',
+          temp: '${temp + 3}°C',
+          condition: 'Peak Ambient Heat',
+          advice: 'Ensure guest misting fans & shaded seating ready',
+          icon: Icons.event_seat_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Main Outdoor Event',
+          timeRange: '4:30 – 9:30 PM',
+          temp: '$temp°C',
+          condition: 'Optimal Event Comfort',
+          advice: 'Ideal thermal comfort & lighting for outdoor guests',
+          icon: Icons.event_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Teardown & Shelter',
+          timeRange: '10:00 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Calm Night Air',
+          advice: 'Secure electronic sound equipment overnight',
+          icon: Icons.inventory_rounded,
+        ),
+      ];
+    } else if (pLower.contains('travel') || pLower.contains('sightseeing')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Morning Sightseeing',
+          timeRange: '8:00 – 11:30 AM',
+          temp: '${temp - 2}°C',
+          condition: 'Bright & Crisp',
+          advice: 'Best daylight & comfort for visiting monuments',
+          icon: Icons.camera_alt_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Midday Museum & Lunch',
+          timeRange: '12:00 – 3:30 PM',
+          temp: '${temp + 3}°C',
+          condition: 'Peak Heat & Sun',
+          advice: 'Prefer indoor exhibits, air-con dining & rest',
+          icon: Icons.museum_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Sunset City Walk',
+          timeRange: '4:30 – 8:30 PM',
+          temp: '$temp°C',
+          condition: 'Golden Hour',
+          advice: 'Great outdoor atmosphere for street walks & dining',
+          icon: Icons.explore_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Tomorrow Transit Prep',
+          timeRange: '9:00 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Clear Night',
+          advice: 'Check luggage packing & destination forecast',
+          icon: Icons.flight_takeoff_rounded,
+        ),
+      ];
+    } else if (pLower.contains('health') || pLower.contains('sensitive')) {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Clean Air Morning Stroll',
+          timeRange: '6:30 – 8:30 AM',
+          temp: '${temp - 3}°C',
+          condition: 'Clean Air Dispersion',
+          advice: 'Optimal window for light walking & deep breathing',
+          icon: Icons.favorite_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Midday Ozone Peak',
+          timeRange: '11:30 AM – 3:30 PM',
+          temp: '${temp + 3}°C',
+          condition: 'High Heat & UV',
+          advice: 'Stay indoors in climate-controlled spaces',
+          icon: Icons.masks_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Gentle Evening Walk',
+          timeRange: '5:00 – 7:00 PM',
+          temp: '$temp°C',
+          condition: 'Low Ozone Level',
+          advice: 'Moderate outdoor walk before night cooling',
+          icon: Icons.park_outlined,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Indoor Purifier & Rest',
+          timeRange: '8:30 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Cool Ambient Air',
+          advice: 'Keep windows closed if evening AQI rises',
+          icon: Icons.air_rounded,
+        ),
+      ];
+    } else {
+      periods = [
+        DailyPlanPeriodItem(
+          period: 'Morning Run Window',
+          timeRange: '5:30 – 7:30 AM',
+          temp: '${temp - 3}°C',
+          condition: 'Cool & Crisp',
+          advice: 'Optimal window for outdoor cardio & jogging',
+          icon: Icons.directions_run_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Midday Thermal Peak',
+          timeRange: '12:00 – 3:30 PM',
+          temp: '${temp + 3}°C',
+          condition: 'Peak Heat & UV',
+          advice: 'Stay hydrated; prefer indoor gym or shaded workouts',
+          icon: Icons.thermostat_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Post-Work Workout',
+          timeRange: '5:30 – 7:15 PM',
+          temp: '$temp°C',
+          condition: 'Sunset Breeze',
+          advice: 'Great outdoor comfort for evening run & sports',
+          icon: Icons.fitness_center_rounded,
+        ),
+        DailyPlanPeriodItem(
+          period: 'Night Recovery',
+          timeRange: '9:00 PM onwards',
+          temp: '${temp - 2}°C',
+          condition: 'Calm & Cool',
+          advice: 'Rehydrate and prepare for tomorrow morning routine',
+          icon: Icons.bedtime_outlined,
+        ),
+      ];
+    }
+
     final card = WeatherAiCardData(
       cardType: WeatherCardType.dailyPlan,
       category: 'WEATHER-ADAPTIVE DAILY PLAN',
       headline: 'Today\'s 4-Stage Activity Rhythm',
       subtitle: '$locationName · Balanced for ${userState?.selectedPersona ?? "Active"} Lifestyle',
-      dailyPlanPeriods: [
-        DailyPlanPeriodItem(
-          period: 'Morning',
-          timeRange: '6:15 – 9:00 AM',
-          temp: '${temp - 3}°C',
-          condition: 'Cool & Clear',
-          advice: 'Best window for outdoor walk or run',
-          icon: Icons.wb_sunny_outlined,
-        ),
-        DailyPlanPeriodItem(
-          period: 'Afternoon',
-          timeRange: '12:00 – 3:30 PM',
-          temp: '${temp + 3}°C',
-          condition: 'Peak Heat & UV',
-          advice: 'Stay hydrated, prefer indoor or shaded tasks',
-          icon: Icons.thermostat_rounded,
-        ),
-        DailyPlanPeriodItem(
-          period: 'Evening',
-          timeRange: '5:30 – 7:45 PM',
-          temp: '$temp°C',
-          condition: 'Pleasant Breeze',
-          advice: 'Great outdoor comfort for commute & errands',
-          icon: Icons.park_outlined,
-        ),
-        DailyPlanPeriodItem(
-          period: 'Night',
-          timeRange: '9:00 PM onwards',
-          temp: '${temp - 2}°C',
-          condition: 'Calm & Cool',
-          advice: 'Prepare for tomorrow morning routine',
-          icon: Icons.bedtime_outlined,
-        ),
-      ],
-      explanation: 'Conditions are favorable today with cool morning air and a mild evening. Afternoon features peak temperatures; schedule strenuous activities outside 12–3 PM.',
+      dailyPlanPeriods: periods,
+      explanation: 'Conditions are favorable today with cool morning air and a mild evening. Midday features peak solar heating; plan outdoor activities around recommended windows.',
       actionLabel: 'Remind me at 9 PM every day',
     );
 

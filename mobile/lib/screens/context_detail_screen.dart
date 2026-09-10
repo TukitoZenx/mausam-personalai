@@ -636,7 +636,7 @@ class _TodayAtAGlanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '5 am–9 am',
+                        _getPersonaSaferWindow(persona),
                         style: GoogleFonts.inter(
                           color: Colors.white,
                           fontSize: 14,
@@ -680,6 +680,25 @@ class _TodayAtAGlanceCard extends StatelessWidget {
   }
 }
 
+String _getPersonaSaferWindow(String persona) {
+  final pLower = persona.toLowerCase();
+  if (pLower.contains('health') || pLower.contains('sensitive')) {
+    return '6:30 am–8:30 am';
+  } else if (pLower.contains('travel') || pLower.contains('sightseeing')) {
+    return '8:00 am–11:30 am';
+  } else if (pLower.contains('commut') || pLower.contains('drive') || pLower.contains('transit')) {
+    return '7:30 am–9:15 am';
+  } else if (pLower.contains('family') || pLower.contains('parent') || pLower.contains('kid')) {
+    return '7:15 am–8:30 am';
+  } else if (pLower.contains('garden') || pLower.contains('farm') || pLower.contains('plant')) {
+    return '5:45 am–7:30 am';
+  } else if (pLower.contains('event') || pLower.contains('party') || pLower.contains('planner')) {
+    return '9:30 am–11:30 am';
+  } else {
+    return '5:30 am–7:30 am';
+  }
+}
+
 class _ForYourDaySection extends StatelessWidget {
   final WeatherDashboard? dashboard;
   final UserState? userState;
@@ -691,6 +710,9 @@ class _ForYourDaySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final persona = userState?.selectedPersona ?? 'Fitness';
+    final saferWindow = _getPersonaSaferWindow(persona);
+
     final current = dashboard?.current;
     final uv = current?.uvIndex ?? 0.0;
 
@@ -808,20 +830,20 @@ class _ForYourDaySection extends StatelessWidget {
             const SizedBox(height: 10),
 
             // Row 2: SAFER WINDOW | EVENING
-            const Row(
+            Row(
               children: [
                 Expanded(
                   child: _EssentialCard(
                     icon: Icons.trending_up_rounded,
-                    iconColor: Color(0xFF34D399),
-                    iconBg: Color(0x2234D399),
+                    iconColor: const Color(0xFF34D399),
+                    iconBg: const Color(0x2234D399),
                     category: 'SAFER WINDOW',
-                    value: '5 am–9 am',
-                    subtitle: 'Good conditions 5 am–9 am',
+                    value: saferWindow,
+                    subtitle: 'Good conditions $saferWindow',
                   ),
                 ),
-                SizedBox(width: 10),
-                Expanded(
+                const SizedBox(width: 10),
+                const Expanded(
                   child: _EssentialCard(
                     icon: Icons.nights_stay_outlined,
                     iconColor: Color(0xFFA78BFA),
@@ -961,8 +983,50 @@ class _WhatShouldIDoSectionState extends State<_WhatShouldIDoSection> {
     final current = widget.dashboard?.current;
     final uv = current?.uvIndex ?? 0.0;
 
-    const step1Title = 'Use 5 am–9 am for outdoor plans';
-    const step1Subtitle = 'Good conditions 5 am–9 am';
+    final persona = widget.userState?.selectedPersona ?? 'Fitness';
+    final pLower = persona.toLowerCase();
+
+    String step1Title;
+    String step1Subtitle;
+    String step3Title;
+    String step3Subtitle;
+
+    if (pLower.contains('health') || pLower.contains('sensitive')) {
+      step1Title = 'Plan outdoor walk 6:30 am–8:30 am';
+      step1Subtitle = 'Optimal clean air & low humidity window';
+      step3Title = 'Ventilate home 7:30 pm–9:00 pm';
+      step3Subtitle = 'Calm evening air for respiratory comfort';
+    } else if (pLower.contains('travel') || pLower.contains('sightseeing')) {
+      step1Title = 'Start outdoor sightseeing 8:00 am–11:30 am';
+      step1Subtitle = 'Clear morning light before midday solar heat';
+      step3Title = 'Evening city exploration 5:00 pm–8:30 pm';
+      step3Subtitle = 'Pleasant sunset views & mild transit weather';
+    } else if (pLower.contains('commut') || pLower.contains('drive') || pLower.contains('transit')) {
+      step1Title = 'Morning commute window 7:30 am–9:15 am';
+      step1Subtitle = 'Check visibility & road surface dampness';
+      step3Title = 'Evening return commute 5:00 pm–7:15 pm';
+      step3Subtitle = 'Monitor rush hour rain hazard & sunset glare';
+    } else if (pLower.contains('family') || pLower.contains('parent') || pLower.contains('kid')) {
+      step1Title = 'School run window 7:15 am–8:30 am';
+      step1Subtitle = 'Morning rain check & kid raincoat readiness';
+      step3Title = 'Kids playground & park window 4:30 pm–6:30 pm';
+      step3Subtitle = 'Cooler park conditions & low sun exposure';
+    } else if (pLower.contains('garden') || pLower.contains('farm') || pLower.contains('plant')) {
+      step1Title = 'Water garden early 5:45 am–7:30 am';
+      step1Subtitle = 'Maximum soil absorption before solar evaporation';
+      step3Title = 'Evening foliage care 5:00 pm–6:45 pm';
+      step3Subtitle = 'Check dew point & overnight frost risk';
+    } else if (pLower.contains('event') || pLower.contains('party') || pLower.contains('planner')) {
+      step1Title = 'Event setup & stage check 9:30 am–11:30 am';
+      step1Subtitle = 'Verify canopy tie-downs & morning wind speed';
+      step3Title = 'Main outdoor event 4:30 pm–9:30 pm';
+      step3Subtitle = 'Ideal guest thermal comfort & evening ambiance';
+    } else {
+      step1Title = 'Use 5:30 am–7:30 am for outdoor run';
+      step1Subtitle = 'Cool pavement & optimal heart-rate regulation';
+      step3Title = 'Post-work workout 5:30 pm–7:15 pm';
+      step3Subtitle = 'Sunset window with declining temperature';
+    }
 
     String step2Title;
     String step2Subtitle;
@@ -976,9 +1040,6 @@ class _WhatShouldIDoSectionState extends State<_WhatShouldIDoSection> {
       step2Title = 'Limit direct sun exposure at midday';
       step2Subtitle = 'UV is ${uv.round()} (High) today.';
     }
-
-    const step3Title = 'Choose a calmer evening window';
-    const step3Subtitle = 'Golden hour begins around 5:49 pm.';
 
     final completedCount = _completedSteps.length;
 

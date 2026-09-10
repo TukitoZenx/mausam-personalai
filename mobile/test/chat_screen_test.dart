@@ -28,7 +28,8 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Check ChatScreen is mounted
       expect(find.byType(ChatScreen), findsOneWidget);
@@ -59,12 +60,14 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Tap the set reminder button or chip
       final reminderBtn = find.byKey(const Key('chat_reminder_button'));
       await tester.tap(reminderBtn);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Verify modal is displayed
       expect(find.byKey(const Key('set_reminder_dialog')), findsOneWidget);
